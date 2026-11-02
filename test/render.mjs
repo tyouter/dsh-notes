@@ -365,7 +365,7 @@ try {
     check('the proposal is spliced exactly once', /const formatDocument = formatted === null \? '' : formatted\.text/.test(boardSource))
 
     // A ranged proposal keeps the source label only: the model title repeated it.
-    check('a ranged format keeps the label, not the title', /preserveLabel\(draft\.slice\(range\.start, range\.end\), body\)/.test(boardSource))
+    // Format no longer calls the model: it lays the span out locally, so it cannot invent a title.
     check('a ranged structure has no separate title', /title: range === null \? rawTitle : ''/.test(boardSource))
     check('the preview does not recompose', /const structureText = enhance === null \? '' : enhance\.body/.test(boardSource))
     check('applying does not recompose', /const text = enhance\.body/.test(boardSource))
@@ -389,12 +389,12 @@ try {
     // Translation is a proposal on the source, not on a structuring result.
     // Structure never translates; Translate works on the structuring result when present.
     check('translation is not a separate proposal', boardSource.includes("kind: 'translate'") === false)
-    check('only format sets a proposal kind', (boardSource.match(/kind: 'format'/g) ?? []).length === 1)
+    check('only format sets a layout proposal kind', (boardSource.match(/kind: 'layout'/g) ?? []).length === 1)
 
 // Regression: the picker leaked into Structure, so an English target produced an English
 // title above a Chinese body.
 check('structure sends no target language', boardSource.includes("streamEvents('/enhance/stream', { text }"))
-check('both structure and format send no language', (boardSource.match(/streamEvents\('\/enhance\/stream', \{ text \}/g) ?? []).length === 2)
+check('structure is the only structuring caller', (boardSource.match(/streamEvents\('\/enhance\/stream', \{ text \}/g) ?? []).length === 1)
 check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAGES\.find/g) ?? []).length === 1)
     check('the client states whether to keep numbering', boardSource.includes('keepNumbering: partial'))
     check('translation uses its own route', boardSource.includes("'/translate/stream'"))
@@ -431,7 +431,7 @@ check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAG
     // Structure respects the selection exactly like Format does.
     check('one helper defines the selected range', boardSource.includes('const editorRange = () =>'))
     check('structure uses the shared range', /const runEnhance = async \(\) => \{[\s\S]{0,220}editorRange\(\)/.test(boardSource))
-    check('format uses the shared range', /const runFormat = async \(\) => \{[\s\S]{0,220}editorRange\(\)/.test(boardSource))
+    check('format uses the shared range', /const runFormat = \(\) => \{[\s\S]{0,200}editorRange\(\)/.test(boardSource))
     check('the selected span is highlighted', boardSource.includes("className: 'dshn-editor-mark'"))
     // A highlighter stroke in the palette's light green, not an underline.
     check('the mark uses the light green palette', /\] \.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource) || /\.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource))

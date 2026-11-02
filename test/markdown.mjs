@@ -91,7 +91,7 @@ try {
 
   const internals = globalThis.__dshNotesInternals
   if (internals === undefined) throw new Error('test seam did not expose the renderer')
-  const { renderMarkdown, stripInline, titleOf, previewOf, looksStructured, composeFormattedNote, splitNoteTitle, renderNoteBody, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, normalizeStrayAsterisks, parseEnumerator, convertEnumerators, renumberByTemplate, outlineLevels, outlineEntries } = internals
+  const { renderMarkdown, stripInline, titleOf, previewOf, looksStructured, composeFormattedNote, splitNoteTitle, renderNoteBody, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, normalizeStrayAsterisks, formatLocally, parseEnumerator, convertEnumerators, renumberByTemplate, outlineLevels, outlineEntries } = internals
 
   // ---- the markers that showed up raw in the UI ----
   check('stripInline removes bold', stripInline('**目标**') === '目标', stripInline('**目标**'))
@@ -354,6 +354,21 @@ check('a stray star separator becomes a bullet', normalizeStrayAsterisks('** 风
 check('three stars do too', normalizeStrayAsterisks('*** 需要机器') === '- 需要机器', JSON.stringify(normalizeStrayAsterisks('*** 需要机器')))
 check('bold emphasis is untouched', normalizeStrayAsterisks('**加粗** 后面有字') === '**加粗** 后面有字', JSON.stringify(normalizeStrayAsterisks('**加粗** 后面有字')))
 check('a normal bullet is untouched', normalizeStrayAsterisks('- 一条') === '- 一条')
+
+// ---- Format is mechanical: it tidies, it never rewrites ----
+check('format: dashes become bullets', formatLocally(['— 报销', '· 部署', '• 配色'].join('\n')) === ['- 报销', '- 部署', '- 配色'].join('\n'), JSON.stringify(formatLocally(['— 报销', '· 部署', '• 配色'].join('\n'))))
+check('format: stray stars become bullets', formatLocally('** 风险 环境\n*** 需要机器') === '- 风险 环境\n- 需要机器', JSON.stringify(formatLocally('** 风险 环境\n*** 需要机器')))
+check('format: numbering is made continuous', formatLocally(['1. 一', '1. 二', '1. 三'].join('\n')) === ['1. 一', '2. 二', '3. 三'].join('\n'), JSON.stringify(formatLocally(['1. 一', '1. 二', '1. 三'].join('\n'))))
+check('format: chinese numbering keeps its style', formatLocally(['一、甲', '一、乙'].join('\n')) === ['一、甲', '二、乙'].join('\n'), JSON.stringify(formatLocally(['一、甲', '一、乙'].join('\n'))))
+check('format: blank lines collapse', formatLocally('a\n\n\n\nb') === 'a\n\nb', JSON.stringify(formatLocally('a\n\n\n\nb')))
+check('format: a heading gets a blank line before it', formatLocally('# 标题\n正文').startsWith('# 标题'), JSON.stringify(formatLocally('# 标题\n正文')))
+check('format: no leading or trailing blank lines', formatLocally('\n\n正文\n\n') === '正文', JSON.stringify(formatLocally('\n\n正文\n\n')))
+check('format: trailing spaces go', formatLocally('一行   \n二行') === '一行\n二行', JSON.stringify(formatLocally('一行   \n二行')))
+// Laying out an already-tidy note must change nothing — that is what makes the button safe to press twice.
+const tidySample = ['# 缓存优化记录', '', '## 背景', '首 token 平均 1.8 秒。', '', '## 结论', '- 命中缓存 0.4 秒', '- 未命中 1.6 秒'].join('\n')
+check('format: is idempotent', formatLocally(formatLocally(tidySample)) === formatLocally(tidySample), JSON.stringify(formatLocally(tidySample)))
+check('format: a tidy note is untouched', formatLocally(tidySample) === tidySample, JSON.stringify(formatLocally(tidySample)))
+check('format: wording is never rewritten', formatLocally('李四说要压测 但机器不够').includes('李四说要压测'), 'wording changed')
 check('prose is not a marker', parseEnumerator('2026 年计划') === null)
 // People write times and ratios: neither is an outline marker.
 check('a time is not a list marker', parseEnumerator('9:40 站会') === null, JSON.stringify(parseEnumerator('9:40 站会')))

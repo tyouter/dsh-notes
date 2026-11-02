@@ -1064,6 +1064,51 @@
       return issues
     }
 
+    /**
+     * Mechanical layout of a note, with no model involved.
+     *
+     * Normalises what a person types into tidy Markdown: dashes to "-", stray stars to bullets,
+     * numbering per style made continuous, at most one blank line, a blank line before a section
+     * heading or a "标签：" line, and no trailing spaces. It never rewrites wording, never splits a
+     * sentence, and never invents a title — that is Structure's job.
+     */
+    function formatLocally(source) {
+      const raw = String(source ?? '')
+      if (raw.trim() === '') return raw
+
+      // 1. The dashes people actually type become the one bullet character the renderer knows.
+      const dashed = raw
+        .split(/\r?\n/)
+        .map((line) => line.replace(/^(\s*)[—–·•]\s+/, '$1- ').replace(/\s+$/, ''))
+        .join('\n')
+
+      // 2. Stray "*"/"**"/"***" separators are bullets too.
+      const starred = normalizeStrayAsterisks(dashed)
+
+      // 3. Numbering: each style counts continuously, keeping the author's style.
+      const numbered = renumberSequence(starred)
+
+      // 4. Blank lines: at most one, and always one before a heading or a colon label.
+      const lines = numbered.split('\n')
+      const out = []
+      const isHeading = (line) => /^\s{0,3}#{1,6}\s+\S/.test(line)
+      const isLabel = (line) => /^\s*[^\s].{0,23}[：:]\s*$/.test(line) && !/^\s*[-*+·•—–]\s/.test(line)
+      for (const line of lines) {
+        const trimmed = line.replace(/\s+$/, '')
+        if (trimmed.trim() === '') {
+          // Never start with a blank line and never keep two in a row.
+          if (out.length > 0 && out[out.length - 1].trim() !== '') out.push('')
+          continue
+        }
+        if (out.length > 0 && out[out.length - 1].trim() !== '' && (isHeading(trimmed) || isLabel(trimmed))) {
+          out.push('')
+        }
+        out.push(trimmed)
+      }
+      while (out.length > 0 && out[out.length - 1].trim() === '') out.pop()
+      return out.join('\n')
+    }
+
     /** A note with its title rendered in first-level heading style. */
     function renderNoteBody(text) {
       const { title, rest } = splitNoteTitle(text)

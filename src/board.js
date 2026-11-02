@@ -502,61 +502,36 @@
         abortRef.current = null
       }
 
-      const runFormat = async () => {
+      /**
+       * Format: mechanical layout, done locally.
+       *
+       * Structure asks the model to reorganise a note; Format should not — they were the same
+       * call, so the two buttons did one job. This one normalises separators, numbering and
+       * blank lines and returns immediately, leaving the wording and the structure alone.
+       */
+      const runFormat = () => {
         if (formatting) return
         const range = editorRange()
-        const source = range === null ? draft : draft.slice(range.start, range.end)
-        const text = source.trim()
+        const span = range === null ? draft : draft.slice(range.start, range.end)
+        const text = span.trim()
         if (text === '') return
-        const startedAt = Date.now()
-        setFormatting(true)
-        setFormatSeconds(0)
-        setEnhanceError('')
-        setFormatted(null)
-        const ticker = setInterval(() => setFormatSeconds(Math.round((Date.now() - startedAt) / 1000)), 250)
-        const signal = beginCall()
-        try {
-          await streamEvents('/enhance/stream', { text }, (event, payload) => {
-            if (event === 'error') {
-              setEnhanceError(String(payload?.message ?? t.enhanceFailed))
-              return
-            }
-            if (event !== 'done') return
-            const parsed = payload?.draft ?? {}
-            // Body only: prepending the model's title duplicated the opening line,
-            // because the body already restates it.
-            const title = String(parsed.title ?? '').trim()
-            const body = String(parsed.body ?? '').trim()
-            if (body === '') {
-              setEnhanceError(t.enhanceFailed)
-              return
-            }
-            // The title is the note's first line, so it belongs in the result; the helper
-            // also keeps a body that already restates the title from duplicating it.
-            const composed = composeFormattedNote(title, body)
-            setFormatted({
-              // Whole note: title + body. A range: the original label plus the rewritten
-              // body — never the model's title, which would repeat the section name.
-              text:
-                range === null
-                  ? composed
-                  : preserveLabel(draft.slice(range.start, range.end), body),
-              mode: range === null ? 'all' : 'selection',
-              range,
-              kind: 'format',
-              tags: Array.isArray(parsed.tags) ? parsed.tags.join(', ') : '',
-            })
-            setStatus(t.formatted)
-            setTimeout(() => setStatus(''), 1600)
-          })
-        } catch (problem) {
-          // An aborted call is a user decision, not a failure.
-          setEnhanceError(problem?.name === 'AbortError' ? t.enhanceStopped : String(problem?.message ?? problem))
-        } finally {
-          endCall()
-          clearInterval(ticker)
-          setFormatting(false)
+        const laid = formatLocally(text)
+        if (laid === span) {
+          setStatus(t.formatted)
+          setTimeout(() => setStatus(''), 1600)
+          return
         }
+        setEnhanceError('')
+        setFormatted({
+          text: laid,
+          mode: range === null ? 'all' : 'selection',
+          range,
+          // A local layout has no title and no tags: it does not rewrite, it only tidies.
+          kind: 'layout',
+          tags: '',
+        })
+        setStatus(t.formatted)
+        setTimeout(() => setStatus(''), 1600)
       }
 
       /** Write a proposal back into the source, replacing only what was formatted. */
