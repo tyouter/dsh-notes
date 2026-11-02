@@ -666,6 +666,9 @@
           endCall()
           clearInterval(ticker)
           setTranslating(false)
+          // Whatever happened, the running state has to end — this is the bug that left the chip
+          // spinning forever.
+          setBusy('')
         }
       }
 
@@ -774,6 +777,15 @@
       // character-level: formatLocally may trim or renumber a line, but a selected line stays a
       // selected line, so the preview highlight cannot drift.
       const markSet = selected.end > selected.start ? linesInRange(draft, selected.start, selected.end) : new Set()
+
+      // The running chip: the spinner plus a marquee label. It sits in a toolbar, never over the
+      // document, so the page can be read (and the reveal compared) while a call is in flight.
+      const busyChip = (task) =>
+        h(PreviewBusy, {
+          label:
+            (task === 'translate' ? t.translating : t.enhancing) +
+            (enhanceSeconds + translateSeconds > 2 ? ' ' + Math.max(enhanceSeconds, translateSeconds) + 's' : ''),
+        })
 
       // What the translate proposal would apply: the whole note with the span replaced.
       const previewSpliced =
@@ -945,23 +957,6 @@
                   ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
                   : renderProposalDocument(enhanceDocument, enhance.range),
               )
-            : busy !== ''
-              ? h(
-                  'div',
-                  { className: 'dshn-page-render', 'data-proposal': 'true' },
-                  h(
-                    'div',
-                    { className: 'dshn-page-render-label' },
-                    busy === 'translate' ? t.translated : t.enhanceTitle,
-                  ),
-                  h(PreviewBusy, {
-                    // The seconds are part of the label, so the marquee keeps moving even when the
-                    // call is slow enough to be worth counting.
-                    label:
-                      (busy === 'translate' ? t.translating : t.enhancing) +
-                      (enhanceSeconds + translateSeconds > 2 ? ' ' + Math.max(enhanceSeconds, translateSeconds) + 's' : ''),
-                  }),
-                )
               : h(
                   'div',
                   {
@@ -1016,26 +1011,30 @@
                   ),
                 ),
               ),
-              h(
-                'button',
-                {
-                  className: 'dshn-btn',
-                  disabled: translating,
-                  onClick: () => void runTranslate(),
-                  title: t.translateHint,
-                },
-                translating ? t.translating : t.translate,
-              ),
-              h(
-                'label',
-                { className: 'dshn-cap', style: { display: 'inline-flex', gap: 4, alignItems: 'center', cursor: 'pointer' } },
-                h('input', {
-                  type: 'checkbox',
-                  checked: enhance.keepSource === true,
-                  onChange: (event) => setEnhance({ ...enhance, keepSource: event.target.checked }),
-                }),
-                t.enhanceKeepSource,
-              ),
+              translating
+                ? busyChip('translate')
+                : h(
+                    'button',
+                    {
+                      className: 'dshn-btn',
+                      onClick: () => void runTranslate(),
+                      title: t.translateHint,
+                    },
+                    t.translate,
+                  ),
+              busy === '' && enhance.keepSource !== undefined
+                ? h(
+                    'label',
+                    { className: 'dshn-cap', style: { display: 'inline-flex', gap: 4, alignItems: 'center', cursor: 'pointer' } },
+                    h('input', {
+                      type: 'checkbox',
+                      checked: enhance.keepSource === true,
+                      onChange: (event) => setEnhance({ ...enhance, keepSource: event.target.checked }),
+                    }),
+                    t.enhanceKeepSource,
+                  )
+                : null,
+              busy === '' ? null : busyChip(busy),
               h('span', { className: 'dshn-grow' }),
               enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
               h('button', { className: 'dshn-btn ghost', onClick: () => setEnhance(null) }, t.enhanceDiscard),
@@ -1083,20 +1082,18 @@
                     ),
                   ),
                 ),
-                h(
-                  'button',
-                  {
-                    className: 'dshn-btn',
-                    disabled: translating || draft.trim() === '',
-                    onClick: () => void runPreviewTranslate(),
-                    title: t.translateHint,
-                  },
-                  translating
-                    ? t.translating + ' ' + translateSeconds + 's'
-                    : selected.end > selected.start
-                      ? t.translateSelection
-                      : t.translate,
-                ),
+                translating
+                  ? busyChip('translate')
+                  : h(
+                      'button',
+                      {
+                        className: 'dshn-btn',
+                        disabled: draft.trim() === '',
+                        onClick: () => void runPreviewTranslate(),
+                        title: t.translateHint,
+                      },
+                      selected.end > selected.start ? t.translateSelection : t.translate,
+                    ),
                 h('span', { className: 'dshn-grow' }),
                 enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
               )

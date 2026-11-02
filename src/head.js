@@ -1121,12 +1121,27 @@
       return h(
         'div',
         { className: 'dshn-busy', role: 'status', 'aria-live': 'polite' },
-        h('span', { className: 'dshn-busy-spinner', 'aria-hidden': 'true' }),
+        // A real circle: the border trick leaves jagged edges at small sizes and odd scales.
         h(
-          'span',
-          { className: 'dshn-busy-track' },
-          h('span', { className: 'dshn-busy-label' }, label + '　　' + label + '　　'),
+          'svg',
+          { className: 'dshn-busy-spinner', viewBox: '0 0 24 24', width: 14, height: 14, 'aria-hidden': 'true' },
+          h('circle', { cx: 12, cy: 12, r: 9, fill: 'none', stroke: 'currentColor', strokeWidth: 2.4, opacity: 0.18 }),
+          h('circle', {
+            cx: 12,
+            cy: 12,
+            r: 9,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 2.4,
+            strokeLinecap: 'round',
+            strokeDasharray: '16 41',
+          }),
         ),
+        // One copy when it fits: a marquee on a six-character label shows the seam between the
+        // two copies and looks like two labels fighting. It scrolls only when it has to.
+        label.length > 10
+          ? h('span', { className: 'dshn-busy-track' }, h('span', { className: 'dshn-busy-label' }, label + '　　' + label + '　　'))
+          : h('span', { className: 'dshn-busy-track is-fitted' }, h('span', { className: 'dshn-busy-label is-fitted' }, label)),
       )
     }
 
@@ -2772,20 +2787,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 /* ---- progress and reveal ------------------------------------------------------------- */
 .dshn-busy {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 2px;
+  gap: 8px;
+  min-width: 0;
   color: var(--dsw-alias-label-secondary);
 }
 .dshn-busy-spinner {
-  width: 16px;
-  height: 16px;
+  /* The width/height attributes are not enough once the element is a flex item. */
+  width: 14px;
+  height: 14px;
   flex: none;
-  border-radius: 50%;
-  border: 2px solid var(--dsw-alias-border-l2);
-  border-top-color: var(--dsw-alias-brand-primary);
-  animation: dshn-spin 780ms linear infinite;
+  color: var(--dsw-alias-brand-primary);
+  animation: dshn-spin 900ms linear infinite;
+  transform-origin: 50% 50%;
+  shape-rendering: geometricPrecision;
 }
 @keyframes dshn-spin {
   to { transform: rotate(360deg); }
@@ -2793,7 +2809,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* A marquee, not a shimmer: the label keeps moving so a slow call still looks alive. */
 .dshn-busy-track {
   overflow: hidden;
-  max-width: 320px;
+  max-width: 150px;
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
@@ -2807,6 +2823,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 @keyframes dshn-marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
+}
+/* Short labels breathe: motion without a seam. */
+.dshn-busy-track.is-fitted { max-width: none; mask-image: none; -webkit-mask-image: none; }
+.dshn-busy-label.is-fitted {
+  animation: dshn-breathe 1.7s ease-in-out infinite;
+  transform: none;
+}
+@keyframes dshn-breathe {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
 }
 /* The reveal: an ink wipe from left to right, once, on the new text. */
 .dshn-wipe {
@@ -2825,6 +2851,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 @media (prefers-reduced-motion: reduce) {
   .dshn-busy-spinner,
   .dshn-busy-label,
+  .dshn-busy-label.is-fitted,
   .dshn-wipe {
     animation: none;
   }

@@ -351,7 +351,7 @@ check('the capture box has no Format action', findAll(box, 'dshn-btn').some((nod
     check('the capture box can emit a rendered mirror', boardSource.includes("className: 'dshn-page-render'"))
     // Language control lives on the structuring card, not in the toolbar.
     check('the toolbar no longer offers a language picker', boardSource.includes('title: t.targetLang') === false)
-    check('translate lives on the structuring toolbar', /renderTools[\s\S]{0,1200}runTranslate\(\)/.test(boardSource))
+    check('translate lives on the structuring toolbar', /runTranslate\(\)/.test(boardSource) && /renderTools[\s\S]{0,2600}runTranslate\(\)/.test(boardSource))
     check('the draft card offers a translate target', boardSource.includes('t.translateAuto'))
     check('the translate target defaults to mutual ZH<->EN', boardSource.includes("entry.id === 'auto' ? t.translateAuto"))
 
@@ -450,7 +450,10 @@ check('the live preview needs no range', boardSource.includes('const runFormat')
     check('no fidelity band is rendered', /dshn-fidelity'/.test(boardSource) === false, 'the band is still rendered')
     // Progress is motion, not half-written Markdown.
     check('deltas are not painted', (boardSource.match(/setEnhance\(\{ \.\.\.enhance, title: '', body: buffer \}\)/g) ?? []).length === 0)
-    check('a busy state is rendered', /h\(PreviewBusy, \{/.test(boardSource))
+    // The page kept rendering the document while a call was running; a busy page lost the text
+    // the reveal was supposed to replace.
+    check('the document is not replaced while a call runs', /: busy !== ''\s*\?\s*h\(\s*'div',\s*\{\s*className: 'dshn-page-render'/.test(boardSource) === false)
+    check('the busy chip is in a toolbar', /const busyChip = \(task\) =>/.test(boardSource) && /busy === '' \? null : busyChip\(busy\)/.test(boardSource))
     check('the reveal animation is keyed', /key: 'draft-' \+ wipe/.test(boardSource) && /key: 'page-' \+ wipe/.test(boardSource))
     check('the selection translate splices the whole note', /spliceRange\(draft, preview\.range\.start, preview\.range\.end, preview\.text\)/.test(boardSource))
     check('the splice is laid out before rendering', /const previewLayout = preview === null \? '' : formatLocally\(previewSpliced\)/.test(boardSource))
