@@ -1112,13 +1112,13 @@
     }
 
     /** A note with its title rendered in first-level heading style. */
-    function renderNoteBody(text) {
+    function renderNoteBody(text, marks) {
       const { title, rest } = splitNoteTitle(text)
       return h(
         'div',
         { className: 'dshn-note' },
         title === '' ? null : h('div', { className: 'dshn-note-title' }, title),
-        rest.trim() === '' ? null : h('div', { className: 'dshn-md' }, renderMarkdown(rest)),
+        rest.trim() === '' ? null : h('div', { className: 'dshn-md' }, renderMarkdown(rest, marks)),
       )
     }
 
@@ -1391,8 +1391,33 @@
       return out.filter((piece) => piece !== '')
     }
 
-    /** Render a note body as Markdown blocks. */
-    function renderMarkdown(source) {
+    /** The text of a line without its markers, for matching a selection against the preview. */
+    function plainLine(line) {
+      const raw = String(line ?? '')
+      // An outline marker ("一、", "(1)", "a)") is part of the typography, not the text.
+      const parsed = parseEnumerator(raw)
+      if (parsed !== null) return parsed.rest.replace(/\s+/g, '').trim()
+      return raw
+        .replace(/^\s{0,3}#{1,6}\s+/, '')
+        .replace(/^\s*[-*+·•—–]\s+/, '')
+        .replace(/^\s*>\s?/, '')
+        .replace(/\s+/g, '')
+        .trim()
+    }
+
+    /** Wrap one rendered line in the selection mark when it is part of the selected span. */
+    // Always returns an array: callers spread it, and a single element would not be iterable.
+    function marked(children, marks, key) {
+      if (marks === undefined || marks === null) return children
+      return [h('mark', { key, className: 'dshn-preview-mark' }, ...children)]
+    }
+
+    /** Render a note body as Markdown blocks.
+     *
+     * `marks` is an optional Set of plainLine() strings: those lines render inside a <mark>, which
+     * is how the preview mirrors the editor's selection.
+     */
+    function renderMarkdown(source, marks) {
       const lines = normalizeStrayAsterisks(String(source ?? '')).split(/\r?\n/)
       const blocks = []
       let paragraph = []
@@ -1412,7 +1437,8 @@
             const children = []
             paragraph.forEach((line, index) => {
               if (index > 0) children.push(h('br', { key: `br${index}` }))
-              children.push(...inlineSpans(line, `p${blocks.length}-${index}`))
+              const spans = inlineSpans(line, `p${blocks.length}-${index}`)
+              children.push(...marked(spans, marks?.has(plainLine(line)) ? marks : undefined, `m${blocks.length}-${index}`))
             })
             blocks.push(h('p', { key: `p${blocks.length}`, className: 'dshn-md-p' }, ...children))
           }
@@ -1429,7 +1455,11 @@
                 h(
                   'li',
                   { key: index, 'data-task': item.task === undefined ? undefined : String(item.task) },
-                  ...inlineSpans(item.text, `li${blocks.length}-${index}`),
+                  ...marked(
+                    inlineSpans(item.text, `li${blocks.length}-${index}`),
+                    marks?.has(plainLine(item.text)) ? marks : undefined,
+                    `mli${blocks.length}-${index}`,
+                  ),
                 ),
               ),
             ),
@@ -1481,7 +1511,15 @@
                 'data-level': String(level),
               },
               h('span', { className: 'dshn-md-marker' }, enumerator.open + enumerator.token + enumerator.close),
-              h('span', { className: 'dshn-md-item-text' }, ...inlineSpans(enumerator.rest, `i${blocks.length}`)),
+              h(
+                'span',
+                { className: 'dshn-md-item-text' },
+                ...marked(
+                  inlineSpans(enumerator.rest, `i${blocks.length}`),
+                  marks?.has(plainLine(line)) ? marks : undefined,
+                  `mi${blocks.length}`,
+                ),
+              ),
             ),
           )
           continue
@@ -2692,6 +2730,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* The rewritten span is tinted with the same green as the source range, so the two panes
    agree about what changed. No border and no shadow: a marker stroke that bleeds a little
    past the text instead of framing it. */
+.dshn-preview-mark {
+  background: var(--dshn-heat-1);
+  color: inherit;
+  border-radius: 3px;
+  padding: 1px 3px;
+  box-decoration-break: clone;
+}
 .dshn-proposal-mark {
   background: var(--dshn-heat-1);
   border-radius: 3px;

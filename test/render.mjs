@@ -343,11 +343,11 @@ check('the capture box has no Format action', findAll(box, 'dshn-btn').some((nod
     check('the capture box is a live editor', findAll(box, 'dshn-composer')[0]?.props['data-structured'] === 'false')
     // Plain text shows no mirror; structured text renders one beside the source.
     const plainBox = render(internals.CaptureBox, { ...captureProps, layout: 'page' })
-    check('plain input has no rendered mirror', findAll(plainBox, 'dshn-page-render').length === 0)
 
     // The mirror is emitted by the same component and gated by the detector; the
     // detector itself is covered in the markup test.
     const boardSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
+    check('plain input has a rendered mirror', /const laidOut = formatLocally\(draft\)/.test(boardSource))
     check('the capture box can emit a rendered mirror', boardSource.includes("className: 'dshn-page-render'"))
     // Language control lives on the structuring card, not in the toolbar.
     check('the toolbar no longer offers a language picker', boardSource.includes('title: t.targetLang') === false)
@@ -380,7 +380,7 @@ check('the layout preview is computed locally', /const laidOut = formatLocally\(
     check('the translation streams while rendering', boardSource.includes("if (event === 'delta')") && boardSource.includes('lastPaint'))
     // Structure never translates; Translate works on the structuring result when present.
     check('translation reads the structuring draft', /const sourceText = enhance\.body\.trim\(\)/.test(boardSource))
-    check('there is no source-translation path', /const sourceText = enhance\.body\.trim\(\)/.test(boardSource) && (boardSource.match(/const sourceText =/g) ?? []).length === 1)
+check('the preview can translate the note itself', /const runPreviewTranslate = async/.test(boardSource))
     check(
       'translate falls back when the host rejects lines',
       /rejectedIndexed/.test(boardSource) && /useIndexed = false/.test(boardSource) && /text: sourceText/.test(boardSource),
@@ -395,14 +395,14 @@ check('the layout preview is computed locally', /const laidOut = formatLocally\(
 // title above a Chinese body.
 check('structure sends no target language', boardSource.includes("streamEvents('/enhance/stream', { text }"))
 check('structure is the only structuring caller', (boardSource.match(/streamEvents\('\/enhance\/stream', \{ text \}/g) ?? []).length === 1)
-check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAGES\.find/g) ?? []).length === 1)
+check('the picker feeds both translate flows', (boardSource.match(/resolveTranslateTarget\(/g) ?? []).length >= 2)
     check('the client states whether to keep numbering', boardSource.includes('keepNumbering: partial'))
     check('translation uses its own route', boardSource.includes("'/translate/stream'"))
     // The wrapper words of the copilot prompt used to be translated along with the note.
     check('translation no longer goes through the copilot prompt', boardSource.includes("action: 'translate'") === false)
     const chatSource = await readFile(join(packageDir, 'lib', 'chat.js'), 'utf8')
     check('the translate prompt has no wrapper labels', /streamTranslate[\s\S]{0,1600}只输出译文本身|streamTranslate[\s\S]{0,1600}逐行翻译/.test(chatSource))
-check('the layout preview is rendered whole', /renderNoteBody\(laidOut\)/.test(boardSource))
+check('the layout preview is rendered whole', /renderNoteBody\(laidOut, markSet\)/.test(boardSource))
     check('the rewritten span is tinted in the preview', boardSource.includes("className: 'dshn-proposal-mark'"))
     const headCss = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
     check('the preview tint uses the same green as the source', /\.dshn-proposal-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headCss))
@@ -433,6 +433,9 @@ check('the preview label distinguishes changed layout', boardSource.includes('t.
     check('structure uses the shared range', /const runEnhance = async \(\) => \{[\s\S]{0,220}editorRange\(\)/.test(boardSource))
 check('the live preview needs no range', boardSource.includes('const runFormat') === false)
     check('the selected span is highlighted', boardSource.includes("className: 'dshn-editor-mark'"))
+    check('the preview translates the selection', /const span = range === null \? draft : draft\.slice\(range\.start, range\.end\)/.test(boardSource))
+    check('the preview applies a translation to the selected span', /draft\.slice\(0, start\) \+ preview\.text \+ draft\.slice\(end\)/.test(boardSource))
+    check('the selection marks the preview lines', /markSet\.add\(plainLine\(line\)\)/.test(boardSource))
     // A highlighter stroke in the palette's light green, not an underline.
     check('the mark uses the light green palette', /\] \.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource) || /\.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource))
     check('the mark is not an underline', /\.dshn-editor-mark \{[^}]*border-bottom/s.test(headSource) === false)

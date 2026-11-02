@@ -355,6 +355,19 @@ check('three stars do too', normalizeStrayAsterisks('*** 需要机器') === '- �
 check('bold emphasis is untouched', normalizeStrayAsterisks('**加粗** 后面有字') === '**加粗** 后面有字', JSON.stringify(normalizeStrayAsterisks('**加粗** 后面有字')))
 check('a normal bullet is untouched', normalizeStrayAsterisks('- 一条') === '- 一条')
 
+// The preview mirrors the editor selection by marking the selected lines.
+const markedTree = renderMarkdown(['一、报销', '- 发票月底前交', '', '另一段'].join('\n'), new Set(['报销', '发票月底前交']))
+const marks = []
+const walkMarks = (node) => {
+  if (node === null || node === undefined || typeof node === 'string') return
+  if (Array.isArray(node)) return node.forEach(walkMarks)
+  if (String(node.props?.className ?? '').includes('dshn-preview-mark')) marks.push(node)
+  ;(node.children ?? []).forEach(walkMarks)
+}
+walkMarks(markedTree)
+check('a marked line renders inside a mark', marks.length === 2, String(marks.length))
+check('an unmarked line stays plain', marks.every((node) => !JSON.stringify(node).includes('另一段')), JSON.stringify(marks))
+
 // ---- Format is mechanical: it tidies, it never rewrites ----
 check('format: dashes become bullets', formatLocally(['— 报销', '· 部署', '• 配色'].join('\n')) === ['- 报销', '- 部署', '- 配色'].join('\n'), JSON.stringify(formatLocally(['— 报销', '· 部署', '• 配色'].join('\n'))))
 check('format: stray stars become bullets', formatLocally('** 风险 环境\n*** 需要机器') === '- 风险 环境\n- 需要机器', JSON.stringify(formatLocally('** 风险 环境\n*** 需要机器')))

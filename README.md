@@ -4,9 +4,24 @@
 
 | Tab | What it is |
 | --- | --- |
-| 记录 | One box. Its toolbar's「结构化」button streams a structured rewrite into an editable card **below** the box, so the composer never moves. |
+| 记录 | One box, two pages. The right page is Format, running live on every keystroke; the toolbar's「结构化」button adds an AI rewrite above it. |
 | 历史 | The grouped history with Markdown rendering, search, tags, a collapsible list drawer, and a **copilot sidebar** beside the open note. |
 | 看板 | Statistics over the notebook and its usage, plus the host's **native conversation** running the `notes-board` agent preset. |
+
+### The four actions
+
+| Action | Input | Lands in | Changes language |
+| --- | --- | --- | --- |
+| **Format** | the note, always | right page, live (no request, no button) | no |
+| **Structure** | the note; the selection when there is one | an AI draft on the right page (Apply / Save / Translate) | never |
+| **Translate** | the AI draft in place, **or** the note itself (selection, else whole) from the live preview | a draft edit / a proposal with Apply | yes |
+| **Apply** | draft or proposal | back into the source, replacing only the range | — |
+
+Format is deterministic (`formatLocally`), which is why it needs no button and no
+model: separators, numbering, blank lines and stray stars are normalised, wording is
+never touched, and the pass is idempotent. Saving a note writes the laid-out text, so
+the right page is a promise rather than a hint. A selection in the editor highlights
+the same lines in the preview; translate then works on that span.
 
 Capture also works outside the panel: `Alt+N` or the small notebook icon in the
 composer tool row opens a floating capture card, and `/note 内容` saves a note

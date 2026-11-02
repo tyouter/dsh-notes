@@ -323,6 +323,8 @@
       const marksRef = useRef(null)
       // A Format proposal: shown in the render area until applied or discarded, so the
       // source stays the single place you edit.
+      // A translation made from the preview: the note itself is only replaced on Apply.
+      const [preview, setPreview] = useState(null)
       // The preview is derived from the draft on every render, so there is no Format state.
       // The textarea's current selection, used to format just that part.
       const [selected, setSelected] = useState({ start: 0, end: 0 })
@@ -598,6 +600,79 @@
         }
       }
 
+      /**
+       * Translate what the preview shows: the selection when there is one, the whole note otherwise.
+       *
+       * This is the second translate entry point. The structuring draft has its own (it translates
+       * the draft in place); this one works on the note as typed, because a user who never runs
+       * Structure still needs to turn the note into another language.
+       */
+      const runPreviewTranslate = async () => {
+        if (translating) return
+        const range = editorRange()
+        const span = range === null ? draft : draft.slice(range.start, range.end)
+        const sourceText = span.trim()
+        if (sourceText === '') return
+        const target = resolveTranslateTarget(
+          TARGET_LANGUAGES.find((entry) => entry.id === targetLang)?.value ?? '',
+          sourceText,
+        )
+        setTranslating(true)
+        setTranslateSeconds(0)
+        setEnhanceError('')
+        setPreview(null)
+        const ticker = setInterval(() => setTranslateSeconds((current) => current + 1), 1000)
+        const signal = beginCall()
+        try {
+          const lines = sourceText.split(/\r?\n/)
+          await streamEvents(
+            '/translate/stream',
+            { lines, target, keepNumbering: range !== null },
+            (event, payload) => {
+              if (event === 'error') {
+                setEnhanceError(String(payload?.message ?? t.enhanceFailed))
+                return
+              }
+              if (event !== 'done') return
+              const translatedLines = Array.isArray(payload?.lines) ? payload.lines : null
+              const plain = String(payload?.text ?? '').trim()
+              if (translatedLines === null && plain === '') return
+              const resultText = translatedLines === null ? plain : assembleIndexedLines(sourceText, translatedLines)
+              setPreview({
+                text: resultText,
+                mode: range === null ? 'all' : 'selection',
+                range,
+              })
+              setStatus(t.translated)
+              setTimeout(() => setStatus(''), 1600)
+            },
+            signal,
+          )
+        } catch (problem) {
+          setEnhanceError(problem?.name === 'AbortError' ? t.enhanceStopped : String(problem?.message ?? problem))
+        } finally {
+          endCall()
+          clearInterval(ticker)
+          setTranslating(false)
+        }
+      }
+
+      /** Write the preview translation back into the source. */
+      const applyPreview = () => {
+        if (preview === null) return
+        if (preview.mode === 'selection' && preview.range !== null) {
+          const { start, end } = preview.range
+          setDraft(draft.slice(0, start) + preview.text + draft.slice(end))
+          setSelected({ start, end: start + preview.text.length })
+        } else {
+          setDraft(preview.text)
+          setSelected({ start: 0, end: 0 })
+        }
+        setPreview(null)
+        setStatus(t.applied)
+        setTimeout(() => setStatus(''), 1600)
+      }
+
       /** Write a structuring result back into the source, replacing only its range. */
       const applyEnhance = () => {
         if (enhance === null) return
@@ -651,6 +726,21 @@
       // runs on every keystroke rather than behind a button.
       const laidOut = formatLocally(draft)
       const layoutChanged = laidOut !== draft.trim()
+      // Which lines of the laid-out text fall inside the editor selection. Line-level rather than
+      // character-level: formatLocally may trim or renumber a line, but a selected line stays a
+      // selected line, so the preview highlight cannot drift.
+      const markSet = new Set()
+      if (selected.end > selected.start) {
+        const before = draft.slice(0, selected.start)
+        const firstLine = before.split(/\r?\n/).length - 1
+        // Ending right before a line break means the next line is not selected yet.
+        const endLine = draft.slice(0, selected.end).split(/\r?\n/).length - 1
+        const lastLine =
+          selected.end > selected.start && draft[selected.end - 1] === '\n' ? endLine - 1 : endLine
+        draft.split(/\r?\n/).forEach((line, index) => {
+          if (index >= firstLine && index <= lastLine) markSet.add(plainLine(line))
+        })
+      }
 
       const structured = looksStructured(draft)
       // A Format proposal always previews; otherwise only structured text does.
@@ -819,18 +909,23 @@
                 )
               : h(
                   'div',
-                  { className: 'dshn-page-render' },
+                  { className: 'dshn-page-render', 'data-proposal': preview === null ? undefined : 'true' },
                   h(
                     'div',
                     { className: 'dshn-page-render-label' },
-                    // The label doubles as the state: unchanged, or already tidied.
-                    (layoutChanged ? t.formattedPreview : t.rendered) +
-                      ' · ' +
-                      t.chars(laidOut.length),
+                    // The label doubles as the state: unchanged, already tidied, or a translation
+                    // waiting for a decision.
+                    preview !== null
+                      ? (preview.mode === 'selection' ? t.translatedSelection : t.translated) +
+                        ' · ' +
+                        t.chars(preview.text.length)
+                      : (layoutChanged ? t.formattedPreview : t.rendered) + ' · ' + t.chars(laidOut.length),
                   ),
-                  laidOut.trim() === ''
-                    ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
-                    : renderNoteBody(laidOut),
+                  preview !== null
+                    ? renderNoteBody(preview.text)
+                    : laidOut.trim() === ''
+                      ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
+                      : renderNoteBody(laidOut, markSet),
                 )
 
       // The preview page's toolbar: the same shape as the editing page's, so the two
@@ -885,10 +980,67 @@
               h('span', { className: 'dshn-grow' }),
               enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
               h('button', { className: 'dshn-btn ghost', onClick: () => setEnhance(null) }, t.enhanceDiscard),
-              h('button', { className: 'dshn-btn', onClick: applyEnhance, title: t.applyHint }, t.apply),
-              h('button', { className: 'dshn-btn primary', onClick: () => void saveEnhance() }, t.enhanceSave),
+              h('button', { className: 'dshn-btn primary', onClick: applyEnhance, title: t.applyHint }, t.apply),
+              h(
+                'button',
+                { className: 'dshn-btn', onClick: () => void saveEnhance(), title: t.enhanceSaveHint },
+                t.enhanceSave,
+              ),
             )
-          : null
+          // The live preview keeps a translate action of its own: a note can be translated without
+          // being structured first. A pending translation is applied or discarded here.
+          : preview !== null
+            ? h(
+                'div',
+                { className: 'dshn-row dshn-capture-tools' },
+                h('span', { className: 'dshn-cap' }, preview.mode === 'selection' ? t.translatedSelection : t.translated),
+                h('span', { className: 'dshn-grow' }),
+                enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
+                h('button', { className: 'dshn-btn ghost', onClick: () => setPreview(null) }, t.enhanceDiscard),
+                h('button', { className: 'dshn-btn primary', onClick: applyPreview, title: t.applyHint }, t.apply),
+              )
+            : h(
+                'div',
+                { className: 'dshn-row dshn-capture-tools' },
+                h(
+                  'label',
+                  { className: 'dshn-lang', title: t.translateTarget },
+                  h(
+                    'select',
+                    {
+                      value: targetLang,
+                      onChange: (event) => {
+                        setTargetLang(event.target.value)
+                        try {
+                          localStorage.setItem('notes.targetLang', event.target.value)
+                        } catch {
+                          /* storage may be unavailable */
+                        }
+                      },
+                      'aria-label': t.translateTarget,
+                    },
+                    ...TARGET_LANGUAGES.map((entry) =>
+                      h('option', { key: entry.id, value: entry.id }, entry.id === 'auto' ? t.translateAuto : entry.label),
+                    ),
+                  ),
+                ),
+                h(
+                  'button',
+                  {
+                    className: 'dshn-btn',
+                    disabled: translating || draft.trim() === '',
+                    onClick: () => void runPreviewTranslate(),
+                    title: t.translateHint,
+                  },
+                  translating
+                    ? t.translating + ' ' + translateSeconds + 's'
+                    : selected.end > selected.start
+                      ? t.translateSelection
+                      : t.translate,
+                ),
+                h('span', { className: 'dshn-grow' }),
+                enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
+              )
 
       const renderSheet =
         showRender || renderTools !== null
