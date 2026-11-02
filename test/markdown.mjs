@@ -395,6 +395,17 @@ const upTwo = internals.backspaceLine(upOne.text, caretAtMarker(upOne.text))
 check('Backspace reaches the first level', upTwo?.text.endsWith('\n- '), JSON.stringify(upTwo))
 const asProse = internals.backspaceLine(upTwo.text, caretAtMarker(upTwo.text))
 check('the last Backspace turns the bullet back into prose', asProse !== null && /\n$/.test(asProse.text), JSON.stringify(asProse))
+// Completion: chunks, document-first priority, and no advice to the model to invent.
+const chunked = internals.suggestionChunks('先做压测，再定上线时间。然后同步给李四。')
+check('a long suggestion is accepted one chunk at a time', chunked.length === 2, JSON.stringify(chunked))
+check('the first chunk is a sentence', chunked[0] === '先做压测，再定上线时间。', JSON.stringify(chunked[0]))
+const repeatNote = ['## 会议', '产品上线会议 定在周五', '产品上线会议 的议题是压测'].join('\n')
+const repeatAt = repeatNote.lastIndexOf('产品上线') + 4
+const repeatHit = internals.repetitionSuggestion(repeatNote, repeatAt)
+check('the document answers its own repetition first', repeatHit?.source === 'document', JSON.stringify(repeatHit))
+check('the repeated phrase continues, not repeats', repeatHit?.text.includes('会议') === true && repeatHit?.matched === '产品上线', JSON.stringify(repeatHit))
+check('a note with nothing repeated has no local answer', internals.repetitionSuggestion('今天好累。', 5) === null)
+
 check('Backspace inside the text is left to the browser', internals.backspaceLine('- 甲乙丙', 6) === null)
 
 const promoted = internals.spaceBurstLine('正文文字', 0)

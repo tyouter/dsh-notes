@@ -4,6 +4,7 @@
 // whose agent calls the query tools, and the editor copilot is gone. What remains
 // here is the structuring prompt's shape and the term extractor the tools use.
 import { buildEnhanceMessage, readEnhanceResult, dedupeTitle } from '../lib/prompt.js'
+import { buildCompleteMessage } from '../lib/complete.js'
 import { topTerms } from '../lib/text.js'
 
 let failures = 0
@@ -17,6 +18,17 @@ const check = (label, condition, detail = '') => {
 // exactly what appeared at the top of every formatted note.
 const enhancePrompt = buildEnhanceMessage({ text: '原稿' })
 check('the prompt declares the first line as the title', enhancePrompt.includes('第一行就是标题'))
+// Completion: one sentence, no invented details, no summarising.
+const completionPrompt = buildCompleteMessage({
+  text: ['产品上线会议', '', '议题是压测。'].join('\n'),
+  caret: 30,
+  section: '会议',
+})
+check('the completion prompt forbids new facts', completionPrompt.includes('不要引入原文没有的专有信息'))
+check('the completion prompt caps the length', completionPrompt.includes('1 句') && completionPrompt.includes('120 字'))
+check('the completion prompt names the section', completionPrompt.includes('当前小节：会议'))
+check('the completion prompt allows saying nothing', completionPrompt.includes('输出一个空字符串'))
+
 check('the prompt forbids repeating the title', enhancePrompt.includes('不要再复述') || enhancePrompt.includes('重复一遍标题'))
 
 // ---- term extraction, used by the terms tool ----

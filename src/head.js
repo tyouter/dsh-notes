@@ -842,6 +842,78 @@
         .join('\n')
     }
 
+    /**
+     * Split a suggestion into accept units.
+     *
+     * One TAB takes a phrase; a sentence is the unit when the phrase is short; a paragraph stays as
+     * as many units as it has sentences. This is what makes a wrong guess cost one TAB, not one undo.
+     */
+    function suggestionChunks(text) {
+      const source = String(text ?? '').trim()
+      if (source === '') return []
+      const units = []
+      const pieces = source.split(/(?<=[。！？!?；;\n])/)
+      for (const piece of pieces) {
+        const trimmed = piece.trim()
+        if (trimmed === '') continue
+        // A long clause is offered in two steps: up to the first comma, then the rest.
+        const comma = trimmed.search(/[，,]/)
+        if (trimmed.length > 24 && comma > 3 && comma < trimmed.length - 1) {
+          units.push(trimmed.slice(0, comma + 1))
+          units.push(trimmed.slice(comma + 1).trim())
+        } else {
+          units.push(trimmed)
+        }
+      }
+      return units.filter((unit) => unit !== '')
+    }
+
+    /**
+     * The document's own wording, first.
+     *
+     * "产品上线会议" typed twice already is a better guess than anything a model would invent: the
+     * user is repeating themselves, that is exactly the typing worth saving. Looks for the longest
+     * run ending at the caret that also appears earlier in the document, and returns what followed
+     * it there.
+     */
+    function repetitionSuggestion(draft, caret, options = {}) {
+      const source = String(draft ?? '')
+      const at = Math.max(0, Math.min(caret, source.length))
+      const maxTail = Math.min(12, options.maxTail ?? 12)
+      const maxLength = options.maxLength ?? 40
+      const minTail = options.minTail ?? 2
+      const before = source.slice(0, at)
+      // Only the tail of the current line matters; a new line is a new thought.
+      const lineStart = before.lastIndexOf('\n') + 1
+      const tail = before.slice(lineStart)
+      for (let size = Math.min(maxTail, tail.length); size >= minTail; size -= 1) {
+        const needle = tail.slice(tail.length - size)
+        if (needle.trim() === '') continue
+        // Where else does the same run appear, followed by more text?
+        let found = -1
+        let from = 0
+        for (;;) {
+          const index = source.indexOf(needle, from)
+          if (index < 0) break
+          const isCurrent = index + size >= lineStart && index < at
+          if (!isCurrent && source.slice(index + size).trim() !== '') {
+            found = index
+            break
+          }
+          from = index + 1
+        }
+        if (found < 0) continue
+        const after = source.slice(found + size)
+        const stop = after.search(/[。！？!?\n]/)
+        const candidate = (stop < 0 ? after : after.slice(0, stop)).trim()
+        if (candidate === '' || candidate.length > maxLength) continue
+        // The suggestion must continue this word, not repeat it.
+        if (candidate === needle) continue
+        return { text: candidate, source: 'document', matched: needle }
+      }
+      return null
+    }
+
     /** Where the line around `index` starts and ends. */
     function lineBounds(text, index) {
       const source = String(text ?? '')
@@ -1369,7 +1441,8 @@
     }
 
     const get = (path) => api(path)
-    const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
+    const post = (path, body, signal) =>
+      api(path, { method: 'POST', body: JSON.stringify(body ?? {}), signal })
     const put = (path, body) => api(path, { method: 'PUT', body: JSON.stringify(body ?? {}) })
     const del = (path) => api(path, { method: 'DELETE' })
 
@@ -2791,6 +2864,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   min-width: 0;
 }
 /* Identical metrics to the textarea, so the mark sits under the right characters. */
+/* A suggestion, not text: it sits in the mirror layer, behind the textarea's transparent text. */
+.dshn-ghost {
+  color: var(--dsw-alias-label-secondary);
+  opacity: .55;
+  pointer-events: none;
+}
+.dshn-ghost[data-source="document"] {
+  /* Repeating the note's own words is a stronger promise than a guess: a touch more ink. */
+  opacity: .72;
+}
 .dshn-editor-marks {
   position: absolute;
   inset: 0;

@@ -172,6 +172,18 @@ try {
   const removedChart = await call('POST', 'charts/remove', { id: 'c1' })
   check('chart removes', removedChart.json?.data?.charts?.length === 0)
 
+  // ---- completion ----
+  answer = '李四会先同步压测报告。'
+  const completed = await call('POST', 'complete', { text: '## 会议\n产品上线会议 的议题是压测。', caret: 23 })
+  check('completion returns the next sentence', completed.json?.data?.text === '李四会先同步压测报告。', JSON.stringify(completed.json).slice(0, 200))
+  const completeCall = llmCalls[llmCalls.length - 1]
+  check('the completion prompt carries the note tail', JSON.stringify(completeCall?.messages ?? []).includes('产品上线会议'), JSON.stringify(completeCall?.messages ?? []).slice(0, 160))
+  check('the completion prompt forbids new facts', String(completeCall?.system ?? '').includes('宁可短') || JSON.stringify(completeCall?.messages ?? []).includes('不要引入原文没有的专有信息'))
+
+  answer = ''
+  const emptyCompletion = await call('POST', 'complete', { text: '今天好累。', caret: 5 })
+  check('an empty answer is allowed', emptyCompletion.json?.data?.text === '', JSON.stringify(emptyCompletion.json).slice(0, 160))
+
   // ---- the dashboard chat is a native session now, so the route is gone ----
   const noChat = await call('POST', 'chat/stream', { question: 'x' })
   check('the prompt-stuffing chat route is gone', noChat.status === 404, String(noChat.status))

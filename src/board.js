@@ -324,6 +324,12 @@
       const marksRef = useRef(null)
       // The editor itself, so a keystroke can rewrite a line and put the caret back.
       const areaRef = useRef(null)
+      // Completion: the ghost is a chunk list plus the index already accepted, and its position.
+      const [ghost, setGhost] = useState(null)
+      // Latest draft, so the 1s timer reads the text as it is when it fires.
+      const draftRef = useRef('')
+      draftRef.current = draft
+      const completeRef = useRef({ idle: 0, abort: null, hold: 0 })
       // Space typing: a burst indents. Timing lives in a ref because it must not re-render the
       // box on every keypress.
       const spaceRef = useRef({ lastAt: 0, burst: 0, holdStart: 0, lastDedent: 0 })
@@ -404,6 +410,111 @@
             state.burst = 0
           }
         }
+      }
+
+      /** Drop any suggestion and any pending request. */
+      const dismissGhost = () => {
+        const state = completeRef.current
+        if (state.idle !== 0) clearTimeout(state.idle)
+        state.idle = 0
+        if (state.abort !== null) {
+          try {
+            state.abort.abort()
+          } catch {
+            /* already finished */
+          }
+          state.abort = null
+        }
+        setGhost(null)
+      }
+
+      /** Is the caret in a place where a next sentence makes sense? */
+      const atSentenceBoundary = (value, caret) => {
+        const at = Math.max(0, Math.min(caret, value.length))
+        const before = value.slice(0, at)
+        const last = before.slice(-1)
+        if (before.trim() === '') return false
+        // End of a line, or right after terminal punctuation.
+        return /[。！？!?…：:；;\n]/.test(last)
+      }
+
+      /**
+       * Ask for a completion. The document is consulted first and answers without a request; the
+       * model is only asked when the document has nothing repeated to offer.
+       */
+      const requestCompletion = async (caret) => {
+        const value = draftRef.current
+        if (value.trim() === '' || busy !== '' || enhancing || translating) return
+        if (!atSentenceBoundary(value, caret)) return
+
+        const repeat = repetitionSuggestion(value, caret)
+        if (repeat !== null) {
+          const chunks = suggestionChunks(repeat.text)
+          if (chunks.length > 0) {
+            setGhost({ at: caret, chunks, index: 0, source: 'document' })
+            return
+          }
+        }
+
+        const controller = new AbortController()
+        completeRef.current.abort = controller
+        try {
+          const data = await post('/complete', { text: value, caret }, controller.signal)
+          completeRef.current.abort = null
+          const suggestion = String(data?.text ?? '')
+          const chunks = suggestionChunks(suggestion)
+          // Typing may have resumed while the model was thinking.
+          if (chunks.length > 0 && draftRef.current === value) {
+            setGhost({ at: caret, chunks, index: 0, source: 'model' })
+          }
+        } catch {
+          completeRef.current.abort = null
+        }
+      }
+
+      /** After typing stops for a second, ask. Any keystroke before that cancels. */
+      const scheduleCompletion = (caret) => {
+        const state = completeRef.current
+        if (state.idle !== 0) clearTimeout(state.idle)
+        setGhost(null)
+        state.idle = setTimeout(() => {
+          state.idle = 0
+          void requestCompletion(caret)
+        }, 1000)
+      }
+
+      /**
+       * TAB takes one chunk. The inserted text is left selected on purpose: Backspace then removes the
+       * whole chunk. A timeout releases the selection, so a later Backspace deletes one character.
+       */
+      const acceptGhostChunk = () => {
+        if (ghost === null) return false
+        const chunk = ghost.chunks[ghost.index]
+        if (chunk === undefined) {
+          setGhost(null)
+          return false
+        }
+        const value = draftRef.current
+        const at = Math.max(0, Math.min(ghost.at, value.length))
+        const next = value.slice(0, at) + chunk + value.slice(at)
+        const end = at + chunk.length
+        setDraft(next)
+        const state = completeRef.current
+        if (state.hold !== 0) clearTimeout(state.hold)
+        setTimeout(() => {
+          const area = areaRef.current
+          if (area === null) return
+          area.focus()
+          area.setSelectionRange(at, end)
+        }, 0)
+        state.hold = setTimeout(() => {
+          const area = areaRef.current
+          if (area === null) return
+          if (area.selectionStart === at && area.selectionEnd === end) area.setSelectionRange(end, end)
+        }, 1400)
+        if (ghost.index + 1 < ghost.chunks.length) setGhost({ ...ghost, at: end, index: ghost.index + 1 })
+        else setGhost(null)
+        return true
       }
 
       /** One streamed rewrite: the card appears at once and fills as tokens land. */
@@ -885,14 +996,22 @@
           h(
             'div',
             { className: 'dshn-editor-area' },
-            activeRange === null
+            activeRange === null && ghost === null
               ? null
               : h(
                   'div',
                   { className: 'dshn-editor-marks', 'aria-hidden': 'true', ref: marksRef },
-                  draft.slice(0, activeRange.start),
-                  h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)),
-                  draft.slice(activeRange.end),
+                  ghost === null
+                    ? draft.slice(0, activeRange.start)
+                    : draft.slice(0, ghost.at),
+                  ghost === null
+                    ? h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end))
+                    : h(
+                        'span',
+                        { className: 'dshn-ghost', 'data-source': ghost.source },
+                        ghost.chunks[ghost.index] ?? '',
+                      ),
+                  ghost === null ? draft.slice(activeRange.end) : draft.slice(ghost.at),
                 ),
             h('textarea', {
             ref: areaRef,
@@ -901,7 +1020,10 @@
             placeholder: t.composePlaceholder,
             spellCheck: false,
             autoFocus: props.autoFocus === true,
-            onChange: (event) => setDraft(event.target.value),
+            onChange: (event) => {
+              setDraft(event.target.value)
+              scheduleCompletion(event.target.selectionStart ?? event.target.value.length)
+            },
             onScroll: (event) => {
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
             },
@@ -919,9 +1041,18 @@
                 void saveDraft()
                 return
               }
+              if (event.key === 'Tab' && ghost !== null) {
+                event.preventDefault()
+                acceptGhostChunk()
+                return
+              }
+              if (event.key === 'Escape' && ghost !== null) {
+                event.preventDefault()
+                dismissGhost()
+                return
+              }
               // 极简写: two spaces in one burst indent, Enter continues a bullet at the same level,
-              // Backspace backs out. TAB is deliberately unbound: it is reserved for the autocomplete
-              // trigger, so it must not be spent on indentation.
+              // Backspace backs out. TAB is the completion key, so indentation never uses it.
               if (event.key === ' ' && modifier === false && event.altKey === false) {
                 onSpaceKeyDown(event)
                 return

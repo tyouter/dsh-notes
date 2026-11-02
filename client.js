@@ -860,6 +860,78 @@ window.__ModuleLoader__.load({
         .join('\n')
     }
 
+    /**
+     * Split a suggestion into accept units.
+     *
+     * One TAB takes a phrase; a sentence is the unit when the phrase is short; a paragraph stays as
+     * as many units as it has sentences. This is what makes a wrong guess cost one TAB, not one undo.
+     */
+    function suggestionChunks(text) {
+      const source = String(text ?? '').trim()
+      if (source === '') return []
+      const units = []
+      const pieces = source.split(/(?<=[。！？!?；;\n])/)
+      for (const piece of pieces) {
+        const trimmed = piece.trim()
+        if (trimmed === '') continue
+        // A long clause is offered in two steps: up to the first comma, then the rest.
+        const comma = trimmed.search(/[，,]/)
+        if (trimmed.length > 24 && comma > 3 && comma < trimmed.length - 1) {
+          units.push(trimmed.slice(0, comma + 1))
+          units.push(trimmed.slice(comma + 1).trim())
+        } else {
+          units.push(trimmed)
+        }
+      }
+      return units.filter((unit) => unit !== '')
+    }
+
+    /**
+     * The document's own wording, first.
+     *
+     * "产品上线会议" typed twice already is a better guess than anything a model would invent: the
+     * user is repeating themselves, that is exactly the typing worth saving. Looks for the longest
+     * run ending at the caret that also appears earlier in the document, and returns what followed
+     * it there.
+     */
+    function repetitionSuggestion(draft, caret, options = {}) {
+      const source = String(draft ?? '')
+      const at = Math.max(0, Math.min(caret, source.length))
+      const maxTail = Math.min(12, options.maxTail ?? 12)
+      const maxLength = options.maxLength ?? 40
+      const minTail = options.minTail ?? 2
+      const before = source.slice(0, at)
+      // Only the tail of the current line matters; a new line is a new thought.
+      const lineStart = before.lastIndexOf('\n') + 1
+      const tail = before.slice(lineStart)
+      for (let size = Math.min(maxTail, tail.length); size >= minTail; size -= 1) {
+        const needle = tail.slice(tail.length - size)
+        if (needle.trim() === '') continue
+        // Where else does the same run appear, followed by more text?
+        let found = -1
+        let from = 0
+        for (;;) {
+          const index = source.indexOf(needle, from)
+          if (index < 0) break
+          const isCurrent = index + size >= lineStart && index < at
+          if (!isCurrent && source.slice(index + size).trim() !== '') {
+            found = index
+            break
+          }
+          from = index + 1
+        }
+        if (found < 0) continue
+        const after = source.slice(found + size)
+        const stop = after.search(/[。！？!?\n]/)
+        const candidate = (stop < 0 ? after : after.slice(0, stop)).trim()
+        if (candidate === '' || candidate.length > maxLength) continue
+        // The suggestion must continue this word, not repeat it.
+        if (candidate === needle) continue
+        return { text: candidate, source: 'document', matched: needle }
+      }
+      return null
+    }
+
     /** Where the line around `index` starts and ends. */
     function lineBounds(text, index) {
       const source = String(text ?? '')
@@ -1387,7 +1459,8 @@ window.__ModuleLoader__.load({
     }
 
     const get = (path) => api(path)
-    const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
+    const post = (path, body, signal) =>
+      api(path, { method: 'POST', body: JSON.stringify(body ?? {}), signal })
     const put = (path, body) => api(path, { method: 'PUT', body: JSON.stringify(body ?? {}) })
     const del = (path) => api(path, { method: 'DELETE' })
 
@@ -2809,6 +2882,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   min-width: 0;
 }
 /* Identical metrics to the textarea, so the mark sits under the right characters. */
+/* A suggestion, not text: it sits in the mirror layer, behind the textarea's transparent text. */
+.dshn-ghost {
+  color: var(--dsw-alias-label-secondary);
+  opacity: .55;
+  pointer-events: none;
+}
+.dshn-ghost[data-source="document"] {
+  /* Repeating the note's own words is a stronger promise than a guess: a touch more ink. */
+  opacity: .72;
+}
 .dshn-editor-marks {
   position: absolute;
   inset: 0;
@@ -3584,6 +3667,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const marksRef = useRef(null)
       // The editor itself, so a keystroke can rewrite a line and put the caret back.
       const areaRef = useRef(null)
+      // Completion: the ghost is a chunk list plus the index already accepted, and its position.
+      const [ghost, setGhost] = useState(null)
+      // Latest draft, so the 1s timer reads the text as it is when it fires.
+      const draftRef = useRef('')
+      draftRef.current = draft
+      const completeRef = useRef({ idle: 0, abort: null, hold: 0 })
       // Space typing: a burst indents. Timing lives in a ref because it must not re-render the
       // box on every keypress.
       const spaceRef = useRef({ lastAt: 0, burst: 0, holdStart: 0, lastDedent: 0 })
@@ -3664,6 +3753,111 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             state.burst = 0
           }
         }
+      }
+
+      /** Drop any suggestion and any pending request. */
+      const dismissGhost = () => {
+        const state = completeRef.current
+        if (state.idle !== 0) clearTimeout(state.idle)
+        state.idle = 0
+        if (state.abort !== null) {
+          try {
+            state.abort.abort()
+          } catch {
+            /* already finished */
+          }
+          state.abort = null
+        }
+        setGhost(null)
+      }
+
+      /** Is the caret in a place where a next sentence makes sense? */
+      const atSentenceBoundary = (value, caret) => {
+        const at = Math.max(0, Math.min(caret, value.length))
+        const before = value.slice(0, at)
+        const last = before.slice(-1)
+        if (before.trim() === '') return false
+        // End of a line, or right after terminal punctuation.
+        return /[。！？!?…：:；;\n]/.test(last)
+      }
+
+      /**
+       * Ask for a completion. The document is consulted first and answers without a request; the
+       * model is only asked when the document has nothing repeated to offer.
+       */
+      const requestCompletion = async (caret) => {
+        const value = draftRef.current
+        if (value.trim() === '' || busy !== '' || enhancing || translating) return
+        if (!atSentenceBoundary(value, caret)) return
+
+        const repeat = repetitionSuggestion(value, caret)
+        if (repeat !== null) {
+          const chunks = suggestionChunks(repeat.text)
+          if (chunks.length > 0) {
+            setGhost({ at: caret, chunks, index: 0, source: 'document' })
+            return
+          }
+        }
+
+        const controller = new AbortController()
+        completeRef.current.abort = controller
+        try {
+          const data = await post('/complete', { text: value, caret }, controller.signal)
+          completeRef.current.abort = null
+          const suggestion = String(data?.text ?? '')
+          const chunks = suggestionChunks(suggestion)
+          // Typing may have resumed while the model was thinking.
+          if (chunks.length > 0 && draftRef.current === value) {
+            setGhost({ at: caret, chunks, index: 0, source: 'model' })
+          }
+        } catch {
+          completeRef.current.abort = null
+        }
+      }
+
+      /** After typing stops for a second, ask. Any keystroke before that cancels. */
+      const scheduleCompletion = (caret) => {
+        const state = completeRef.current
+        if (state.idle !== 0) clearTimeout(state.idle)
+        setGhost(null)
+        state.idle = setTimeout(() => {
+          state.idle = 0
+          void requestCompletion(caret)
+        }, 1000)
+      }
+
+      /**
+       * TAB takes one chunk. The inserted text is left selected on purpose: Backspace then removes the
+       * whole chunk. A timeout releases the selection, so a later Backspace deletes one character.
+       */
+      const acceptGhostChunk = () => {
+        if (ghost === null) return false
+        const chunk = ghost.chunks[ghost.index]
+        if (chunk === undefined) {
+          setGhost(null)
+          return false
+        }
+        const value = draftRef.current
+        const at = Math.max(0, Math.min(ghost.at, value.length))
+        const next = value.slice(0, at) + chunk + value.slice(at)
+        const end = at + chunk.length
+        setDraft(next)
+        const state = completeRef.current
+        if (state.hold !== 0) clearTimeout(state.hold)
+        setTimeout(() => {
+          const area = areaRef.current
+          if (area === null) return
+          area.focus()
+          area.setSelectionRange(at, end)
+        }, 0)
+        state.hold = setTimeout(() => {
+          const area = areaRef.current
+          if (area === null) return
+          if (area.selectionStart === at && area.selectionEnd === end) area.setSelectionRange(end, end)
+        }, 1400)
+        if (ghost.index + 1 < ghost.chunks.length) setGhost({ ...ghost, at: end, index: ghost.index + 1 })
+        else setGhost(null)
+        return true
       }
 
       /** One streamed rewrite: the card appears at once and fills as tokens land. */
@@ -4145,14 +4339,22 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           h(
             'div',
             { className: 'dshn-editor-area' },
-            activeRange === null
+            activeRange === null && ghost === null
               ? null
               : h(
                   'div',
                   { className: 'dshn-editor-marks', 'aria-hidden': 'true', ref: marksRef },
-                  draft.slice(0, activeRange.start),
-                  h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)),
-                  draft.slice(activeRange.end),
+                  ghost === null
+                    ? draft.slice(0, activeRange.start)
+                    : draft.slice(0, ghost.at),
+                  ghost === null
+                    ? h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end))
+                    : h(
+                        'span',
+                        { className: 'dshn-ghost', 'data-source': ghost.source },
+                        ghost.chunks[ghost.index] ?? '',
+                      ),
+                  ghost === null ? draft.slice(activeRange.end) : draft.slice(ghost.at),
                 ),
             h('textarea', {
             ref: areaRef,
@@ -4161,7 +4363,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             placeholder: t.composePlaceholder,
             spellCheck: false,
             autoFocus: props.autoFocus === true,
-            onChange: (event) => setDraft(event.target.value),
+            onChange: (event) => {
+              setDraft(event.target.value)
+              scheduleCompletion(event.target.selectionStart ?? event.target.value.length)
+            },
             onScroll: (event) => {
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
             },
@@ -4179,9 +4384,18 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 void saveDraft()
                 return
               }
+              if (event.key === 'Tab' && ghost !== null) {
+                event.preventDefault()
+                acceptGhostChunk()
+                return
+              }
+              if (event.key === 'Escape' && ghost !== null) {
+                event.preventDefault()
+                dismissGhost()
+                return
+              }
               // 极简写: two spaces in one burst indent, Enter continues a bullet at the same level,
-              // Backspace backs out. TAB is deliberately unbound: it is reserved for the autocomplete
-              // trigger, so it must not be spent on indentation.
+              // Backspace backs out. TAB is the completion key, so indentation never uses it.
               if (event.key === ' ' && modifier === false && event.altKey === false) {
                 onSpaceKeyDown(event)
                 return
@@ -5486,7 +5700,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, backspaceLine, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, backspaceLine, suggestionChunks, repetitionSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

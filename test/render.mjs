@@ -505,6 +505,13 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the note list can be widened', /dshn-splitter/.test(panelSource) && /--dshn-list-width/.test(panelSource))
     check('the list width is remembered', /dshn\.history\.listWidth/.test(panelSource))
     check('cards clamp to two lines', /line-clamp: 2/.test(headCss) && /-webkit-line-clamp: 2/.test(headCss))
+    // Completion: a 1s pause while typing, TAB takes a chunk, the chunk stays selected.
+    check('completion waits for a pause', /1000\)/.test(boardSource) && /scheduleCompletion/.test(boardSource))
+    check('completion only fires at a sentence boundary', /atSentenceBoundary/.test(boardSource))
+    check('TAB takes one chunk', /acceptGhostChunk\(\)/.test(boardSource) && /event\.key === 'Tab'/.test(boardSource))
+    check('the inserted chunk can be undone in one key', /setSelectionRange\(at, end\)/.test(boardSource) && /1400\)/.test(boardSource))
+    check('the ghost is styled as a suggestion', /\.dshn-ghost \{/.test(headCss))
+
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 6px 14px/.test(headCss))
 
     check('all four save paths remain', saveSites.length === 4, String(saveSites.length))
