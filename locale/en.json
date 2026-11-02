@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "title": "Notebook",
+    "description": "Capture in one box, structure in one click, and let the notebook assistant read, organize and rewrite the same notes.",
+    "panel": {
+      "tabCapture": "Capture",
+      "tabHistory": "History",
+      "tabAi": "AI",
+      "enhance": "Structure"
+    }
+  }
+}

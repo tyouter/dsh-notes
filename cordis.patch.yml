@@ -1,0 +1,14 @@
+- insert:
+    - id: notes
+      name: '@local/dsh-notes'
+      config:
+        notesPath: 'notes-vault'
+        # The dashboard's assistant runs as this agent preset: a real session with
+        # notes_query / notes_analyze / dashboard_chart, so it queries the notebook
+        # instead of being handed a truncated text dump.
+        boardPreset: 'notes-board'
+        # 「结构化」按钮的指令。它是单次流式调用、不开会话，所以没有 preset；
+        # 要改它的行为就写在这里（留空则用内置指令）。
+        # enhanceSystem: |
+        #   你把用户给的原始内容整理成一条结构化笔记。只做这一件事。
+        #   只输出一个 json 代码块：{"title": "...", "body": "...", "tags": ["..."]}

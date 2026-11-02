@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "title": "记事本",
+    "description": "一个输入框随手记，一键整理成结构化笔记，并有记事本助手读写、整理、检索同一批笔记。",
+    "panel": {
+      "tabCapture": "记录",
+      "tabHistory": "历史",
+      "tabAi": "AI 处理",
+      "enhance": "结构化"
+    }
+  }
+}
