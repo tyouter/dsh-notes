@@ -827,16 +827,21 @@
           // A persistent mark for the range that actions will use: the native selection
           // disappears as soon as the toolbar button takes focus. The textarea draws on top
           // of this layer with a transparent background, so the text is identical.
-          activeRange === null
-            ? null
-            : h(
-                'div',
-                { className: 'dshn-editor-marks', 'aria-hidden': 'true', ref: marksRef },
-                draft.slice(0, activeRange.start),
-                h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)),
-                draft.slice(activeRange.end),
-              ),
-          h('textarea', {
+          // One box for both layers: the highlight sits exactly where the textarea's text is,
+          // whatever padding the composer has.
+          h(
+            'div',
+            { className: 'dshn-editor-area' },
+            activeRange === null
+              ? null
+              : h(
+                  'div',
+                  { className: 'dshn-editor-marks', 'aria-hidden': 'true', ref: marksRef },
+                  draft.slice(0, activeRange.start),
+                  h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)),
+                  draft.slice(activeRange.end),
+                ),
+            h('textarea', {
             className: 'dshn-textarea',
             value: draft,
             placeholder: t.composePlaceholder,
@@ -855,11 +860,6 @@
               setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 }),
             onKeyDown: (event) => {
               const modifier = event.ctrlKey || event.metaKey
-              if (modifier && event.shiftKey && (event.key === 'F' || event.key === 'f')) {
-                event.preventDefault()
-                void runFormat()
-                return
-              }
               if (modifier && event.key === 'Enter') {
                 event.preventDefault()
                 void saveDraft()
@@ -867,7 +867,8 @@
             },
             'aria-label': t.composePlaceholder,
           }),
-        ),
+            ),
+          ),
         h(
           'div',
           { className: 'dshn-row dshn-capture-tools' },

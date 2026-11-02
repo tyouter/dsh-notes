@@ -1719,14 +1719,23 @@
 .dshn-textarea {
   width: 100%;
   min-height: 150px;
+  /* The overlay has neither padding nor a scrollbar gutter; without this the two layers wrap at
+     different widths and the highlight drifts on long lines. */
+  padding: 0;
+  scrollbar-width: none;
   resize: vertical;
   border: 0;
   outline: none;
   background: transparent;
   color: inherit;
-  font: inherit;
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: inherit;
+  line-height: inherit;
+  font-family: inherit;
+}
+.dshn-textarea::-webkit-scrollbar,
+.dshn-editor-marks::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 .dshn-textarea::placeholder { color: var(--dsw-alias-label-secondary); opacity: .85; }
 .dshn-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -2649,6 +2658,20 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* ---- selection highlight behind the editor ---- */
 .dshn-composer {
   position: relative;
+  /* The text metrics live here, on the one element both layers inherit from, so the highlight can
+     never disagree with the text it sits under. */
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+/* One box holds the highlight layer and the textarea, so the composer's padding and gap cannot
+   offset one from the other. */
+.dshn-editor-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
 }
 /* Identical metrics to the textarea, so the mark sits under the right characters. */
 .dshn-editor-marks {
@@ -2656,18 +2679,15 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  scrollbar-width: none;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
-  font: inherit;
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: inherit;
+  line-height: inherit;
+  font-family: inherit;
   color: transparent;
   z-index: 0;
-}
-.dshn-capture-box[data-layout='page'] .dshn-editor-marks {
-  font-size: 14px;
-  line-height: 1.85;
 }
 .dshn-editor-mark {
   /* A highlighter stroke rather than an underline: the light green from the heat palette,
@@ -2689,6 +2709,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  font-size: 14px;
+  line-height: 1.85;
   min-height: 0;
   padding: 0;
   border: none;
@@ -2759,8 +2781,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-capture-box[data-layout='page'] .dshn-textarea {
   flex: 1 1 auto;
   min-height: 360px;
-  font-size: 14px;
-  line-height: 1.85;
   border: none;
   background: transparent;
   padding: 0;
@@ -2949,9 +2969,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* In the narrow column the label would push the buttons onto their own row. */
 .dshn-quick-box .dshn-lang > .dshn-cap { display: none; }
 .dshn-quick-box .dshn-capture-box { gap: 6px; }
+.dshn-quick-box .dshn-composer {
+  font-size: 12.5px;
+}
 .dshn-quick-box .dshn-textarea {
   min-height: 120px;
-  font-size: 12.5px;
 }
 .dshn-quick-box .dshn-capture-tools .dshn-cap {
   display: none;
@@ -2962,7 +2984,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-side-hint { font-size: 11.5px; line-height: 1.7; color: var(--dsw-alias-label-secondary); }
 .dshn-side-answer { font-size: 13px; }
 .dshn-side-input { display: flex; flex-direction: column; gap: 6px; flex: none; }
-.dshn-side-input .dshn-textarea { min-height: 56px; font-size: 12.5px; }
+.dshn-side-input .dshn-textarea { min-height: 56px; }
+.dshn-side-input .dshn-composer { font-size: 12.5px; }
 /* The native conversation inside the board column: it owns its own scrolling and
    composer, so it only needs to fill the space. */
 /* Mirrors the learning plugin's working embedded-conversation container: the

@@ -109,6 +109,12 @@ const compactSheetStart = css.indexOf(".dshn-capture-box[data-layout='compact'] 
 const compactSheet = compactSheetStart < 0 ? '' : css.slice(compactSheetStart, css.indexOf('}', compactSheetStart) + 1)
 check('each compact sheet takes half', /flex:\s*1 1 50%/.test(compactSheet), compactSheet.slice(0, 200))
 
+// The mark layer used inset:0 on the composer while the textarea sat inside its padding, and the
+// quick pane rendered one at 13.5px and the other at 12.5px.
+check('the highlight shares the textarea box', /className: 'dshn-editor-area'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')))
+check('one set of metrics drives both layers', /\.dshn-composer \{[\s\S]{0,220}font-size: 13\.5px/.test(css) && /\.dshn-textarea \{[\s\S]{0,400}font-size: inherit/.test(css) && /\.dshn-editor-marks \{[\s\S]{0,300}font-size: inherit/.test(css), 'metrics are not shared')
+check('the textarea has no padding of its own', /padding:\s*0/.test(blockOf('.dshn-textarea')), blockOf('.dshn-textarea').slice(0, 200))
+
 const boardSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
 check('a collapsed wrapper is repaired at runtime', /function repairChain\(/.test(boardSource) && /repairChain\(node\)/.test(boardSource), 'repairChain is missing or not called')
 
