@@ -941,6 +941,13 @@
       const at = Math.max(0, Math.min(caret, source.length))
       const { start, end } = lineBounds(source, at)
       const line = source.slice(start, end)
+      // Already an item, holding nothing but the marker and spaces: the spaces mean "one level down".
+      const emptyItem = line.match(/^(\s*)-\s+( {2,})$/)
+      if (emptyItem !== null) {
+        const level = Math.min(4, Math.max(1, indentLevel(emptyItem[1])) + 1)
+        const replaced = bulletText(level, '')
+        return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
+      }
       if (hasMarker(line)) return null
       const leading = line.match(/^ {2,}/)?.[0] ?? ''
       if (leading === '') return null
