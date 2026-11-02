@@ -737,6 +737,10 @@
             ? { start: selected.start, end: selected.end }
             : null
 
+      // The page layout is opt-in (`layout: 'page'` on 记录); the board's quick note passes no
+      // layout at all, so anything else — including undefined — is the compact pane.
+      const compactLayout = props.layout !== 'page'
+
       // The preview page always shows the laid-out note. formatLocally is pure and cheap, so this
       // runs on every keystroke rather than behind a button.
       const laidOut = formatLocally(draft)
@@ -1111,7 +1115,7 @@
         'div',
         {
           className: 'dshn-capture-box',
-          'data-layout': props.layout === 'page' ? 'page' : 'compact',
+          'data-layout': compactLayout ? 'compact' : 'page',
           'data-split': showRender ? 'true' : 'false',
         },
         // Two independent sheets side by side; the source keeps its own size. The compact pane
@@ -1119,8 +1123,8 @@
         // "what it looks like" then "where you type".
         h(
           'div',
-          { className: 'dshn-sheets', 'data-order': props.layout === 'compact' ? 'render-first' : 'source-first' },
-          ...(props.layout === 'compact' ? [renderSheet, editorSheet] : [editorSheet, renderSheet]),
+          { className: 'dshn-sheets', 'data-order': compactLayout ? 'render-first' : 'source-first' },
+          ...(compactLayout ? [renderSheet, editorSheet] : [editorSheet, renderSheet]),
         ),
         statusLine,
       )
