@@ -1,13 +1,49 @@
-# The notebook: how it works and where to look
+# dsh-notes
 
-`@local/dsh-notes` 1.0.0 — a local notebook inside DSH, in three tabs. See
+`@tyouter/dsh-notes` 1.0.0 — a notebook inside DeepSeek Harness, in three tabs. Type into one box,
+read the typeset result beside it, and call the model only when judgement is needed. See
 [CHANGELOG.md](CHANGELOG.md) for what the first official release contains.
+
+## Install
+
+The package is a DSH **bundle**: it carries the host half, the web panel and the agent presets it
+needs, so one install is complete.
+
+```powershell
+dsh plugin --profile <name> add @tyouter/dsh-notes
+```
+
+Then add `@tyouter/dsh-notes` to `dsh.profile.bundles` in the profile's `package.json` if your
+installer does not do it for you, and restart. The plugin appears in the sidebar and the plugin
+inventory as **Notebook**.
+
+From a checkout instead:
+
+```powershell
+git clone https://github.com/tyouter/dsh-notes.git
+cd dsh-notes
+npm run build          # writes client.js from src/
+# then install the directory through Plugin Manager / install_bundle
+```
+
+Requirements: a DSH build with `node:sqlite` (Node 24 ships it). No other runtime dependency is
+installed; everything under `lib/` is first-party.
+
+## What it stores, and what leaves the machine
+
+- Notes are plain JSON files under `notes-vault/` in the workspace (configurable with `notesPath`),
+  plus a disposable SQLite projection rebuilt from them. Deleting the database loses nothing.
+- Nothing is uploaded. Model calls go through the host's own `llm` service, so they use whatever
+  provider and key the rest of DSH already uses.
+- The board's assistant is a real agent session limited to the notebook's read-only query tools,
+  `notes_analyze`, `dashboard_chart` and the note-writing `notes` tool.
 
 | Tab | What it is |
 | --- | --- |
 | 记录 | One box, two pages. The right page is Format, running live on every keystroke; the toolbar's「结构化」button adds an AI rewrite above it. |
 | 历史 | The grouped history with Markdown rendering, search, tags, a collapsible list drawer, and a **copilot sidebar** beside the open note. |
 | 看板 | Statistics over the notebook and its usage, plus the host's **native conversation** running the `notes-board` agent preset. |
+
 
 ### The four actions
 
@@ -156,11 +192,16 @@ The suites, in the order they are usually run:
 | `test/markdown.mjs` | rendering, snippets, tags, outline markers |
 | `test/document.mjs` | whole documents: coverage repair, index-aligned assembly, typography gate |
 | `test/layout.mjs` | dock layout contract + a preview page for the composer pinning |
-| `test/corpus.mjs` | live run against the app: 11 inputs → structure → render → translate |
+| `test/corpus.mjs` | live run against the app: 16 inputs → structure → render → translate |
 
-`client.js` is generated and is **not** committed: run `node build.mjs` after a
-clone, before starting the app. `exports/` holds generated previews and is also
-ignored.
+`client.js` is generated from `src/` by `build.mjs`. It **is** committed, because the host loads it
+as the package's `./client` export: a fresh clone therefore works without a build step, and
+`npm run build` is only needed after editing `src/`. `prepare`/`prepack` rebuild it on install and
+publish. `exports/` holds generated previews and is ignored.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ## Notes for maintainers
 

@@ -1,9 +1,10 @@
-# Build output: generated from src/ by build.mjs, rebuilt before every test run.
-client.js
-
-# Test artefacts: these are generated evidence (previews, HTML dumps), not sources.
+# Test artefacts: generated evidence (previews, HTML dumps), not sources.
 exports/
 test/.preview-fixture/
 test/.document-fixture/
 test/.corpus-fixture/
 tmp/
+
+# Local installs / tooling.
+node_modules/
+*.tgz

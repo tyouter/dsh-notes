@@ -1,5 +1,5 @@
 /**
- * @local/dsh-notes - a local notebook inside DSH (host half).
+ * @tyouter/dsh-notes - a notebook inside DeepSeek Harness (host half).
  *
  * Everything durable is plain JSON files under one directory, so the notebook
  * outlives the process and stays readable with any editor. This half owns the

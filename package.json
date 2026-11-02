@@ -1,9 +1,29 @@
 {
-  "name": "@local/dsh-notes",
+  "name": "@tyouter/dsh-notes",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
   "type": "module",
-  "description": "A local notebook inside DSH with an AI writing partner: one box to capture, one click to structure, and a companion that reads and edits the same notes.",
+  "description": "A notebook inside DeepSeek Harness: type into one box, read the typeset result beside it, then structure or translate it with AI.",
+  "license": "MIT",
+  "author": "tyouter <tyouter@126.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tyouter/dsh-notes.git"
+  },
+  "homepage": "https://github.com/tyouter/dsh-notes#readme",
+  "bugs": {
+    "url": "https://github.com/tyouter/dsh-notes/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "bundle",
+    "notes",
+    "notebook",
+    "markdown",
+    "writing"
+  ],
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -19,8 +39,19 @@
     "build.mjs",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "CHANGELOG.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node tools/check-sources.mjs",
+    "test": "node tools/check-sources.mjs && node build.mjs && node test/host.mjs && node test/prompts.mjs && node test/api.mjs && node test/render.mjs && node test/markdown.mjs && node test/document.mjs && node test/layout.mjs",
+    "prepare": "node build.mjs",
+    "prepack": "node build.mjs"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

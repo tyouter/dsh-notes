@@ -21,7 +21,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const PACKAGE = '@local/dsh-notes'
+
+/** The loader id is the package name; read it so a rename cannot leave a stale id behind. */
+async function readPackageName() {
+  const manifest = JSON.parse(await readFile(join(here, 'package.json'), 'utf8'))
+  return String(manifest.name ?? 'dsh-notes')
+}
+
+const PACKAGE = await readPackageName()
 
 const header = `/**
  * Browser half of the notebook panel.

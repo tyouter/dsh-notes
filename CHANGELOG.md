@@ -7,6 +7,9 @@
 The notebook as it is meant to be used: type into one box, read the typeset result beside it, and
 call the model only when judgement is needed.
 
+Shipped as @tyouter/dsh-notes, MIT licensed, as a single bundle: the host half, the web panel and
+the three agent presets the board assistant needs all come from one install.
+
 ### The two pages
 
 - **Format runs live.** `formatLocally` normalises dashes, stray stars, numbering, blank lines and
