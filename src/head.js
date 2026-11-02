@@ -930,6 +930,32 @@
       return indentLevel(match[1])
     }
 
+    /**
+     * A line that is nothing but two or more spaces becomes a bullet immediately.
+     *
+     * This is the timing-independent half of 极简写: the burst detector is for going deeper, but
+     * turning spaces into a bullet must not depend on how fast the keys were tapped.
+     */
+    function autoBulletLine(text, caret) {
+      const source = String(text ?? '')
+      const at = Math.max(0, Math.min(caret, source.length))
+      const { start, end } = lineBounds(source, at)
+      const line = source.slice(start, end)
+      if (hasMarker(line)) return null
+      const leading = line.match(/^ {2,}/)?.[0] ?? ''
+      if (leading === '') return null
+      // The caret has to be inside this line's text (after the spaces); mid-line edits stay put.
+      if (at < start + leading.length) return null
+      const rest = line.slice(leading.length)
+      const level = Math.max(1, Math.min(4, Math.floor(leading.length / 2)))
+      const prefix = bulletText(level, '')
+      const replaced = bulletText(level, rest === '' ? '' : rest)
+      // Keep the caret where it was relative to the text, not relative to the spaces.
+      const caretOffset = Math.max(0, at - start - leading.length)
+      const newLine = rest === '' ? prefix : replaced
+      return { text: source.slice(0, start) + newLine + source.slice(end), caret: start + prefix.length + caretOffset }
+    }
+
     /** Enter on a bullet continues at the same level, marker included. */
     function continueBulletLine(text, index) {
       const source = String(text ?? '')

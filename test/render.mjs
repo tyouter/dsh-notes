@@ -506,6 +506,10 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the list width is remembered', /dshn\.history\.listWidth/.test(panelSource))
     check('cards clamp to two lines', /line-clamp: 2/.test(headCss) && /-webkit-line-clamp: 2/.test(headCss))
     // Completion: a 1s pause while typing, TAB takes a chunk, the chunk stays selected.
+    // 极简写: spaces are checked on input, not only inside a fast-burst handler.
+    check('a slow double tap still makes a bullet', /autoBulletLine\(value, caret\)/.test(boardSource))
+    check('the burst window tolerates a real double tap', /< 400\)/.test(boardSource))
+
     check('completion waits for a pause', /1000\)/.test(boardSource) && /scheduleCompletion/.test(boardSource))
     check('completion fires wherever the caret stopped', /atSentenceBoundary/.test(boardSource) === false && /Typing is what stops/.test(boardSource))
     check('TAB takes one chunk', /acceptGhostChunk\(\)/.test(boardSource) && /event\.key === 'Tab'/.test(boardSource))

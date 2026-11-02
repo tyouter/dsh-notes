@@ -408,6 +408,14 @@ check('a note with nothing repeated has no local answer', internals.repetitionSu
 
 check('Backspace inside the text is left to the browser', internals.backspaceLine('- 甲乙丙', 6) === null)
 
+// Spaces make a bullet the moment they are typed, however slow the taps were.
+check('two spaces make a bullet immediately', internals.autoBulletLine('会议\n  ', 5)?.text === '会议\n- ', JSON.stringify(internals.autoBulletLine('会议\n  ', 5)))
+check('four spaces make it nested', internals.autoBulletLine('会议\n    ', 7)?.text === '会议\n  - ', JSON.stringify(internals.autoBulletLine('会议\n    ', 7)))
+check('the word after the spaces joins the item', internals.autoBulletLine('会议\n  甲', 6)?.text === '会议\n- 甲', JSON.stringify(internals.autoBulletLine('会议\n  甲', 6)))
+check('a mid-line double space is not a bullet', internals.autoBulletLine('会议  甲乙', 7) === null)
+check('an existing marker is left alone', internals.autoBulletLine('- 甲\n', 5) === null)
+check('the caret lands after the marker', internals.autoBulletLine('会议\n  ', 5)?.caret === 5, String(internals.autoBulletLine('会议\n  ', 5)?.caret))
+
 const promoted = internals.spaceBurstLine('正文文字', 0)
 check('two spaces promote a prose line to a bullet', promoted?.text === '- 正文文字', JSON.stringify(promoted))
 

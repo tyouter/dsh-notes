@@ -948,6 +948,32 @@ window.__ModuleLoader__.load({
       return indentLevel(match[1])
     }
 
+    /**
+     * A line that is nothing but two or more spaces becomes a bullet immediately.
+     *
+     * This is the timing-independent half of 极简写: the burst detector is for going deeper, but
+     * turning spaces into a bullet must not depend on how fast the keys were tapped.
+     */
+    function autoBulletLine(text, caret) {
+      const source = String(text ?? '')
+      const at = Math.max(0, Math.min(caret, source.length))
+      const { start, end } = lineBounds(source, at)
+      const line = source.slice(start, end)
+      if (hasMarker(line)) return null
+      const leading = line.match(/^ {2,}/)?.[0] ?? ''
+      if (leading === '') return null
+      // The caret has to be inside this line's text (after the spaces); mid-line edits stay put.
+      if (at < start + leading.length) return null
+      const rest = line.slice(leading.length)
+      const level = Math.max(1, Math.min(4, Math.floor(leading.length / 2)))
+      const prefix = bulletText(level, '')
+      const replaced = bulletText(level, rest === '' ? '' : rest)
+      // Keep the caret where it was relative to the text, not relative to the spaces.
+      const caretOffset = Math.max(0, at - start - leading.length)
+      const newLine = rest === '' ? prefix : replaced
+      return { text: source.slice(0, start) + newLine + source.slice(end), caret: start + prefix.length + caretOffset }
+    }
+
     /** Enter on a bullet continues at the same level, marker included. */
     function continueBulletLine(text, index) {
       const source = String(text ?? '')
@@ -3743,7 +3769,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         const state = spaceRef.current
         // A held space is just spaces now: backing out belongs to Backspace.
         if (event.repeat) return
-        if (now - state.lastAt < 150) state.burst += 1
+        if (now - state.lastAt < 400) state.burst += 1
         else state.burst = 1
         state.lastAt = now
         if (state.burst >= 2) {
@@ -4355,8 +4381,20 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             spellCheck: false,
             autoFocus: props.autoFocus === true,
             onChange: (event) => {
-              setDraft(event.target.value)
-              scheduleCompletion(event.target.selectionStart ?? event.target.value.length)
+              const value = event.target.value
+              const caret = event.target.selectionStart ?? value.length
+              // Two spaces at the start of a line are a bullet, however fast they were typed.
+              const bulleted = autoBulletLine(value, caret)
+              setDraft(bulleted === null ? value : bulleted.text)
+              if (bulleted !== null) {
+                setTimeout(() => {
+                  const area = areaRef.current
+                  if (area === null) return
+                  area.focus()
+                  area.setSelectionRange(bulleted.caret, bulleted.caret)
+                }, 0)
+              }
+              scheduleCompletion(bulleted === null ? caret : bulleted.caret)
             },
             onScroll: (event) => {
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
@@ -5691,7 +5729,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, backspaceLine, suggestionChunks, repetitionSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

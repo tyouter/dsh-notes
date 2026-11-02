@@ -400,7 +400,7 @@
         const state = spaceRef.current
         // A held space is just spaces now: backing out belongs to Backspace.
         if (event.repeat) return
-        if (now - state.lastAt < 150) state.burst += 1
+        if (now - state.lastAt < 400) state.burst += 1
         else state.burst = 1
         state.lastAt = now
         if (state.burst >= 2) {
@@ -1012,8 +1012,20 @@
             spellCheck: false,
             autoFocus: props.autoFocus === true,
             onChange: (event) => {
-              setDraft(event.target.value)
-              scheduleCompletion(event.target.selectionStart ?? event.target.value.length)
+              const value = event.target.value
+              const caret = event.target.selectionStart ?? value.length
+              // Two spaces at the start of a line are a bullet, however fast they were typed.
+              const bulleted = autoBulletLine(value, caret)
+              setDraft(bulleted === null ? value : bulleted.text)
+              if (bulleted !== null) {
+                setTimeout(() => {
+                  const area = areaRef.current
+                  if (area === null) return
+                  area.focus()
+                  area.setSelectionRange(bulleted.caret, bulleted.caret)
+                }, 0)
+              }
+              scheduleCompletion(bulleted === null ? caret : bulleted.caret)
             },
             onScroll: (event) => {
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
