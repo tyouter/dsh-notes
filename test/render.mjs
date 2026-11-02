@@ -256,8 +256,8 @@ try {
     // The AI-usage chart maps action kinds to labels; a missing label table used
     // to crash the board only when that series was non-empty.
     if (typeof internals?.aiUsageSeries === 'function') {
-      const series = internals.aiUsageSeries([{ label: 'copilot.polish', value: 3 }, { label: 'unknown.kind', value: 1 }])
-      check('ai usage maps a known kind to its label', series[0]?.label === '润色', JSON.stringify(series))
+      const series = internals.aiUsageSeries([{ label: 'translate', value: 3 }, { label: 'unknown.kind', value: 1 }])
+      check('ai usage maps a known kind to its label', series[0]?.label === '翻译', JSON.stringify(series))
       check('ai usage keeps an unknown kind readable', series[1]?.label === 'unknown.kind', JSON.stringify(series))
       check('ai usage keeps the counts', series[0]?.value === 3 && series[1]?.value === 1)
       check('ai usage tolerates no data', internals.aiUsageSeries(undefined).length === 0)
@@ -410,7 +410,7 @@ check('the picker feeds both translate flows', (boardSource.match(/resolveTransl
     check('the client states whether to keep numbering', boardSource.includes('keepNumbering: partial'))
     check('translation uses its own route', boardSource.includes("'/translate/stream'"))
     // The wrapper words of the copilot prompt used to be translated along with the note.
-    check('translation no longer goes through the copilot prompt', boardSource.includes("action: 'translate'") === false)
+    check('translation does not go through the structuring prompt', boardSource.includes("action: 'translate'") === false)
     const chatSource = await readFile(join(packageDir, 'lib', 'chat.js'), 'utf8')
     check('the translate prompt has no wrapper labels', /streamTranslate[\s\S]{0,1600}只输出译文本身|streamTranslate[\s\S]{0,1600}逐行翻译/.test(chatSource))
 check('the layout preview is rendered whole', /renderNoteBody\(laidOut, markSet\)/.test(boardSource))
@@ -486,48 +486,16 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the capture box starts compact unless asked for a page', findAll(box, 'dshn-capture-box')[0]?.props['data-layout'] === 'compact')
     const asPage = render(internals.CaptureBox, { ...captureProps, layout: 'page' })
     check('the 记录 tab gets the page layout', findAll(asPage, 'dshn-capture-box')[0]?.props['data-layout'] === 'page')
+    // Editing a note mounts the same capture components: no second editor, no sidebar.
+    const captureSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
+    const panelSource = await readFile(join(packageDir, 'src', 'panel.js'), 'utf8')
+    check('editing reuses the capture box', /initial: selected\.body/.test(panelSource) && /noteId: selected\.id/.test(panelSource), 'panel.js does not bind the capture box')
+    check('the capture box can edit an existing note', captureSource.includes("put('/note/' + encodeURIComponent(props.noteId)"))
+    check('the capture box skips the create call when bound', captureSource.includes('props.noteId === undefined'))
+    check('cancel can leave a bound editor', captureSource.includes('props.onCancel'))
+    check('no copilot sidebar remains', /CopilotSidebar|dshn-copilot/.test(captureSource) === false && /CopilotSidebar/.test(panelSource) === false)
   }
 
-  // The copilot beside an open note.
-  if (typeof internals?.CopilotSidebar === 'function') {
-    const copilot = render(internals.CopilotSidebar, {
-      t: {
-        copilotTitle: 'Copilot', copilotHide: '收', copilotShow: '展',
-        copilotComplete: '续写', copilotPolish: '润色', copilotTranslate: '翻译',
-        copilotExpand: '展开', copilotSummarize: '摘要', copilotAsk: '提问',
-        copilotAskPlaceholder: '问…', copilotHint: '提示', copilotSelectionHint: '只处理选中',
-        copilotWholeHint: '处理整篇', copilotSelection: (n) => n + ' 字', copilotWhole: '整篇',
-        copilotClear: '清空', copilotAppend: '加到文末', copilotReplaceSelection: '替换选中',
-        copilotReplaceAll: '替换全文', thinking: '思考中…',
-      },
-      note: { id: 'n1', title: 'T', body: '正文内容' },
-      editing: false,
-      draft: '',
-      selectionRef: { current: { start: 0, end: 0 } },
-      onApply: () => {},
-    })
-    check('copilot renders its actions', findAll(copilot, 'dshn-btn').length >= 5, String(findAll(copilot, 'dshn-btn').length))
-    check('copilot reports the whole-note scope', findAll(copilot, 'dshn-copilot').length === 1)
-
-    // With a selection, the replace-selection button becomes usable.
-    const withSelection = render(internals.CopilotSidebar, {
-      t: {
-        copilotTitle: 'Copilot', copilotHide: '收', copilotShow: '展',
-        copilotComplete: '续写', copilotPolish: '润色', copilotTranslate: '翻译',
-        copilotExpand: '展开', copilotSummarize: '摘要', copilotAsk: '提问',
-        copilotAskPlaceholder: '问…', copilotHint: '提示', copilotSelectionHint: '只处理选中',
-        copilotWholeHint: '处理整篇', copilotSelection: (n) => n + ' 字', copilotWhole: '整篇',
-        copilotClear: '清空', copilotAppend: '加到文末', copilotReplaceSelection: '替换选中',
-        copilotReplaceAll: '替换全文', thinking: '思考中…',
-      },
-      note: { id: 'n1', title: 'T', body: '正文内容' },
-      editing: true,
-      draft: '正文内容',
-      selectionRef: { current: { start: 0, end: 2 } },
-      onApply: () => {},
-    })
-    check('copilot reflects a selection', findAll(withSelection, 'dshn-copilot').length === 1)
-  }
 } finally {
   await rm(vault, { recursive: true, force: true })
   await rm(fixtures, { recursive: true, force: true })

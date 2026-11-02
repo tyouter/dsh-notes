@@ -75,26 +75,6 @@ window.__ModuleLoader__.load({
         ask: '提问',
         thinking: '思考中…',
 
-        // ---- copilot ----
-        copilotTitle: 'Copilot',
-        copilotHide: '收起 Copilot',
-        copilotShow: '展开 Copilot',
-        copilotComplete: '续写',
-        copilotPolish: '润色',
-        copilotTranslate: '翻译',
-        copilotExpand: '展开',
-        copilotSummarize: '摘要',
-        copilotAsk: '提问',
-        copilotAskPlaceholder: '针对这段问 AI…',
-        copilotHint: '选中正文里的文字，再点一个动作；不选就处理整篇。',
-        copilotSelectionHint: '将只处理选中的文字',
-        copilotWholeHint: '没有选中文字，将处理整篇笔记',
-        copilotSelection: (count) => '已选 ' + count + ' 字',
-        copilotWhole: '整篇',
-        copilotClear: '清空',
-        copilotAppend: '加到文末',
-        copilotReplaceSelection: '替换选中',
-        copilotReplaceAll: '替换全文',
         composePlaceholder: '写点什么… 第一行会成为标题',
         enhance: '结构化',
         format: 'Format',
@@ -240,26 +220,6 @@ window.__ModuleLoader__.load({
         ask: 'Ask',
         thinking: 'Thinking…',
 
-        // ---- copilot ----
-        copilotTitle: 'Copilot',
-        copilotHide: 'Hide Copilot',
-        copilotShow: 'Show Copilot',
-        copilotComplete: 'Continue',
-        copilotPolish: 'Polish',
-        copilotTranslate: 'Translate',
-        copilotExpand: 'Expand',
-        copilotSummarize: 'Summarize',
-        copilotAsk: 'Ask',
-        copilotAskPlaceholder: 'Ask about this text…',
-        copilotHint: 'Select text in the note, then pick an action; with no selection the whole note is used.',
-        copilotSelectionHint: 'Only the selected text will be used',
-        copilotWholeHint: 'No selection: the whole note will be used',
-        copilotSelection: (count) => count + ' chars selected',
-        copilotWhole: 'Whole note',
-        copilotClear: 'Clear',
-        copilotAppend: 'Append',
-        copilotReplaceSelection: 'Replace selection',
-        copilotReplaceAll: 'Replace note',
         composePlaceholder: 'Write something⬦ the first line becomes the title',
         enhance: 'Structure',
         format: 'Format',
@@ -2479,67 +2439,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-board-main,
 .dshn-quick-box,
 .dshn-detail-body,
-.dshn-copilot-output {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-.dshn-page-render:hover,
-.dshn-capture-pane:hover,
-.dshn-bars:hover,
-.dshn-heat-scroll:hover,
-.dshn-side-log:hover,
-.dshn-board-main:hover,
-.dshn-quick-box:hover,
-.dshn-detail-body:hover,
-.dshn-copilot-output:hover {
-  scrollbar-color: var(--dsw-alias-border-l2) transparent;
-}
-.dshn-page-render::-webkit-scrollbar,
-.dshn-capture-pane::-webkit-scrollbar,
-.dshn-bars::-webkit-scrollbar,
-.dshn-heat-scroll::-webkit-scrollbar,
-.dshn-side-log::-webkit-scrollbar,
-.dshn-board-main::-webkit-scrollbar,
-.dshn-quick-box::-webkit-scrollbar,
-.dshn-detail-body::-webkit-scrollbar,
-.dshn-copilot-output::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.dshn-page-render::-webkit-scrollbar-track,
-.dshn-capture-pane::-webkit-scrollbar-track,
-.dshn-bars::-webkit-scrollbar-track,
-.dshn-heat-scroll::-webkit-scrollbar-track,
-.dshn-side-log::-webkit-scrollbar-track,
-.dshn-board-main::-webkit-scrollbar-track,
-.dshn-quick-box::-webkit-scrollbar-track,
-.dshn-detail-body::-webkit-scrollbar-track,
-.dshn-copilot-output::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dshn-page-render::-webkit-scrollbar-thumb,
-.dshn-capture-pane::-webkit-scrollbar-thumb,
-.dshn-bars::-webkit-scrollbar-thumb,
-.dshn-heat-scroll::-webkit-scrollbar-thumb,
-.dshn-side-log::-webkit-scrollbar-thumb,
-.dshn-board-main::-webkit-scrollbar-thumb,
-.dshn-quick-box::-webkit-scrollbar-thumb,
-.dshn-detail-body::-webkit-scrollbar-thumb,
-.dshn-copilot-output::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
-}
-.dshn-page-render:hover::-webkit-scrollbar-thumb,
-.dshn-capture-pane:hover::-webkit-scrollbar-thumb,
-.dshn-bars:hover::-webkit-scrollbar-thumb,
-.dshn-heat-scroll:hover::-webkit-scrollbar-thumb,
-.dshn-side-log:hover::-webkit-scrollbar-thumb,
-.dshn-board-main:hover::-webkit-scrollbar-thumb,
-.dshn-quick-box:hover::-webkit-scrollbar-thumb,
-.dshn-detail-body:hover::-webkit-scrollbar-thumb,
-.dshn-copilot-output:hover::-webkit-scrollbar-thumb {
-  background: var(--dsw-alias-border-l2);
-}
 
 .dshn-side-dock {
   /* The containing block for the docked layers. Absolute positioning is what makes the
@@ -3083,89 +2982,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   margin-top: -2px;
 }
 
-/* ---- the editor copilot ---- */
-.dshn-detail-split { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
-.dshn-detail-split .dshn-detail-body { flex: 1 1 auto; min-width: 0; }
-.dshn-copilot {
-  width: 268px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-left: 1px solid var(--dsw-alias-border-l1);
-  padding: 10px 12px;
-  min-height: 0;
-  background: var(--dsw-alias-bg-base);
-}
-.dshn-copilot[data-open="false"] { width: 40px; padding: 10px 4px; align-items: center; }
-.dshn-copilot-actions { display: flex; flex-wrap: wrap; gap: 4px; flex: none; }
-.dshn-copilot-actions .dshn-btn { padding: 3px 9px; font-size: 11.5px; }
-.dshn-copilot-ask { display: flex; gap: 4px; flex: none; }
-.dshn-copilot-ask input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-sm);
-  background: var(--dsw-alias-bg-layer-1);
-  color: inherit;
-  font: inherit;
-  font-size: 11.5px;
-  padding: 4px 8px;
-  outline: none;
-}
-.dshn-copilot-output {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  min-height: 0;
-  font-size: 12.5px;
-  line-height: 1.75;
-  border-radius: var(--dshn-r-sm);
-}
-.dshn-copilot-foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: none; }
-.dshn-copilot-foot .dshn-btn { padding: 3px 8px; font-size: 11.5px; }
-.dshn-md-rule {
-  border: 0;
-  border-top: 1px solid var(--dsw-alias-border-l1);
-  margin: 22px 0;
-}
-
-.dshn-detail {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-md);
-  background: var(--dsw-alias-bg-layer-1);
-  overflow: hidden;
-}
-.dshn-detail-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l1);
-  flex-wrap: wrap;
-}
-.dshn-detail-title { font-weight: 650; font-size: 14.5px; letter-spacing: -.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 120px; }
-.dshn-detail-body { flex: 1 1 auto; overflow-y: auto; padding: 22px 30px 28px; min-height: 0; }
-.dshn-body-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.75; margin: 0; font-family: inherit; }
-.dshn-tags { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 10px; }
-.dshn-tag {
-  font-size: 11px;
-  color: var(--dsw-alias-label-secondary);
-  background: var(--dsw-alias-bg-layer-2);
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 999px;
-  padding: 0 8px;
-  line-height: 18px;
-  cursor: pointer;
-}
-.dshn-tag:hover { color: var(--dsw-alias-label-primary); }
-.dshn-foot { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--dsw-alias-label-secondary); }
-.dshn-empty { color: var(--dsw-alias-label-secondary); font-size: 12.5px; padding: 24px 12px; text-align: center; }
-.dshn-more { margin-left: 6px; }
-
 /* ---- AI tab: chat left, context and starters right ---- */
 .dshn-ai { display: flex; flex: 1 1 auto; min-height: 0; }
 .dshn-ai-chat { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--dsw-alias-border-l1); }
@@ -3580,7 +3396,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
      */
     function CaptureBox(props) {
       const t = props.t
-      const [draft, setDraft] = useState('')
+      // A note opened for editing seeds the draft; the capture page starts empty.
+      const [draft, setDraft] = useState(() => String(props.initial ?? ''))
       const [enhance, setEnhance] = useState(null)
       const [enhancing, setEnhancing] = useState(false)
       const [enhanceSeconds, setEnhanceSeconds] = useState(0)
@@ -3627,8 +3444,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         if (body === '') return
         setStatus(t.saving)
         try {
-          await post('/note', { body: draft, tags: parseTags(pendingTags), source: 'panel' })
-          setDraft('')
+          if (props.noteId === undefined) {
+            await post('/note', { body: draft, tags: parseTags(pendingTags), source: 'panel' })
+            setDraft('')
+          } else {
+            // Editing an existing note: update it in place and keep the text on screen.
+            await put('/note/' + encodeURIComponent(props.noteId), { body: draft })
+          }
           flash(t.saved)
           await props.onSaved?.()
         } catch (problem) {
@@ -4173,7 +3995,18 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           ),
           enhancing
             ? h('button', { className: 'dshn-btn ghost', onClick: stopStructured }, t.enhanceStop)
-            : h('button', { className: 'dshn-btn ghost', onClick: () => setDraft(''), disabled: draft === '' }, t.cancel),
+            : h(
+                'button',
+                {
+                  className: 'dshn-btn ghost',
+                  onClick: () => {
+                    if (typeof props.onCancel === 'function') props.onCancel()
+                    else setDraft('')
+                  },
+                  disabled: draft === '' && typeof props.onCancel !== 'function',
+                },
+                t.cancel,
+              ),
           h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
         ),
       )
@@ -4416,11 +4249,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
     /** How each AI action kind reads in the chart. */
     const AI_KIND_LABELS = {
       enhance: '结构化',
-      'copilot.complete': '续写',
-      'copilot.polish': '润色',
-      'copilot.translate': '翻译',
-      'copilot.ask': '提问',
-      'copilot.explain': '解释',
+      translate: '翻译',
     }
 
     /** The AI-usage series for the chart, with kinds translated for display. */
@@ -4777,184 +4606,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       )
     }
 
-    // ------------------------------------------------------------- copilot ---
-    //
-    // Beside an open note: pick an action, get streamed text, put it where it
-    // belongs. Selection comes from the editor's own caret, so "划线" here means
-    // "the text you have selected" with no separate annotation layer.
-
-    function CopilotSidebar({ t, note, editing, draft, selectionRef, onApply }) {
-      const [output, setOutput] = useState('')
-      const [busy, setBusy] = useState(false)
-      const [error, setError] = useState('')
-      const [question, setQuestion] = useState('')
-      const [open, setOpen] = useState(true)
-      const [meta, setMeta] = useState(null)
-
-      const document = editing ? draft : String(note?.body ?? '')
-      const range = selectionRef?.current ?? { start: 0, end: 0 }
-      const selected = document.slice(Math.min(range.start, range.end), Math.max(range.start, range.end))
-      const hasSelection = selected.trim() !== ''
-
-      const run = useCallback(
-        async (action) => {
-          if (busy) return
-          setBusy(true)
-          setOutput('')
-          setError('')
-          setMeta(null)
-          try {
-            await streamEvents(
-              '/copilot/stream',
-              {
-                action,
-                selection: hasSelection ? selected : '',
-                document,
-                title: note?.title ?? '',
-                instruction: action === 'ask' ? question : '',
-              },
-              (event, payload) => {
-                if (event === 'delta') {
-                  setOutput((current) => current + String(payload?.text ?? ''))
-                  return
-                }
-                if (event === 'error') {
-                  setError(String(payload?.message ?? '调用失败'))
-                  return
-                }
-                if (event === 'done') setMeta({ model: payload?.model, elapsedMs: payload?.elapsedMs })
-              },
-            )
-          } catch (problem) {
-            setError(String(problem?.message ?? problem))
-          } finally {
-            setBusy(false)
-          }
-        },
-        [busy, document, hasSelection, note, question, selected],
-      )
-
-      if (note === null || note === undefined) return null
-
-      const actions = [
-        ['complete', t.copilotComplete],
-        ['polish', t.copilotPolish],
-        ['translate', t.copilotTranslate],
-        ['expand', t.copilotExpand],
-        ['summarize', t.copilotSummarize],
-      ]
-
-      return h(
-        'div',
-        { className: 'dshn-copilot', 'data-open': String(open) },
-        h(
-          'div',
-          { className: 'dshn-side-head' },
-          h(
-            'button',
-            {
-              className: 'dshn-icon-btn',
-              title: open ? t.copilotHide : t.copilotShow,
-              'aria-label': open ? t.copilotHide : t.copilotShow,
-              'aria-expanded': String(open),
-              onClick: () => setOpen(!open),
-            },
-            open ? '›' : '‹',
-          ),
-          h('span', { className: 'dshn-side-title' }, t.copilotTitle),
-          h('span', { className: 'dshn-grow' }),
-          h(
-            'span',
-            { className: 'dshn-cap', title: hasSelection ? t.copilotSelectionHint : t.copilotWholeHint },
-            hasSelection ? t.copilotSelection(selected.length) : t.copilotWhole,
-          ),
-        ),
-        open
-          ? h(
-              React.Fragment,
-              null,
-              h(
-                'div',
-                { className: 'dshn-copilot-actions' },
-                ...actions.map(([id, label]) =>
-                  h(
-                    'button',
-                    {
-                      key: id,
-                      className: 'dshn-btn ghost',
-                      disabled: busy,
-                      onClick: () => void run(id),
-                    },
-                    label,
-                  ),
-                ),
-              ),
-              h(
-                'div',
-                { className: 'dshn-copilot-ask' },
-                h('input', {
-                  value: question,
-                  placeholder: t.copilotAskPlaceholder,
-                  onChange: (event) => setQuestion(event.target.value),
-                  onKeyDown: (event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      void run('ask')
-                    }
-                  },
-                  'aria-label': t.copilotAskPlaceholder,
-                }),
-                h('button', { className: 'dshn-btn ghost', disabled: busy, onClick: () => void run('ask') }, t.copilotAsk),
-              ),
-              error !== '' ? h('div', { className: 'dshn-err' }, error) : null,
-              h(
-                'div',
-                { className: 'dshn-copilot-output' },
-                output === ''
-                  ? h('div', { className: 'dshn-side-hint' }, busy ? t.thinking : t.copilotHint)
-                  : h('div', { className: 'dshn-md' }, renderMarkdown(output)),
-              ),
-              output === '' && !busy
-                ? null
-                : h(
-                    'div',
-                    { className: 'dshn-copilot-foot' },
-                    h('span', { className: 'dshn-cap' }, meta === null ? '' : `${meta.elapsedMs}ms`),
-                    h('span', { className: 'dshn-grow' }),
-                    h(
-                      'button',
-                      { className: 'dshn-btn ghost', disabled: busy || output === '', onClick: () => setOutput('') },
-                      t.copilotClear,
-                    ),
-                    h(
-                      'button',
-                      {
-                        className: 'dshn-btn ghost',
-                        disabled: busy || output === '',
-                        onClick: () => onApply(output, 'append'),
-                      },
-                      t.copilotAppend,
-                    ),
-                    h(
-                      'button',
-                      {
-                        className: 'dshn-btn ghost',
-                        disabled: busy || output === '' || !hasSelection,
-                        onClick: () => onApply(output, 'replace-selection'),
-                      },
-                      t.copilotReplaceSelection,
-                    ),
-                    h(
-                      'button',
-                      { className: 'dshn-btn primary', disabled: busy || output === '', onClick: () => onApply(output, 'replace-all') },
-                      t.copilotReplaceAll,
-                    ),
-                  ),
-            )
-          : null,
-      )
-    }
-
     // --------------------------------------------------------------- icons ---
 
     /** The notebook glyph, shared by the sidebar, the composer button, and the overlay. */
@@ -4983,7 +4634,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
     // One notebook, three tabs: 记录 / 历史 / 看板.
     //
     // There is no assistant *conversation* any more. The AI surfaces are the
-    // structuring card under the capture box, the copilot beside an open note,
+    // structuring card under the capture box,
     // and the dashboard's own chat. Each is a plain streamed model call, so the
     // panel owns no session and nothing must be created before asking.
     // =====================================================================
@@ -5317,13 +4968,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const [tagFilter, setTagFilter] = useState('')
       const [showAllTags, setShowAllTags] = useState(false)
       const [editing, setEditing] = useState(false)
-      const [editBody, setEditBody] = useState('')
       // The drawer: collapsed, the list steps aside and one note fills the pane.
       const [listOpen, setListOpen] = useState(true)
-      // Where the caret sits in the editor, so the copilot can replace exactly the
-      // selected text. A ref because it changes on every click and keypress.
-      const selectionRef = useRef({ start: 0, end: 0 })
-
       // Search and filters run over the list the panel already holds, so
       // switching tabs never waits on the network.
       const filtered = useMemo(() => {
@@ -5352,33 +4998,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         ].filter((group) => group.notes.length > 0)
       }, [filtered, t])
 
-      /**
-       * Put copilot text into the editor.
-       *
-       * Three modes: append to the end, replace the tracked selection, or replace
-       * the whole body. Editing is entered first, so the result is always
-       * reviewable before it is saved.
-       */
-      const applyCopilotText = (value, mode) => {
-        const incoming = String(value ?? '')
-        const current = editing ? editBody : String(selected === null ? '' : (selected.body ?? ''))
-        if (mode === 'replace-all') {
-          setEditBody(incoming)
-          setEditing(true)
-          return
-        }
-        if (mode === 'append') {
-          setEditBody(current.replace(/\s+$/, '') + '\n\n' + incoming)
-          setEditing(true)
-          return
-        }
-        const range = selectionRef.current
-        const start = Math.max(0, Math.min(range.start, current.length))
-        const end = Math.max(start, Math.min(range.end, current.length))
-        setEditBody(current.slice(0, start) + incoming + current.slice(end))
-        setEditing(true)
-      }
-
       const action = async (operation) => {
         try {
           await operation()
@@ -5386,12 +5005,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         } catch {
           /* the panel header reports the refresh failure */
         }
-      }
-
-      const saveEdit = async () => {
-        if (selected === null || editBody.trim() === '') return
-        await action(() => put(`/note/${encodeURIComponent(selected.id)}`, { body: editBody }))
-        setEditing(false)
       }
 
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
@@ -5543,71 +5156,30 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                       selected.pinned ? t.unpin : t.pin,
                     ),
                     editing
-                      ? h(
-                          React.Fragment,
-                          null,
-                          h('button', { className: 'dshn-btn ghost', onClick: () => setEditing(false) }, t.cancel),
-                          h('button', { className: 'dshn-btn primary', onClick: () => void saveEdit() }, t.save),
-                        )
-                      : h(
-                          'button',
-                          {
-                            className: 'dshn-btn ghost',
-                            onClick: () => {
-                              setEditBody(selected.body ?? '')
-                              setEditing(true)
-                            },
-                          },
-                          t.edit,
-                        ),
+                      ? null
+                      : h('button', { className: 'dshn-btn ghost', onClick: () => setEditing(true) }, t.edit),
                     h(
                       'button',
                       { className: 'dshn-btn ghost danger', onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)) },
                       t.delete,
                     ),
                   ),
-                  h(
-                    'div',
-                    { className: 'dshn-detail-split' },
-                    h(
-                      'div',
-                      { className: 'dshn-detail-body' },
-                    editing
-                      ? h('textarea', {
-                          className: 'dshn-textarea',
-                          style: { minHeight: '240px', width: '100%', height: '100%', boxSizing: 'border-box' },
-                          value: editBody,
-                          spellCheck: false,
-                          onChange: (event) => setEditBody(event.target.value),
-                          onSelect: (event) => {
-                            const area = event.target
-                            selectionRef.current = { start: area.selectionStart, end: area.selectionEnd }
-                          },
-                          onKeyUp: (event) => {
-                            const area = event.target
-                            selectionRef.current = { start: area.selectionStart, end: area.selectionEnd }
-                          },
-                          onKeyDown: (event) => {
-                            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                              event.preventDefault()
-                              void saveEdit()
-                            }
-                            if (event.key === 'Escape') setEditing(false)
-                          },
-                          autoFocus: true,
-                          'aria-label': t.edit,
-                        })
-                      : renderNoteRest(selected.body ?? ''),
-                  ),
-                    h(CopilotSidebar, {
-                      t,
-                      note: selected,
-                      editing,
-                      draft: editBody,
-                      selectionRef,
-                      onApply: applyCopilotText,
-                    }),
-                  ),
+                  // Editing reuses the capture components: source on the left, the laid-out
+                  // result on the right, Structure / Cancel / Save in the toolbar.
+                  editing
+                    ? h(CaptureBox, {
+                        key: 'edit-' + selected.id,
+                        t,
+                        layout: 'page',
+                        initial: selected.body ?? '',
+                        noteId: selected.id,
+                        onCancel: () => setEditing(false),
+                        onSaved: () => {
+                          setEditing(false)
+                          void refresh()
+                        },
+                      })
+                    : h('div', { className: 'dshn-detail-body' }, renderNoteRest(selected.body ?? '')),
                   selected.tags.length > 0
                     ? h(
                         'div',
@@ -5653,7 +5225,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, CopilotSidebar, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

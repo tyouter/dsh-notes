@@ -57,26 +57,6 @@
         ask: '提问',
         thinking: '思考中…',
 
-        // ---- copilot ----
-        copilotTitle: 'Copilot',
-        copilotHide: '收起 Copilot',
-        copilotShow: '展开 Copilot',
-        copilotComplete: '续写',
-        copilotPolish: '润色',
-        copilotTranslate: '翻译',
-        copilotExpand: '展开',
-        copilotSummarize: '摘要',
-        copilotAsk: '提问',
-        copilotAskPlaceholder: '针对这段问 AI…',
-        copilotHint: '选中正文里的文字，再点一个动作；不选就处理整篇。',
-        copilotSelectionHint: '将只处理选中的文字',
-        copilotWholeHint: '没有选中文字，将处理整篇笔记',
-        copilotSelection: (count) => '已选 ' + count + ' 字',
-        copilotWhole: '整篇',
-        copilotClear: '清空',
-        copilotAppend: '加到文末',
-        copilotReplaceSelection: '替换选中',
-        copilotReplaceAll: '替换全文',
         composePlaceholder: '写点什么… 第一行会成为标题',
         enhance: '结构化',
         format: 'Format',
@@ -222,26 +202,6 @@
         ask: 'Ask',
         thinking: 'Thinking…',
 
-        // ---- copilot ----
-        copilotTitle: 'Copilot',
-        copilotHide: 'Hide Copilot',
-        copilotShow: 'Show Copilot',
-        copilotComplete: 'Continue',
-        copilotPolish: 'Polish',
-        copilotTranslate: 'Translate',
-        copilotExpand: 'Expand',
-        copilotSummarize: 'Summarize',
-        copilotAsk: 'Ask',
-        copilotAskPlaceholder: 'Ask about this text…',
-        copilotHint: 'Select text in the note, then pick an action; with no selection the whole note is used.',
-        copilotSelectionHint: 'Only the selected text will be used',
-        copilotWholeHint: 'No selection: the whole note will be used',
-        copilotSelection: (count) => count + ' chars selected',
-        copilotWhole: 'Whole note',
-        copilotClear: 'Clear',
-        copilotAppend: 'Append',
-        copilotReplaceSelection: 'Replace selection',
-        copilotReplaceAll: 'Replace note',
         composePlaceholder: 'Write something⬦ the first line becomes the title',
         enhance: 'Structure',
         format: 'Format',
@@ -2461,67 +2421,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-board-main,
 .dshn-quick-box,
 .dshn-detail-body,
-.dshn-copilot-output {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-.dshn-page-render:hover,
-.dshn-capture-pane:hover,
-.dshn-bars:hover,
-.dshn-heat-scroll:hover,
-.dshn-side-log:hover,
-.dshn-board-main:hover,
-.dshn-quick-box:hover,
-.dshn-detail-body:hover,
-.dshn-copilot-output:hover {
-  scrollbar-color: var(--dsw-alias-border-l2) transparent;
-}
-.dshn-page-render::-webkit-scrollbar,
-.dshn-capture-pane::-webkit-scrollbar,
-.dshn-bars::-webkit-scrollbar,
-.dshn-heat-scroll::-webkit-scrollbar,
-.dshn-side-log::-webkit-scrollbar,
-.dshn-board-main::-webkit-scrollbar,
-.dshn-quick-box::-webkit-scrollbar,
-.dshn-detail-body::-webkit-scrollbar,
-.dshn-copilot-output::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.dshn-page-render::-webkit-scrollbar-track,
-.dshn-capture-pane::-webkit-scrollbar-track,
-.dshn-bars::-webkit-scrollbar-track,
-.dshn-heat-scroll::-webkit-scrollbar-track,
-.dshn-side-log::-webkit-scrollbar-track,
-.dshn-board-main::-webkit-scrollbar-track,
-.dshn-quick-box::-webkit-scrollbar-track,
-.dshn-detail-body::-webkit-scrollbar-track,
-.dshn-copilot-output::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dshn-page-render::-webkit-scrollbar-thumb,
-.dshn-capture-pane::-webkit-scrollbar-thumb,
-.dshn-bars::-webkit-scrollbar-thumb,
-.dshn-heat-scroll::-webkit-scrollbar-thumb,
-.dshn-side-log::-webkit-scrollbar-thumb,
-.dshn-board-main::-webkit-scrollbar-thumb,
-.dshn-quick-box::-webkit-scrollbar-thumb,
-.dshn-detail-body::-webkit-scrollbar-thumb,
-.dshn-copilot-output::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
-}
-.dshn-page-render:hover::-webkit-scrollbar-thumb,
-.dshn-capture-pane:hover::-webkit-scrollbar-thumb,
-.dshn-bars:hover::-webkit-scrollbar-thumb,
-.dshn-heat-scroll:hover::-webkit-scrollbar-thumb,
-.dshn-side-log:hover::-webkit-scrollbar-thumb,
-.dshn-board-main:hover::-webkit-scrollbar-thumb,
-.dshn-quick-box:hover::-webkit-scrollbar-thumb,
-.dshn-detail-body:hover::-webkit-scrollbar-thumb,
-.dshn-copilot-output:hover::-webkit-scrollbar-thumb {
-  background: var(--dsw-alias-border-l2);
-}
 
 .dshn-side-dock {
   /* The containing block for the docked layers. Absolute positioning is what makes the
@@ -3064,89 +2963,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   color: var(--dsw-alias-label-secondary);
   margin-top: -2px;
 }
-
-/* ---- the editor copilot ---- */
-.dshn-detail-split { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
-.dshn-detail-split .dshn-detail-body { flex: 1 1 auto; min-width: 0; }
-.dshn-copilot {
-  width: 268px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-left: 1px solid var(--dsw-alias-border-l1);
-  padding: 10px 12px;
-  min-height: 0;
-  background: var(--dsw-alias-bg-base);
-}
-.dshn-copilot[data-open="false"] { width: 40px; padding: 10px 4px; align-items: center; }
-.dshn-copilot-actions { display: flex; flex-wrap: wrap; gap: 4px; flex: none; }
-.dshn-copilot-actions .dshn-btn { padding: 3px 9px; font-size: 11.5px; }
-.dshn-copilot-ask { display: flex; gap: 4px; flex: none; }
-.dshn-copilot-ask input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-sm);
-  background: var(--dsw-alias-bg-layer-1);
-  color: inherit;
-  font: inherit;
-  font-size: 11.5px;
-  padding: 4px 8px;
-  outline: none;
-}
-.dshn-copilot-output {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  min-height: 0;
-  font-size: 12.5px;
-  line-height: 1.75;
-  border-radius: var(--dshn-r-sm);
-}
-.dshn-copilot-foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: none; }
-.dshn-copilot-foot .dshn-btn { padding: 3px 8px; font-size: 11.5px; }
-.dshn-md-rule {
-  border: 0;
-  border-top: 1px solid var(--dsw-alias-border-l1);
-  margin: 22px 0;
-}
-
-.dshn-detail {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-md);
-  background: var(--dsw-alias-bg-layer-1);
-  overflow: hidden;
-}
-.dshn-detail-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l1);
-  flex-wrap: wrap;
-}
-.dshn-detail-title { font-weight: 650; font-size: 14.5px; letter-spacing: -.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 120px; }
-.dshn-detail-body { flex: 1 1 auto; overflow-y: auto; padding: 22px 30px 28px; min-height: 0; }
-.dshn-body-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.75; margin: 0; font-family: inherit; }
-.dshn-tags { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 10px; }
-.dshn-tag {
-  font-size: 11px;
-  color: var(--dsw-alias-label-secondary);
-  background: var(--dsw-alias-bg-layer-2);
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 999px;
-  padding: 0 8px;
-  line-height: 18px;
-  cursor: pointer;
-}
-.dshn-tag:hover { color: var(--dsw-alias-label-primary); }
-.dshn-foot { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--dsw-alias-label-secondary); }
-.dshn-empty { color: var(--dsw-alias-label-secondary); font-size: 12.5px; padding: 24px 12px; text-align: center; }
-.dshn-more { margin-left: 6px; }
 
 /* ---- AI tab: chat left, context and starters right ---- */
 .dshn-ai { display: flex; flex: 1 1 auto; min-height: 0; }

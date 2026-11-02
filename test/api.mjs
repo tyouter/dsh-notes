@@ -172,20 +172,6 @@ try {
   const removedChart = await call('POST', 'charts/remove', { id: 'c1' })
   check('chart removes', removedChart.json?.data?.charts?.length === 0)
 
-  // ---- the copilot stream ----
-  answer = '改写后的这句话。'
-  const copilot = await call('POST', 'copilot/stream', { action: 'polish', selection: '这句话。', document: '这句话。', title: 'T' })
-  const copilotFrames = parseFrames(copilot.res.frames)
-  check('copilot answers with SSE', copilot.res.headers['content-type']?.includes('text/event-stream') === true, String(copilot.res.headers['content-type']))
-  check('copilot sends start', copilotFrames.some((frame) => frame.event === 'start'))
-  check('copilot streams deltas', copilotFrames.some((frame) => frame.event === 'delta'))
-  const copilotDone = copilotFrames.find((frame) => frame.event === 'done')
-  check('copilot finishes with the text', copilotDone?.data?.text === '改写后的这句话。', String(copilotDone?.data?.text))
-  check('copilot stream is closed', copilot.res.ended === true)
-
-  const unknown = await call('POST', 'copilot/stream', { action: 'nope', document: 'x' })
-  check('copilot rejects an unknown action', parseFrames(unknown.res.frames).some((frame) => frame.event === 'error'))
-
   // ---- the dashboard chat is a native session now, so the route is gone ----
   const noChat = await call('POST', 'chat/stream', { question: 'x' })
   check('the prompt-stuffing chat route is gone', noChat.status === 404, String(noChat.status))
@@ -216,7 +202,7 @@ try {
   const localized = llmCalls[llmCalls.length - 1]
   const localizedText = JSON.stringify(localized?.messages ?? [])
   // ---- translation has its own route ----
-  // Through the copilot the prompt's wrapper (action, note title, quoted text) was translated
+  // The copilot's wrapper (action, note title, quoted text) used to be translated
   // along with the note. This route sends only an instruction and the text.
   answer = '返回的译文'
   const translated = await call('POST', 'translate/stream', { text: '原始文本', target: 'English', keepNumbering: true })

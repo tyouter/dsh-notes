@@ -101,8 +101,8 @@ try {
   check('stats average the AI latency', withAi.ai.averageElapsedMs === 900, String(withAi.ai.averageElapsedMs))
 
   // Token columns survive the log and the projection.
-  await log.record('copilot.polish', { inputTokens: 900, outputTokens: 120, cacheReadTokens: 600, contextChars: 3500 })
-  const tokenEvents = (await log.read()).filter((event) => event.kind === 'copilot.polish')
+  await log.record('translate', { inputTokens: 900, outputTokens: 120, cacheReadTokens: 600, contextChars: 3500 })
+  const tokenEvents = (await log.read()).filter((event) => event.kind === 'translate')
   check('the event keeps token fields', tokenEvents.at(-1)?.inputTokens === 900, JSON.stringify(tokenEvents.at(-1)))
   const projection = new NotesDatabase(store)
   await projection.ready(await log.read())
@@ -223,7 +223,7 @@ const tokenStore = new NoteStore({ ctx: { get: () => undefined }, config: { note
 await tokenStore.load()
 const tokenLog = new EventLog(tokenStore)
 await tokenLog.record('enhance', { inputTokens: 1000, outputTokens: 200, at: '2026-10-28T10:00:00.000Z' })
-await tokenLog.record('copilot.polish', { inputTokens: 300, outputTokens: 100, at: '2026-10-29T10:00:00.000Z' })
+await tokenLog.record('translate', { inputTokens: 300, outputTokens: 100, at: '2026-10-29T10:00:00.000Z' })
 await tokenLog.record('enhance', { chars: 900, at: '2026-10-30T10:00:00.000Z' })
 const tokenDb = new NotesDatabase(tokenStore)
 await tokenDb.ready(await tokenLog.read())

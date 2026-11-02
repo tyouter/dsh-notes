@@ -298,7 +298,8 @@
      */
     function CaptureBox(props) {
       const t = props.t
-      const [draft, setDraft] = useState('')
+      // A note opened for editing seeds the draft; the capture page starts empty.
+      const [draft, setDraft] = useState(() => String(props.initial ?? ''))
       const [enhance, setEnhance] = useState(null)
       const [enhancing, setEnhancing] = useState(false)
       const [enhanceSeconds, setEnhanceSeconds] = useState(0)
@@ -345,8 +346,13 @@
         if (body === '') return
         setStatus(t.saving)
         try {
-          await post('/note', { body: draft, tags: parseTags(pendingTags), source: 'panel' })
-          setDraft('')
+          if (props.noteId === undefined) {
+            await post('/note', { body: draft, tags: parseTags(pendingTags), source: 'panel' })
+            setDraft('')
+          } else {
+            // Editing an existing note: update it in place and keep the text on screen.
+            await put('/note/' + encodeURIComponent(props.noteId), { body: draft })
+          }
           flash(t.saved)
           await props.onSaved?.()
         } catch (problem) {
@@ -891,7 +897,18 @@
           ),
           enhancing
             ? h('button', { className: 'dshn-btn ghost', onClick: stopStructured }, t.enhanceStop)
-            : h('button', { className: 'dshn-btn ghost', onClick: () => setDraft(''), disabled: draft === '' }, t.cancel),
+            : h(
+                'button',
+                {
+                  className: 'dshn-btn ghost',
+                  onClick: () => {
+                    if (typeof props.onCancel === 'function') props.onCancel()
+                    else setDraft('')
+                  },
+                  disabled: draft === '' && typeof props.onCancel !== 'function',
+                },
+                t.cancel,
+              ),
           h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
         ),
       )
@@ -1134,11 +1151,7 @@
     /** How each AI action kind reads in the chart. */
     const AI_KIND_LABELS = {
       enhance: '结构化',
-      'copilot.complete': '续写',
-      'copilot.polish': '润色',
-      'copilot.translate': '翻译',
-      'copilot.ask': '提问',
-      'copilot.explain': '解释',
+      translate: '翻译',
     }
 
     /** The AI-usage series for the chart, with kinds translated for display. */
@@ -1495,180 +1508,3 @@
       )
     }
 
-    // ------------------------------------------------------------- copilot ---
-    //
-    // Beside an open note: pick an action, get streamed text, put it where it
-    // belongs. Selection comes from the editor's own caret, so "划线" here means
-    // "the text you have selected" with no separate annotation layer.
-
-    function CopilotSidebar({ t, note, editing, draft, selectionRef, onApply }) {
-      const [output, setOutput] = useState('')
-      const [busy, setBusy] = useState(false)
-      const [error, setError] = useState('')
-      const [question, setQuestion] = useState('')
-      const [open, setOpen] = useState(true)
-      const [meta, setMeta] = useState(null)
-
-      const document = editing ? draft : String(note?.body ?? '')
-      const range = selectionRef?.current ?? { start: 0, end: 0 }
-      const selected = document.slice(Math.min(range.start, range.end), Math.max(range.start, range.end))
-      const hasSelection = selected.trim() !== ''
-
-      const run = useCallback(
-        async (action) => {
-          if (busy) return
-          setBusy(true)
-          setOutput('')
-          setError('')
-          setMeta(null)
-          try {
-            await streamEvents(
-              '/copilot/stream',
-              {
-                action,
-                selection: hasSelection ? selected : '',
-                document,
-                title: note?.title ?? '',
-                instruction: action === 'ask' ? question : '',
-              },
-              (event, payload) => {
-                if (event === 'delta') {
-                  setOutput((current) => current + String(payload?.text ?? ''))
-                  return
-                }
-                if (event === 'error') {
-                  setError(String(payload?.message ?? '调用失败'))
-                  return
-                }
-                if (event === 'done') setMeta({ model: payload?.model, elapsedMs: payload?.elapsedMs })
-              },
-            )
-          } catch (problem) {
-            setError(String(problem?.message ?? problem))
-          } finally {
-            setBusy(false)
-          }
-        },
-        [busy, document, hasSelection, note, question, selected],
-      )
-
-      if (note === null || note === undefined) return null
-
-      const actions = [
-        ['complete', t.copilotComplete],
-        ['polish', t.copilotPolish],
-        ['translate', t.copilotTranslate],
-        ['expand', t.copilotExpand],
-        ['summarize', t.copilotSummarize],
-      ]
-
-      return h(
-        'div',
-        { className: 'dshn-copilot', 'data-open': String(open) },
-        h(
-          'div',
-          { className: 'dshn-side-head' },
-          h(
-            'button',
-            {
-              className: 'dshn-icon-btn',
-              title: open ? t.copilotHide : t.copilotShow,
-              'aria-label': open ? t.copilotHide : t.copilotShow,
-              'aria-expanded': String(open),
-              onClick: () => setOpen(!open),
-            },
-            open ? '›' : '‹',
-          ),
-          h('span', { className: 'dshn-side-title' }, t.copilotTitle),
-          h('span', { className: 'dshn-grow' }),
-          h(
-            'span',
-            { className: 'dshn-cap', title: hasSelection ? t.copilotSelectionHint : t.copilotWholeHint },
-            hasSelection ? t.copilotSelection(selected.length) : t.copilotWhole,
-          ),
-        ),
-        open
-          ? h(
-              React.Fragment,
-              null,
-              h(
-                'div',
-                { className: 'dshn-copilot-actions' },
-                ...actions.map(([id, label]) =>
-                  h(
-                    'button',
-                    {
-                      key: id,
-                      className: 'dshn-btn ghost',
-                      disabled: busy,
-                      onClick: () => void run(id),
-                    },
-                    label,
-                  ),
-                ),
-              ),
-              h(
-                'div',
-                { className: 'dshn-copilot-ask' },
-                h('input', {
-                  value: question,
-                  placeholder: t.copilotAskPlaceholder,
-                  onChange: (event) => setQuestion(event.target.value),
-                  onKeyDown: (event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      void run('ask')
-                    }
-                  },
-                  'aria-label': t.copilotAskPlaceholder,
-                }),
-                h('button', { className: 'dshn-btn ghost', disabled: busy, onClick: () => void run('ask') }, t.copilotAsk),
-              ),
-              error !== '' ? h('div', { className: 'dshn-err' }, error) : null,
-              h(
-                'div',
-                { className: 'dshn-copilot-output' },
-                output === ''
-                  ? h('div', { className: 'dshn-side-hint' }, busy ? t.thinking : t.copilotHint)
-                  : h('div', { className: 'dshn-md' }, renderMarkdown(output)),
-              ),
-              output === '' && !busy
-                ? null
-                : h(
-                    'div',
-                    { className: 'dshn-copilot-foot' },
-                    h('span', { className: 'dshn-cap' }, meta === null ? '' : `${meta.elapsedMs}ms`),
-                    h('span', { className: 'dshn-grow' }),
-                    h(
-                      'button',
-                      { className: 'dshn-btn ghost', disabled: busy || output === '', onClick: () => setOutput('') },
-                      t.copilotClear,
-                    ),
-                    h(
-                      'button',
-                      {
-                        className: 'dshn-btn ghost',
-                        disabled: busy || output === '',
-                        onClick: () => onApply(output, 'append'),
-                      },
-                      t.copilotAppend,
-                    ),
-                    h(
-                      'button',
-                      {
-                        className: 'dshn-btn ghost',
-                        disabled: busy || output === '' || !hasSelection,
-                        onClick: () => onApply(output, 'replace-selection'),
-                      },
-                      t.copilotReplaceSelection,
-                    ),
-                    h(
-                      'button',
-                      { className: 'dshn-btn primary', disabled: busy || output === '', onClick: () => onApply(output, 'replace-all') },
-                      t.copilotReplaceAll,
-                    ),
-                  ),
-            )
-          : null,
-      )
-    }

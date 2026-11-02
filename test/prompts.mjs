@@ -1,9 +1,9 @@
-// Copilot prompt checks.
+// Prompt checks for the two model calls the panel makes.
 //
 // The dashboard no longer builds a prompt from statistics: it is a native session
-// whose agent calls the query tools. What remains to verify here is the copilot's
-// message shape, and the term extractor the tools use.
-import { COPILOT_ACTIONS, buildCopilotMessage, buildEnhanceMessage, readEnhanceResult, dedupeTitle } from '../lib/prompt.js'
+// whose agent calls the query tools, and the editor copilot is gone. What remains
+// here is the structuring prompt's shape and the term extractor the tools use.
+import { buildEnhanceMessage, readEnhanceResult, dedupeTitle } from '../lib/prompt.js'
 import { topTerms } from '../lib/text.js'
 
 let failures = 0
@@ -12,43 +12,12 @@ const check = (label, condition, detail = '') => {
   if (!condition) failures += 1
 }
 
-// ---- copilot message ----
-const message = buildCopilotMessage({ action: 'polish', selection: '这句话有点啰嗦', document: '全文内容', title: '标题' })
-check('copilot message carries the selection', message.includes('这句话有点啰嗦'))
-
-// Whole-note actions must receive the note; a translate with no selection used to
-// describe the task without providing any text.
-const whole = buildCopilotMessage({ action: 'translate', selection: '', document: '明天下午三点对齐接口' })
-check('a whole-note action carries the note', whole.includes('明天下午三点对齐接口'))
-check('a whole-note action labels the note', whole.includes('笔记全文'))
-const targeted = buildCopilotMessage({ action: 'translate', selection: '', document: 'x', instruction: '翻译成English' })
-check('the translate target reaches the prompt', targeted.includes('翻译成English'))
-check('copilot message carries the action label', message.includes(COPILOT_ACTIONS.polish.label))
-check('copilot message carries the note title', message.includes('标题'))
-
+// ---- the structuring prompt ----
 // The first line is the title, so the body must not restate it: that duplication is
 // exactly what appeared at the top of every formatted note.
 const enhancePrompt = buildEnhanceMessage({ text: '原稿' })
 check('the prompt declares the first line as the title', enhancePrompt.includes('第一行就是标题'))
 check('the prompt forbids repeating the title', enhancePrompt.includes('不要再复述') || enhancePrompt.includes('重复一遍标题'))
-check('copilot message carries the surrounding note', message.includes('全文内容'))
-check(
-  'copilot message drops the full note when it is long',
-  buildCopilotMessage({ action: 'polish', selection: 'x', document: 'y'.repeat(9000) }).includes('所在笔记全文') === false,
-)
-check(
-  'copilot message forwards an extra instruction',
-  buildCopilotMessage({ action: 'polish', selection: 'x', document: 'x', instruction: '更正式' }).includes('更正式'),
-)
-check(
-  'copilot message works with no selection',
-  buildCopilotMessage({ action: 'summarize', selection: '', document: '正文' }).includes('没有选中内容'),
-)
-
-// Every action the sidebar offers has a prompt.
-for (const action of ['complete', 'polish', 'translate', 'expand', 'summarize', 'ask']) {
-  check(`action ${action} has a prompt`, typeof COPILOT_ACTIONS[action]?.system === 'string' && COPILOT_ACTIONS[action].system.length > 20)
-}
 
 // ---- term extraction, used by the terms tool ----
 const terms = topTerms(['插件开发实战教学视频', '插件开发需要了解机制'], { limit: 5 })

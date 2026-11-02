@@ -26,7 +26,7 @@
     // One notebook, three tabs: 记录 / 历史 / 看板.
     //
     // There is no assistant *conversation* any more. The AI surfaces are the
-    // structuring card under the capture box, the copilot beside an open note,
+    // structuring card under the capture box,
     // and the dashboard's own chat. Each is a plain streamed model call, so the
     // panel owns no session and nothing must be created before asking.
     // =====================================================================
@@ -360,13 +360,8 @@
       const [tagFilter, setTagFilter] = useState('')
       const [showAllTags, setShowAllTags] = useState(false)
       const [editing, setEditing] = useState(false)
-      const [editBody, setEditBody] = useState('')
       // The drawer: collapsed, the list steps aside and one note fills the pane.
       const [listOpen, setListOpen] = useState(true)
-      // Where the caret sits in the editor, so the copilot can replace exactly the
-      // selected text. A ref because it changes on every click and keypress.
-      const selectionRef = useRef({ start: 0, end: 0 })
-
       // Search and filters run over the list the panel already holds, so
       // switching tabs never waits on the network.
       const filtered = useMemo(() => {
@@ -395,33 +390,6 @@
         ].filter((group) => group.notes.length > 0)
       }, [filtered, t])
 
-      /**
-       * Put copilot text into the editor.
-       *
-       * Three modes: append to the end, replace the tracked selection, or replace
-       * the whole body. Editing is entered first, so the result is always
-       * reviewable before it is saved.
-       */
-      const applyCopilotText = (value, mode) => {
-        const incoming = String(value ?? '')
-        const current = editing ? editBody : String(selected === null ? '' : (selected.body ?? ''))
-        if (mode === 'replace-all') {
-          setEditBody(incoming)
-          setEditing(true)
-          return
-        }
-        if (mode === 'append') {
-          setEditBody(current.replace(/\s+$/, '') + '\n\n' + incoming)
-          setEditing(true)
-          return
-        }
-        const range = selectionRef.current
-        const start = Math.max(0, Math.min(range.start, current.length))
-        const end = Math.max(start, Math.min(range.end, current.length))
-        setEditBody(current.slice(0, start) + incoming + current.slice(end))
-        setEditing(true)
-      }
-
       const action = async (operation) => {
         try {
           await operation()
@@ -429,12 +397,6 @@
         } catch {
           /* the panel header reports the refresh failure */
         }
-      }
-
-      const saveEdit = async () => {
-        if (selected === null || editBody.trim() === '') return
-        await action(() => put(`/note/${encodeURIComponent(selected.id)}`, { body: editBody }))
-        setEditing(false)
       }
 
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
@@ -586,71 +548,30 @@
                       selected.pinned ? t.unpin : t.pin,
                     ),
                     editing
-                      ? h(
-                          React.Fragment,
-                          null,
-                          h('button', { className: 'dshn-btn ghost', onClick: () => setEditing(false) }, t.cancel),
-                          h('button', { className: 'dshn-btn primary', onClick: () => void saveEdit() }, t.save),
-                        )
-                      : h(
-                          'button',
-                          {
-                            className: 'dshn-btn ghost',
-                            onClick: () => {
-                              setEditBody(selected.body ?? '')
-                              setEditing(true)
-                            },
-                          },
-                          t.edit,
-                        ),
+                      ? null
+                      : h('button', { className: 'dshn-btn ghost', onClick: () => setEditing(true) }, t.edit),
                     h(
                       'button',
                       { className: 'dshn-btn ghost danger', onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)) },
                       t.delete,
                     ),
                   ),
-                  h(
-                    'div',
-                    { className: 'dshn-detail-split' },
-                    h(
-                      'div',
-                      { className: 'dshn-detail-body' },
-                    editing
-                      ? h('textarea', {
-                          className: 'dshn-textarea',
-                          style: { minHeight: '240px', width: '100%', height: '100%', boxSizing: 'border-box' },
-                          value: editBody,
-                          spellCheck: false,
-                          onChange: (event) => setEditBody(event.target.value),
-                          onSelect: (event) => {
-                            const area = event.target
-                            selectionRef.current = { start: area.selectionStart, end: area.selectionEnd }
-                          },
-                          onKeyUp: (event) => {
-                            const area = event.target
-                            selectionRef.current = { start: area.selectionStart, end: area.selectionEnd }
-                          },
-                          onKeyDown: (event) => {
-                            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                              event.preventDefault()
-                              void saveEdit()
-                            }
-                            if (event.key === 'Escape') setEditing(false)
-                          },
-                          autoFocus: true,
-                          'aria-label': t.edit,
-                        })
-                      : renderNoteRest(selected.body ?? ''),
-                  ),
-                    h(CopilotSidebar, {
-                      t,
-                      note: selected,
-                      editing,
-                      draft: editBody,
-                      selectionRef,
-                      onApply: applyCopilotText,
-                    }),
-                  ),
+                  // Editing reuses the capture components: source on the left, the laid-out
+                  // result on the right, Structure / Cancel / Save in the toolbar.
+                  editing
+                    ? h(CaptureBox, {
+                        key: 'edit-' + selected.id,
+                        t,
+                        layout: 'page',
+                        initial: selected.body ?? '',
+                        noteId: selected.id,
+                        onCancel: () => setEditing(false),
+                        onSaved: () => {
+                          setEditing(false)
+                          void refresh()
+                        },
+                      })
+                    : h('div', { className: 'dshn-detail-body' }, renderNoteRest(selected.body ?? '')),
                   selected.tags.length > 0
                     ? h(
                         'div',
@@ -696,7 +617,7 @@
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, CopilotSidebar, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {
