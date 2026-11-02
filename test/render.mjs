@@ -339,7 +339,7 @@ try {
       onSaved: async () => {},
     }
     const box = render(internals.CaptureBox, captureProps)
-    check('the capture box offers a Format action', findAll(box, 'dshn-btn').some((node) => String(node.props.className).includes('format')))
+check('the capture box has no Format action', findAll(box, 'dshn-btn').some((node) => String(node.props.className).includes('format')) === false)
     check('the capture box is a live editor', findAll(box, 'dshn-composer')[0]?.props['data-structured'] === 'false')
     // Plain text shows no mirror; structured text renders one beside the source.
     const plainBox = render(internals.CaptureBox, { ...captureProps, layout: 'page' })
@@ -357,12 +357,12 @@ try {
 
     // Format: a proposal in the render area, not a rewrite of the source.
     check('format no longer prepends a title line', boardSource.includes("title + '\\n\\n' + body") === false)
-    check('format keeps a proposal', boardSource.includes('setFormatted('))
-    check('the proposal can be applied', boardSource.includes('applyFormatted'))
+check('the preview is not stored as a proposal', boardSource.includes('setFormatted(') === false)
+    check('there is no format proposal to apply', boardSource.includes('applyFormatted') === false)
     check('a selection is remembered', boardSource.includes('selectionStart'))
     check('a proposal splices into the document', boardSource.includes('renderProposalDocument'))
     // Regression: splicing twice duplicated the whole document inside the tinted block.
-    check('the proposal is spliced exactly once', /const formatDocument = formatted === null \? '' : formatted\.text/.test(boardSource))
+check('the layout preview is computed locally', /const laidOut = formatLocally\(draft\)/.test(boardSource))
 
     // A ranged proposal keeps the source label only: the model title repeated it.
     // Format no longer calls the model: it lays the span out locally, so it cannot invent a title.
@@ -389,7 +389,7 @@ try {
     // Translation is a proposal on the source, not on a structuring result.
     // Structure never translates; Translate works on the structuring result when present.
     check('translation is not a separate proposal', boardSource.includes("kind: 'translate'") === false)
-    check('only format sets a layout proposal kind', (boardSource.match(/kind: 'layout'/g) ?? []).length === 1)
+    check('the preview label says whether layout changed', /layoutChanged \? t\.formattedPreview : t\.rendered/.test(boardSource))
 
 // Regression: the picker leaked into Structure, so an English target produced an English
 // title above a Chinese body.
@@ -402,7 +402,7 @@ check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAG
     check('translation no longer goes through the copilot prompt', boardSource.includes("action: 'translate'") === false)
     const chatSource = await readFile(join(packageDir, 'lib', 'chat.js'), 'utf8')
     check('the translate prompt has no wrapper labels', /streamTranslate[\s\S]{0,1600}只输出译文本身|streamTranslate[\s\S]{0,1600}逐行翻译/.test(chatSource))
-    check('the document is rendered whole', /renderProposalDocument\(formatDocument/.test(boardSource))
+check('the layout preview is rendered whole', /renderNoteBody\(laidOut\)/.test(boardSource))
     check('the rewritten span is tinted in the preview', boardSource.includes("className: 'dshn-proposal-mark'"))
     const headCss = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
     check('the preview tint uses the same green as the source', /\.dshn-proposal-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headCss))
@@ -411,7 +411,7 @@ check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAG
     check('the tint does not bleed sideways', /\.dshn-proposal-mark \{[^}]*margin: 2px 0/s.test(headCss))
     check('the proposal has no tinted box', boardSource.includes("className: 'dshn-format-mark'") === false)
     check('the source still marks the range', boardSource.includes("className: 'dshn-editor-mark'") === true)
-    check('formatting a selection is labelled', boardSource.includes('t.renderedSelection'))
+check('the preview label distinguishes changed layout', boardSource.includes('t.formattedPreview'))
 
     // The preview lives beside the source, so both are visible at once.
     const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
@@ -431,7 +431,7 @@ check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAG
     // Structure respects the selection exactly like Format does.
     check('one helper defines the selected range', boardSource.includes('const editorRange = () =>'))
     check('structure uses the shared range', /const runEnhance = async \(\) => \{[\s\S]{0,220}editorRange\(\)/.test(boardSource))
-    check('format uses the shared range', /const runFormat = \(\) => \{[\s\S]{0,200}editorRange\(\)/.test(boardSource))
+check('the live preview needs no range', boardSource.includes('const runFormat') === false)
     check('the selected span is highlighted', boardSource.includes("className: 'dshn-editor-mark'"))
     // A highlighter stroke in the palette's light green, not an underline.
     check('the mark uses the light green palette', /\] \.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource) || /\.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource))
@@ -458,7 +458,7 @@ check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAG
     check('no permanent storage line is printed', boardSource.includes('t.savedIn +') === false)
     check('the sheets stretch to one height', /\.dshn-sheets \{[^}]*align-items: stretch/s.test(headSource))
     check('the preview only appears with content', boardSource.includes('const showRender ='))
-    check('the mirror is gated by the detector', boardSource.includes('structured && draft.trim()'))
+check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test(boardSource))
     check('the capture box starts compact unless asked for a page', findAll(box, 'dshn-capture-box')[0]?.props['data-layout'] === 'compact')
     const asPage = render(internals.CaptureBox, { ...captureProps, layout: 'page' })
     check('the 记录 tab gets the page layout', findAll(asPage, 'dshn-capture-box')[0]?.props['data-layout'] === 'page')

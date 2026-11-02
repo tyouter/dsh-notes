@@ -323,8 +323,7 @@
       const marksRef = useRef(null)
       // A Format proposal: shown in the render area until applied or discarded, so the
       // source stays the single place you edit.
-      const [formatted, setFormatted] = useState(null)
-      const [formatting, setFormatting] = useState(false)
+      // The preview is derived from the draft on every render, so there is no Format state.
       // The textarea's current selection, used to format just that part.
       const [selected, setSelected] = useState({ start: 0, end: 0 })
 
@@ -334,7 +333,9 @@
       }
 
       const saveDraft = async () => {
-        const body = draft.trim()
+        // The preview page shows the laid-out note, so that is what gets stored; writing the raw
+        // text would make the promise on the right untrue.
+        const body = formatLocally(draft).trim()
         if (body === '') return
         setStatus(t.saving)
         try {
@@ -503,62 +504,6 @@
       }
 
       /**
-       * Format: mechanical layout, done locally.
-       *
-       * Structure asks the model to reorganise a note; Format should not — they were the same
-       * call, so the two buttons did one job. This one normalises separators, numbering and
-       * blank lines and returns immediately, leaving the wording and the structure alone.
-       */
-      const runFormat = () => {
-        if (formatting) return
-        const range = editorRange()
-        const span = range === null ? draft : draft.slice(range.start, range.end)
-        const text = span.trim()
-        if (text === '') return
-        const laid = formatLocally(text)
-        if (laid === span) {
-          setStatus(t.formatted)
-          setTimeout(() => setStatus(''), 1600)
-          return
-        }
-        setEnhanceError('')
-        setFormatted({
-          text: laid,
-          mode: range === null ? 'all' : 'selection',
-          range,
-          // A local layout has no title and no tags: it does not rewrite, it only tidies.
-          kind: 'layout',
-          tags: '',
-        })
-        setStatus(t.formatted)
-        setTimeout(() => setStatus(''), 1600)
-      }
-
-      /** Write a proposal back into the source, replacing only what was formatted. */
-      const applyFormatted = () => {
-        if (formatted === null) return
-        if (formatted.mode === 'selection' && formatted.range !== null) {
-          const { start, end } = formatted.range
-          setDraft(draft.slice(0, start) + formatted.text + draft.slice(end))
-        } else {
-          setDraft(formatted.text)
-        }
-        if (formatted.tags !== '') setPendingTags(formatted.tags)
-        setFormatted(null)
-        setSelected({ start: 0, end: 0 })
-        setStatus(t.applied)
-        setTimeout(() => setStatus(''), 1600)
-      }
-
-      /**
-       * Translate the structured draft in place.
-       *
-       * With no target chosen the prompt asks for mutual ZH<->EN, which is what the
-       * copilot's translate action already does. A chosen target wins instead. The
-       * title is folded into the body's first line so the saved note keeps its
-       * translated title (that is where the title comes from at save time).
-       */
-      /**
        * Translate the structuring draft.
        *
        * This is the only translation entry point: there is no "translate the source" path.
@@ -694,27 +639,27 @@
       // The source page. The structured/format result renders in the preview page, so
       // there is nothing to place above or below the composer any more.
       // Highlight the live selection, or the span a pending proposal would replace.
-      const proposalRange = formatted !== null && formatted.range !== null ? formatted.range : null
       const enhanceRange = enhance !== null && enhance.range !== null && enhance.range !== undefined ? enhance.range : null
       const activeRange =
-        proposalRange !== null
-          ? proposalRange
-          : enhanceRange !== null
-            ? enhanceRange
-            : selected.end > selected.start
-              ? { start: selected.start, end: selected.end }
-              : null
+        enhanceRange !== null
+          ? enhanceRange
+          : selected.end > selected.start
+            ? { start: selected.start, end: selected.end }
+            : null
+
+      // The preview page always shows the laid-out note. formatLocally is pure and cheap, so this
+      // runs on every keystroke rather than behind a button.
+      const laidOut = formatLocally(draft)
+      const layoutChanged = laidOut !== draft.trim()
 
       const structured = looksStructured(draft)
       // A Format proposal always previews; otherwise only structured text does.
       const showRender =
-        formatted !== null ||
         enhance !== null ||
         // Generating counts: the page appears immediately so streaming is visible from the
         // first token instead of after the answer lands.
         enhancing ||
-        formatting ||
-        (structured && draft.trim() !== '') ||
+        draft.trim() !== '' ||
         enhanceError !== ''
 
       // The source sheet: the textarea and the toolbar, exactly as before a preview
@@ -777,16 +722,6 @@
           h(
             'button',
             {
-              className: 'dshn-btn format',
-              disabled: draft.trim() === '' || formatting,
-              onClick: () => void runFormat(),
-              title: selected.end > selected.start ? t.formatSelectionHint : t.formatHint,
-            },
-            formatting ? t.formatting : selected.end > selected.start ? t.formatSelection : t.format,
-          ),
-          h(
-            'button',
-            {
               className: 'dshn-btn enhance',
               disabled: draft.trim() === '' || enhancing,
               onClick: () => void runEnhance(),
@@ -798,16 +733,16 @@
                 : t.enhancing
               : '✦ ' + (selected.end > selected.start ? t.structureSelection : t.enhance),
           ),
-          enhancing || formatting
+          enhancing
             ? h('button', { className: 'dshn-btn ghost', onClick: stopStructured }, t.enhanceStop)
             : h('button', { className: 'dshn-btn ghost', onClick: () => setDraft(''), disabled: draft === '' }, t.cancel),
           h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
         ),
       )
 
-      // The preview page shows, in priority order: a structuring result, a Format
-      // proposal, the text arriving from the model, or the live mirror of the source.
-      // All four render the same way, so the page never changes shape between them.
+      // The preview page shows, in priority order: a structuring result, the text arriving from
+      // the model, or the live laid-out mirror of the source. All three render the same way, so the
+      // page never changes shape between them.
       // Already composed when the result arrived (title line for a whole note, the source's
       // label for a range), so it is used as-is here.
       const structureText = enhance === null ? '' : enhance.body
@@ -840,10 +775,9 @@
       const enhanceDocument = enhance === null ? '' : structureText
       // The raw proposal only: renderProposalDocument does the splicing, so doing it here as
       // well would duplicate the untouched parts around the tinted block.
-      const formatDocument = formatted === null ? '' : formatted.text
 
       const renderNode =
-        enhance === null && formatted === null && enhanceError !== ''
+        enhance === null && enhanceError !== ''
           ? h(
               'div',
               { className: 'dshn-page-render' },
@@ -872,40 +806,32 @@
                   ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
                   : renderProposalDocument(enhanceDocument, enhance.range),
               )
-            : formatted !== null
+            : enhancing && enhance === null
               ? h(
                   'div',
                   { className: 'dshn-page-render', 'data-proposal': 'true' },
                   h(
                     'div',
                     { className: 'dshn-page-render-label' },
-                    formatted.kind === 'translate'
-                      ? formatted.mode === 'selection'
-                        ? t.translatedSelection
-                        : t.translated
-                      : formatted.mode === 'selection'
-                        ? t.renderedSelection
-                        : t.rendered,
+                    enhancing === true && enhanceSeconds > 2 ? t.enhanceSlow(enhanceSeconds) : t.enhancing,
                   ),
-                  renderProposalDocument(formatDocument, formatted.mode === 'selection' ? formatted.range : null),
+                  h('div', { className: 'dshn-md' }, renderMarkdown(streaming)),
                 )
-              : enhancing && enhance === null
-                ? h(
+              : h(
+                  'div',
+                  { className: 'dshn-page-render' },
+                  h(
                     'div',
-                    { className: 'dshn-page-render', 'data-proposal': 'true' },
-                    h(
-                      'div',
-                      { className: 'dshn-page-render-label' },
-                      enhancing === true && enhanceSeconds > 2 ? t.enhanceSlow(enhanceSeconds) : t.enhancing,
-                    ),
-                    h('div', { className: 'dshn-md' }, renderMarkdown(streaming)),
-                  )
-                : h(
-                    'div',
-                    { className: 'dshn-page-render' },
-                    h('div', { className: 'dshn-page-render-label' }, t.rendered),
-                    renderNoteBody(draft),
-                  )
+                    { className: 'dshn-page-render-label' },
+                    // The label doubles as the state: unchanged, or already tidied.
+                    (layoutChanged ? t.formattedPreview : t.rendered) +
+                      ' · ' +
+                      t.chars(laidOut.length),
+                  ),
+                  laidOut.trim() === ''
+                    ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
+                    : renderNoteBody(laidOut),
+                )
 
       // The preview page's toolbar: the same shape as the editing page's, so the two
       // pages line up and the actions sit where the eye already is.
@@ -962,15 +888,7 @@
               h('button', { className: 'dshn-btn', onClick: applyEnhance, title: t.applyHint }, t.apply),
               h('button', { className: 'dshn-btn primary', onClick: () => void saveEnhance() }, t.enhanceSave),
             )
-          : formatted !== null
-            ? h(
-                'div',
-                { className: 'dshn-row dshn-capture-tools' },
-                h('span', { className: 'dshn-grow' }),
-                h('button', { className: 'dshn-btn ghost', onClick: () => setFormatted(null) }, t.discardFormatted),
-                h('button', { className: 'dshn-btn primary', onClick: applyFormatted, title: t.applyHint }, t.apply),
-              )
-            : null
+          : null
 
       const renderSheet =
         showRender || renderTools !== null
