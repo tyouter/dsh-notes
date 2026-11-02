@@ -1114,8 +1114,14 @@
           'data-layout': props.layout === 'page' ? 'page' : 'compact',
           'data-split': showRender ? 'true' : 'false',
         },
-        // Two independent sheets side by side; the source keeps its own size.
-        h('div', { className: 'dshn-sheets' }, editorSheet, renderSheet),
+        // Two independent sheets side by side; the source keeps its own size. The compact pane
+        // stacks them, and there the preview belongs above the box: the column reads top-down as
+        // "what it looks like" then "where you type".
+        h(
+          'div',
+          { className: 'dshn-sheets', 'data-order': props.layout === 'compact' ? 'render-first' : 'source-first' },
+          ...(props.layout === 'compact' ? [renderSheet, editorSheet] : [editorSheet, renderSheet]),
+        ),
         statusLine,
       )
     }

@@ -340,6 +340,14 @@ try {
     }
     const box = render(internals.CaptureBox, captureProps)
 check('the capture box has no Format action', findAll(box, 'dshn-btn').some((node) => String(node.props.className).includes('format')) === false)
+    // 记录 page: source left, preview right. Board quick note: preview above the input.
+    const compactBox = render(internals.CaptureBox, { ...captureProps, layout: 'compact' })
+    const sheetsOf = (tree) => findAll(tree, 'dshn-sheet')
+    const pageSheets = sheetsOf(box).map((node) => node.props['data-role'])
+    const compactSheets = sheetsOf(compactBox).map((node) => node.props['data-role'])
+    check('the page keeps the source first', pageSheets[0] === 'source', JSON.stringify(pageSheets))
+    check('the compact pane puts the preview first', compactSheets[0] === 'render', JSON.stringify(compactSheets))
+    check('both panes render both sheets', pageSheets.length >= 2 && compactSheets.length >= 2, JSON.stringify([pageSheets, compactSheets]))
     check('the capture box is a live editor', findAll(box, 'dshn-composer')[0]?.props['data-structured'] === 'false')
     // Plain text shows no mirror; structured text renders one beside the source.
     const plainBox = render(internals.CaptureBox, { ...captureProps, layout: 'page' })

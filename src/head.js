@@ -2541,6 +2541,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 
 /* In the board's narrow column the two pages stack instead of squeezing. */
+/* The compact pane orders by DOM, so the preview can sit above the input. */
+.dshn-capture-box[data-layout='compact'] .dshn-sheets[data-order='render-first'] .dshn-sheet[data-role='render'] {
+  order: 1;
+}
+.dshn-capture-box[data-layout='compact'] .dshn-sheets[data-order='render-first'] .dshn-sheet[data-role='source'] {
+  order: 2;
+}
 .dshn-capture-box[data-layout='compact'] .dshn-sheets {
   flex-direction: column;
   align-items: stretch;
