@@ -809,6 +809,58 @@ window.__ModuleLoader__.load({
       return label.raw + '\n\n' + body
     }
 
+    /** Does this line already carry a list marker or another block marker? */
+    function hasMarker(line) {
+      // Any outline marker the enumerator parser understands, plus the block markers it does not.
+      return parseEnumerator(line) !== null || /^\s*(?:[-*+·•—–]\s+|#{1,6}\s+|>\s?)/.test(line)
+    }
+
+    /**
+     * A run of leading spaces with no marker is an item, not a paragraph.
+     *
+     * People write a list by indenting:
+     *
+     *     标题
+     *     　　第一点
+     *     　　第二点
+     *
+     * The first indented line after prose becomes "- 第一点"; a line that follows an existing item is
+     * a continuation of that item, which is how wrapped bullets stay together.
+     */
+    function normalizeIndentedBullets(text) {
+      const lines = String(text ?? '').split(/\r?\n/)
+      // Width of the current item's indent, so a deeper line continues it and an equal one is a
+      // sibling. -1 means "the previous line was not an item".
+      let itemIndent = -1
+      return lines
+        .map((line) => {
+          if (line.trim() === '') {
+            itemIndent = -1
+            return line
+          }
+          const leading = line.match(/^(\t| {2,})/)?.[1] ?? ''
+          const width = leading.replace(/\t/g, '  ').length
+          const indented = line.match(/^(\t| {2,})(\S.*)$/)
+          const marker = hasMarker(line)
+
+          if (marker) {
+            itemIndent = line.match(/^\s*/)[0].length
+            return line
+          }
+          if (indented === null) {
+            itemIndent = -1
+            return line
+          }
+          // Deeper than the current item: a wrapped continuation, left alone.
+          if (itemIndent >= 0 && width > itemIndent) return line
+          itemIndent = width
+          // Indent 2-4 is the first item level; deeper indents keep their nesting.
+          const depth = width <= 4 ? 1 : Math.min(3, Math.floor(width / 2) - 1)
+          return '  '.repeat(depth - 1) + '- ' + indented[2].trim()
+        })
+        .join('\n')
+    }
+
     /**
      * Turn a line-leading run of asterisks into a bullet.
      *
@@ -1102,8 +1154,8 @@ window.__ModuleLoader__.load({
         .map((line) => line.replace(/^(\s*)[—–·•]\s+/, '$1- ').replace(/\s+$/, ''))
         .join('\n')
 
-      // 2. Stray "*"/"**"/"***" separators are bullets too.
-      const starred = normalizeStrayAsterisks(dashed)
+      // 2. Stray "*"/"**"/"***" separators are bullets too, and an indented line is an item.
+      const starred = normalizeIndentedBullets(normalizeStrayAsterisks(dashed))
 
       // 3. Numbering: each style counts continuously, keeping the author's style.
       const numbered = renumberSequence(starred)
@@ -1477,7 +1529,7 @@ window.__ModuleLoader__.load({
      * is how the preview mirrors the editor's selection.
      */
     function renderMarkdown(source, marks) {
-      const lines = normalizeStrayAsterisks(String(source ?? '')).split(/\r?\n/)
+      const lines = normalizeIndentedBullets(normalizeStrayAsterisks(String(source ?? ''))).split(/\r?\n/)
       const blocks = []
       let paragraph = []
       let list = null
@@ -5601,7 +5653,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, CopilotSidebar, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, CopilotSidebar, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

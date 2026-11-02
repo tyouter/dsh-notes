@@ -350,6 +350,26 @@ for (const [sample, style] of [
 }
 check('a bullet is not a marker', parseEnumerator('- 一条') === null)
 // A rewrite that leaves "**  风险" behind must not print literal asterisks.
+// The note that exposed it: three lines indented with spaces, meant as a list.
+const indentedNote = [
+  '极简笔记理念',
+  '',
+  '这不是一个新的工具，这是一个关于文字的哲学思考。',
+  '    智能不能成为文字的主角',
+  '    功能应当服务于思想',
+  '    书写带来快乐',
+  '当我们对书写既有沉浸式的期待，又希望以最小的 effort 获得最佳体验。',
+].join('\n')
+const indentedOut = formatLocally(indentedNote)
+check('an indented line becomes a bullet', /^- 智能不能成为文字的主角$/m.test(indentedOut), JSON.stringify(indentedOut))
+check('every indented line becomes its own bullet', (indentedOut.match(/^- /gm) ?? []).length === 3, JSON.stringify(indentedOut))
+check('the prose around it is untouched', indentedOut.includes('这不是一个新的工具') && indentedOut.includes('当我们对书写既有沉浸式的期待'), JSON.stringify(indentedOut))
+// A wrapped bullet stays one item: the continuation line follows an item.
+const wrapped = ['- 第一条很长', '  接着写同一句'].join('\n')
+check('a wrapped bullet stays one item', (formatLocally(wrapped).match(/^- /gm) ?? []).length === 1, JSON.stringify(formatLocally(wrapped)))
+// Rendering applies the same rule, so an AI draft with indented lines lists them too.
+check('the renderer lists indented lines', renderMarkdown(indentedNote).some((node) => node.node === 'ul'), JSON.stringify(renderMarkdown(indentedNote).map((node) => node.node)))
+
 check('a stray star separator becomes a bullet', normalizeStrayAsterisks('** 风险 环境不稳定') === '- 风险 环境不稳定', JSON.stringify(normalizeStrayAsterisks('** 风险 环境不稳定')))
 check('three stars do too', normalizeStrayAsterisks('*** 需要机器') === '- 需要机器', JSON.stringify(normalizeStrayAsterisks('*** 需要机器')))
 check('bold emphasis is untouched', normalizeStrayAsterisks('**加粗** 后面有字') === '**加粗** 后面有字', JSON.stringify(normalizeStrayAsterisks('**加粗** 后面有字')))
