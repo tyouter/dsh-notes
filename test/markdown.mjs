@@ -365,6 +365,11 @@ const walkMarks = (node) => {
   ;(node.children ?? []).forEach(walkMarks)
 }
 walkMarks(markedTree)
+// The busy state is a spinner plus a marquee label, not a progress bar.
+const busyTree = internals.PreviewBusy({ label: '正在翻译…' })
+check('the busy component has a spinner', JSON.stringify(busyTree).includes('dshn-busy-spinner'))
+check('the busy label repeats for the marquee', (JSON.stringify(busyTree).match(/正在翻译…/g) ?? []).length >= 2, JSON.stringify(busyTree))
+
 check('a marked line renders inside a mark', marks.length === 2, String(marks.length))
 check('an unmarked line stays plain', marks.every((node) => !JSON.stringify(node).includes('另一段')), JSON.stringify(marks))
 

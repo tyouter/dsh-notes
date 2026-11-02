@@ -1111,6 +1111,25 @@
       return out.join('\n')
     }
 
+    /**
+     * The running state of an AI call: a spinner plus a marquee label.
+     *
+     * A streamed partial answer reads as broken Markdown while it arrives; motion says "working"
+     * without pretending the text is final.
+     */
+    function PreviewBusy({ label }) {
+      return h(
+        'div',
+        { className: 'dshn-busy', role: 'status', 'aria-live': 'polite' },
+        h('span', { className: 'dshn-busy-spinner', 'aria-hidden': 'true' }),
+        h(
+          'span',
+          { className: 'dshn-busy-track' },
+          h('span', { className: 'dshn-busy-label' }, label + '　　' + label + '　　'),
+        ),
+      )
+    }
+
     /** A note with its title rendered in first-level heading style. */
     function renderNoteBody(text, marks) {
       const { title, rest } = splitNoteTitle(text)
@@ -2750,6 +2769,66 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* Kept for older proposals that may still carry the class. */
 .dshn-format-mark {
   display: block;
+}
+/* ---- progress and reveal ------------------------------------------------------------- */
+.dshn-busy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 2px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-busy-spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--dsw-alias-border-l2);
+  border-top-color: var(--dsw-alias-brand-primary);
+  animation: dshn-spin 780ms linear infinite;
+}
+@keyframes dshn-spin {
+  to { transform: rotate(360deg); }
+}
+/* A marquee, not a shimmer: the label keeps moving so a slow call still looks alive. */
+.dshn-busy-track {
+  overflow: hidden;
+  max-width: 320px;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.dshn-busy-label {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: .02em;
+  animation: dshn-marquee 4.2s linear infinite;
+}
+@keyframes dshn-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+/* The reveal: an ink wipe from left to right, once, on the new text. */
+.dshn-wipe {
+  animation: dshn-wipe 520ms cubic-bezier(.2, .7, .2, 1) both;
+}
+@keyframes dshn-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: .35;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dshn-busy-spinner,
+  .dshn-busy-label,
+  .dshn-wipe {
+    animation: none;
+  }
+  .dshn-wipe { opacity: 1; }
 }
 .dshn-fidelity {
   font-size: 11px;

@@ -434,8 +434,8 @@ check('the preview label distinguishes changed layout', boardSource.includes('t.
 check('the live preview needs no range', boardSource.includes('const runFormat') === false)
     check('the selected span is highlighted', boardSource.includes("className: 'dshn-editor-mark'"))
     check('the preview translates the selection', /const span = range === null \? draft : draft\.slice\(range\.start, range\.end\)/.test(boardSource))
-    check('the preview applies a translation to the selected span', /draft\.slice\(0, start\) \+ preview\.text \+ draft\.slice\(end\)/.test(boardSource))
-    check('the selection marks the preview lines', /markSet\.add\(plainLine\(line\)\)/.test(boardSource))
+    check('the preview applies a translation to the selected span', /spliceRange\(draft, start, end, preview\.text\)/.test(boardSource))
+    check('the selection marks the preview lines', /linesInRange\(draft, selected\.start, selected\.end\)/.test(boardSource))
     // A highlighter stroke in the palette's light green, not an underline.
     check('the mark uses the light green palette', /\] \.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource) || /\.dshn-editor-mark \{[^}]*background: var\(--dshn-heat-1\)/s.test(headSource))
     check('the mark is not an underline', /\.dshn-editor-mark \{[^}]*border-bottom/s.test(headSource) === false)
@@ -448,6 +448,12 @@ check('the live preview needs no range', boardSource.includes('const runFormat')
     check('the structure button names its scope', boardSource.includes('t.structureSelection'))
     // The band reported "未出现" on translations, where words are meant to change.
     check('no fidelity band is rendered', /dshn-fidelity'/.test(boardSource) === false, 'the band is still rendered')
+    // Progress is motion, not half-written Markdown.
+    check('deltas are not painted', (boardSource.match(/setEnhance\(\{ \.\.\.enhance, title: '', body: buffer \}\)/g) ?? []).length === 0)
+    check('a busy state is rendered', /h\(PreviewBusy, \{/.test(boardSource))
+    check('the reveal animation is keyed', /key: 'draft-' \+ wipe/.test(boardSource) && /key: 'page-' \+ wipe/.test(boardSource))
+    check('the selection translate splices the whole note', /spliceRange\(draft, preview\.range\.start, preview\.range\.end, preview\.text\)/.test(boardSource))
+    check('the splice is laid out before rendering', /const previewLayout = preview === null \? '' : formatLocally\(previewSpliced\)/.test(boardSource))
     check('a structuring failure stays visible', boardSource.includes('enhanceError !== \'\'') && boardSource.includes("className: 'dshn-err'"))
     check('the failure keeps the preview page open', /const showRender =[\s\S]{0,400}enhanceError !== ''/.test(boardSource))
     // Both pages end on the same line, and the preview scrolls inside its own page.

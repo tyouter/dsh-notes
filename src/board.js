@@ -325,6 +325,10 @@
       // source stays the single place you edit.
       // A translation made from the preview: the note itself is only replaced on Apply.
       const [preview, setPreview] = useState(null)
+      // Which call is running ("structure" / "translate"), and a counter that changes whenever a
+      // result lands — the counter is the wipe animation's key.
+      const [busy, setBusy] = useState('')
+      const [wipe, setWipe] = useState(0)
       // The preview is derived from the draft on every render, so there is no Format state.
       // The textarea's current selection, used to format just that part.
       const [selected, setSelected] = useState({ start: 0, end: 0 })
@@ -383,6 +387,7 @@
             acceptFirst()
             return
           }
+          setWipe((current) => current + 1)
           setEnhance({
             title: range === null ? String(repaired?.title ?? '') : '',
             body: range === null ? composeFormattedNote(String(repaired?.title ?? ''), cleaned) : preserveLabel(span, cleaned),
@@ -410,6 +415,7 @@
         // picker only feeds Translate, and passing it here produced an English title above a
         // Chinese body.
         setEnhancing(true)
+        setBusy('structure')
         setEnhanceSeconds(0)
         setEnhanceError('')
         setEnhance(null)
@@ -419,7 +425,8 @@
         try {
           await streamEvents('/enhance/stream', { text }, (event, payload) => {
             if (event === 'delta') {
-              setStreaming((current) => current + String(payload?.text ?? ''))
+              // Deltas still arrive (that is how the call is tracked); they are not painted: a
+              // half-written answer reads as broken Markdown.
               return
             }
             if (event === 'error') {
@@ -439,6 +446,8 @@
               const composedCheck = range === null ? composeFormattedNote(rawTitle, rawBody) : preserveLabel(sourceSpan, rawBody)
               const issues = typographyIssues(sourceSpan, composedCheck, { title: rawTitle })
               const accept = (body) => {
+                // The key changes here, so the reveal animation runs once on the new text.
+                setWipe((current) => current + 1)
                 setEnhance({
                   // A ranged result has no separate title: the source's label stands in for it.
                   title: range === null ? rawTitle : '',
@@ -467,6 +476,7 @@
           endCall()
           clearInterval(ticker)
           setEnhancing(false)
+          setBusy('')
           setStreaming('')
         }
       }
@@ -532,6 +542,7 @@
         }
 
         setTranslating(true)
+        setBusy('translate')
         setTranslateSeconds(0)
         setEnhanceError('')
         const ticker = setInterval(() => setTranslateSeconds((current) => current + 1), 1000)
@@ -543,11 +554,8 @@
 
         const handler = (event, payload) => {
           if (event === 'delta') {
+            // Buffered, not painted: the reveal animation shows the result as one movement.
             buffer += String(payload?.text ?? '').replace(/<<\d+>>\s?/g, '')
-            const now = Date.now()
-            if (now - lastPaint < 80) return
-            lastPaint = now
-            setEnhance({ ...enhance, title: '', body: buffer })
             return
           }
           if (event === 'error') {
@@ -563,6 +571,7 @@
           const plain = String(payload?.text ?? '').trim()
           if (indexedLines === null && plain === '') return
           const assembled = indexedLines === null ? finish(plain) : finish(assembleIndexedLines(sourceText, indexedLines))
+          setWipe((current) => current + 1)
           setEnhance({ ...enhance, title: '', body: assembled })
           setStatus(t.translated)
           setTimeout(() => setStatus(''), 1600)
@@ -597,6 +606,7 @@
           endCall()
           clearInterval(ticker)
           setTranslating(false)
+          setBusy('')
         }
       }
 
@@ -618,6 +628,7 @@
           sourceText,
         )
         setTranslating(true)
+        setBusy('translate')
         setTranslateSeconds(0)
         setEnhanceError('')
         setPreview(null)
@@ -638,6 +649,7 @@
               const plain = String(payload?.text ?? '').trim()
               if (translatedLines === null && plain === '') return
               const resultText = translatedLines === null ? plain : assembleIndexedLines(sourceText, translatedLines)
+              setWipe((current) => current + 1)
               setPreview({
                 text: resultText,
                 mode: range === null ? 'all' : 'selection',
@@ -662,7 +674,7 @@
         if (preview === null) return
         if (preview.mode === 'selection' && preview.range !== null) {
           const { start, end } = preview.range
-          setDraft(draft.slice(0, start) + preview.text + draft.slice(end))
+          setDraft(spliceRange(draft, start, end, preview.text))
           setSelected({ start, end: start + preview.text.length })
         } else {
           setDraft(preview.text)
@@ -726,21 +738,57 @@
       // runs on every keystroke rather than behind a button.
       const laidOut = formatLocally(draft)
       const layoutChanged = laidOut !== draft.trim()
+      /**
+       * Replace a character range, keeping the line break at each boundary.
+       *
+       * A translated span is usually a whole line, so when the original had a break after it the
+       * replacement needs one too — otherwise the next line is glued onto the translation.
+       */
+      const spliceRange = (value, start, end, insert) => {
+        const before = value.slice(0, start)
+        const after = value.slice(end)
+        const needsBreak = after !== '' && after.startsWith('\n') === false && insert.endsWith('\n') === false
+        return before + insert + (needsBreak ? '\n' : '') + after
+      }
+
+      /**
+       * The plainLine() keys of the lines a character range covers.
+       *
+       * Line-level rather than character-level: layout may trim or renumber a line, but a touched
+       * line stays a touched line, so the highlight cannot drift.
+       */
+      const linesInRange = (value, start, end) => {
+        const marks = new Set()
+        if (start === null || end === null || end <= start) return marks
+        const first = value.slice(0, start).split(/\r?\n/).length - 1
+        const endLine = value.slice(0, end).split(/\r?\n/).length - 1
+        // Ending right before a line break means the next line is not touched yet.
+        const last = value[end - 1] === '\n' ? endLine - 1 : endLine
+        value.split(/\r?\n/).forEach((line, index) => {
+          if (index >= first && index <= last) marks.add(plainLine(line))
+        })
+        return marks
+      }
+
       // Which lines of the laid-out text fall inside the editor selection. Line-level rather than
       // character-level: formatLocally may trim or renumber a line, but a selected line stays a
       // selected line, so the preview highlight cannot drift.
-      const markSet = new Set()
-      if (selected.end > selected.start) {
-        const before = draft.slice(0, selected.start)
-        const firstLine = before.split(/\r?\n/).length - 1
-        // Ending right before a line break means the next line is not selected yet.
-        const endLine = draft.slice(0, selected.end).split(/\r?\n/).length - 1
-        const lastLine =
-          selected.end > selected.start && draft[selected.end - 1] === '\n' ? endLine - 1 : endLine
-        draft.split(/\r?\n/).forEach((line, index) => {
-          if (index >= firstLine && index <= lastLine) markSet.add(plainLine(line))
-        })
-      }
+      const markSet = selected.end > selected.start ? linesInRange(draft, selected.start, selected.end) : new Set()
+
+      // What the translate proposal would apply: the whole note with the span replaced.
+      const previewSpliced =
+        preview === null
+          ? ''
+          : preview.mode === 'selection' && preview.range !== null
+            ? spliceRange(draft, preview.range.start, preview.range.end, preview.text)
+            : preview.text
+      const previewLayout = preview === null ? '' : formatLocally(previewSpliced)
+      const previewMarks =
+        preview === null
+          ? undefined
+          : preview.mode === 'selection' && preview.range !== null
+            ? linesInRange(previewSpliced, preview.range.start, preview.range.start + preview.text.length)
+            : undefined
 
       const structured = looksStructured(draft)
       // A Format proposal always previews; otherwise only structured text does.
@@ -877,7 +925,8 @@
           : enhance !== null
             ? h(
                 'div',
-                { className: 'dshn-page-render', 'data-proposal': 'true' },
+                // The key is what restarts the wipe: a new result means a new animation.
+                { key: 'draft-' + wipe, className: 'dshn-page-render dshn-wipe', 'data-proposal': 'true' },
                 h(
                   'div',
                   { className: 'dshn-page-render-label' },
@@ -896,20 +945,30 @@
                   ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
                   : renderProposalDocument(enhanceDocument, enhance.range),
               )
-            : enhancing && enhance === null
+            : busy !== ''
               ? h(
                   'div',
                   { className: 'dshn-page-render', 'data-proposal': 'true' },
                   h(
                     'div',
                     { className: 'dshn-page-render-label' },
-                    enhancing === true && enhanceSeconds > 2 ? t.enhanceSlow(enhanceSeconds) : t.enhancing,
+                    busy === 'translate' ? t.translated : t.enhanceTitle,
                   ),
-                  h('div', { className: 'dshn-md' }, renderMarkdown(streaming)),
+                  h(PreviewBusy, {
+                    // The seconds are part of the label, so the marquee keeps moving even when the
+                    // call is slow enough to be worth counting.
+                    label:
+                      (busy === 'translate' ? t.translating : t.enhancing) +
+                      (enhanceSeconds + translateSeconds > 2 ? ' ' + Math.max(enhanceSeconds, translateSeconds) + 's' : ''),
+                  }),
                 )
               : h(
                   'div',
-                  { className: 'dshn-page-render', 'data-proposal': preview === null ? undefined : 'true' },
+                  {
+                    key: 'page-' + wipe,
+                    className: 'dshn-page-render' + (preview === null ? '' : ' dshn-wipe'),
+                    'data-proposal': preview === null ? undefined : 'true',
+                  },
                   h(
                     'div',
                     { className: 'dshn-page-render-label' },
@@ -922,7 +981,7 @@
                       : (layoutChanged ? t.formattedPreview : t.rendered) + ' · ' + t.chars(laidOut.length),
                   ),
                   preview !== null
-                    ? renderNoteBody(preview.text)
+                    ? renderNoteBody(previewLayout, previewMarks)
                     : laidOut.trim() === ''
                       ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
                       : renderNoteBody(laidOut, markSet),
