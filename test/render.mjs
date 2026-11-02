@@ -494,6 +494,14 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the capture box skips the create call when bound', captureSource.includes('props.noteId === undefined'))
     check('cancel can leave a bound editor', captureSource.includes('props.onCancel'))
     check('no copilot sidebar remains', /CopilotSidebar|dshn-copilot/.test(captureSource) === false && /CopilotSidebar/.test(panelSource) === false)
+    // Saving stores the laid-out text on every path (create, edit, structured, quick note), so the
+    // right page is a promise and reopening a note shows exactly what was saved.
+    const saveSites = boardSource.match(/post\('\/note'|put\('\/note/g) ?? []
+    check('every save path stores the laid-out text', /{ body,/.test(boardSource) && /body: draft/.test(boardSource) === false, 'a save still sends the raw draft')
+    check('the quick note is formatted too', /const body = formatLocally\(quickText\)\.trim\(\)/.test(boardSource))
+    check('the structured save formats its body', /const structured = formatLocally\(enhance\.body\)\.trim\(\)/.test(boardSource))
+    check('editing keeps the stored text on screen', /setDraft\(body\)/.test(boardSource))
+    check('all four save paths remain', saveSites.length === 4, String(saveSites.length))
   }
 
 } finally {

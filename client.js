@@ -3445,11 +3445,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         setStatus(t.saving)
         try {
           if (props.noteId === undefined) {
-            await post('/note', { body: draft, tags: parseTags(pendingTags), source: 'panel' })
+            await post('/note', { body, tags: parseTags(pendingTags), source: 'panel' })
             setDraft('')
           } else {
-            // Editing an existing note: update it in place and keep the text on screen.
-            await put('/note/' + encodeURIComponent(props.noteId), { body: draft })
+            // Editing an existing note: update it in place, and leave the source showing exactly
+            // what was written to disk.
+            await put('/note/' + encodeURIComponent(props.noteId), { body })
+            setDraft(body)
           }
           flash(t.saved)
           await props.onSaved?.()
@@ -3811,14 +3813,15 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
       const saveEnhance = async () => {
         if (enhance === null) return
+        const structured = formatLocally(enhance.body).trim()
         const body = enhance.keepSource
-          ? enhance.body +
+          ? structured +
             '\n\n---\n\n## 原始记录\n\n' +
             String(draft)
               .split(/\r?\n/)
               .map((line) => '> ' + line)
               .join('\n')
-          : enhance.body
+          : structured
         try {
           await post('/note', { body, tags: parseTags(enhance.tags), source: 'ai' })
           setEnhance(null)
@@ -4367,7 +4370,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       }, [load, props.total])
 
       const saveQuick = useCallback(async () => {
-        const body = quickText.trim()
+        const body = formatLocally(quickText).trim()
         if (body === '') return
         try {
           await post('/note', { body, tags: quickTags, source: 'panel' })
