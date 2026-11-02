@@ -464,7 +464,8 @@ check('the live preview needs no range', boardSource.includes('const runFormat')
     // The page kept rendering the document while a call was running; a busy page lost the text
     // the reveal was supposed to replace.
     check('the document is not replaced while a call runs', /: busy !== ''\s*\?\s*h\(\s*'div',\s*\{\s*className: 'dshn-page-render'/.test(boardSource) === false)
-    check('the busy chip is in a toolbar', /const busyChip = \(task\) =>/.test(boardSource) && /busy === '' \? null : busyChip\(busy\)/.test(boardSource))
+check('the busy chip replaces the translate button', /translating\s*\?\s*busyChip\('translate'\)/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')))
+    check('only one busy chip is rendered', (String(boardSource).match(/busyChip\(/g) ?? []).length === 2, 'expected one per toolbar')
     check('the reveal animation is keyed', /key: 'draft-' \+ wipe/.test(boardSource) && /key: 'page-' \+ wipe/.test(boardSource))
     check('the selection translate splices the whole note', /spliceRange\(draft, preview\.range\.start, preview\.range\.end, preview\.text\)/.test(boardSource))
     check('the splice is laid out before rendering', /const previewLayout = preview === null \? '' : formatLocally\(previewSpliced\)/.test(boardSource))

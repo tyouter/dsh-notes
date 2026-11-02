@@ -1137,11 +1137,9 @@
             strokeDasharray: '16 41',
           }),
         ),
-        // One copy when it fits: a marquee on a six-character label shows the seam between the
-        // two copies and looks like two labels fighting. It scrolls only when it has to.
-        label.length > 10
-          ? h('span', { className: 'dshn-busy-track' }, h('span', { className: 'dshn-busy-label' }, label + '　　' + label + '　　'))
-          : h('span', { className: 'dshn-busy-track is-fitted' }, h('span', { className: 'dshn-busy-label is-fitted' }, label)),
+        // Static text: a moving label reads as two labels fighting, and a spinner already says
+        // "working". The caller appends the elapsed seconds.
+        h('span', { className: 'dshn-busy-label' }, label),
       )
     }
 
@@ -2860,33 +2858,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 @keyframes dshn-spin {
   to { transform: rotate(360deg); }
 }
-/* A marquee, not a shimmer: the label keeps moving so a slow call still looks alive. */
-.dshn-busy-track {
-  overflow: hidden;
-  max-width: 150px;
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-}
+/* A fixed label next to the ring: the seconds do the moving, not the text. */
 .dshn-busy-label {
-  display: inline-block;
   white-space: nowrap;
   font-size: 12px;
   letter-spacing: .02em;
-  animation: dshn-marquee 4.2s linear infinite;
-}
-@keyframes dshn-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-/* Short labels breathe: motion without a seam. */
-.dshn-busy-track.is-fitted { max-width: none; mask-image: none; -webkit-mask-image: none; }
-.dshn-busy-label.is-fitted {
-  animation: dshn-breathe 1.7s ease-in-out infinite;
-  transform: none;
-}
-@keyframes dshn-breathe {
-  0%, 100% { opacity: .45; }
-  50% { opacity: 1; }
+  font-variant-numeric: tabular-nums;
 }
 /* The reveal: an ink wipe from left to right, once, on the new text. */
 .dshn-wipe {
@@ -2904,8 +2881,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dshn-busy-spinner,
-  .dshn-busy-label,
-  .dshn-busy-label.is-fitted,
   .dshn-wipe {
     animation: none;
   }
