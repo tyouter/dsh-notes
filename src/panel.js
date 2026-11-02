@@ -362,6 +362,16 @@
       const [editing, setEditing] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
       const [listOpen, setListOpen] = useState(true)
+      // The list is a column you can widen: dragged between 200 and 520 px and remembered.
+      const [listWidth, setListWidth] = useState(() => {
+        try {
+          const stored = Number(globalThis.localStorage?.getItem('dshn.history.listWidth'))
+          return Number.isFinite(stored) && stored >= 200 && stored <= 520 ? stored : 280
+        } catch {
+          return 280
+        }
+      })
+      const dragRef = useRef(null)
       // Search and filters run over the list the panel already holds, so
       // switching tabs never waits on the network.
       const filtered = useMemo(() => {
@@ -468,7 +478,7 @@
           : null,
         h(
           'div',
-          { className: 'dshn-body' },
+          { className: 'dshn-body', 'data-collapsed': String(!listOpen), style: { '--dshn-list-width': listWidth + 'px' } },
           h(
             'div',
             { className: 'dshn-list', role: 'list', 'data-collapsed': String(!listOpen) },
@@ -523,6 +533,32 @@
                   ),
                 ),
           ),
+          h('div', {
+            className: 'dshn-splitter',
+            role: 'separator',
+            'aria-orientation': 'vertical',
+            'aria-label': t.resizeList,
+            'data-hidden': String(!listOpen),
+            onPointerDown: (event) => {
+              event.currentTarget.setPointerCapture?.(event.pointerId)
+              dragRef.current = { x: event.clientX, width: listWidth }
+            },
+            onPointerMove: (event) => {
+              if (dragRef.current === null) return
+              const next = Math.max(200, Math.min(520, dragRef.current.width + event.clientX - dragRef.current.x))
+              setListWidth(next)
+            },
+            onPointerUp: (event) => {
+              dragRef.current = null
+              try {
+                globalThis.localStorage?.setItem('dshn.history.listWidth', String(listWidth))
+              } catch {
+                /* storage may be unavailable; the width is cosmetic */
+              }
+              event.currentTarget.releasePointerCapture?.(event.pointerId)
+            },
+            onDoubleClick: () => setListWidth(280),
+          }),
           h(
             'div',
             { className: 'dshn-detail' },
@@ -617,7 +653,7 @@
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, dedentLine, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

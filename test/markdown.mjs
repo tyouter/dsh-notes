@@ -368,6 +368,31 @@ check('the prose around it is untouched', indentedOut.includes('这不是一个�
 const wrapped = ['- 第一条很长', '  接着写同一句'].join('\n')
 check('a wrapped bullet stays one item', (formatLocally(wrapped).match(/^- /gm) ?? []).length === 1, JSON.stringify(formatLocally(wrapped)))
 // Rendering applies the same rule, so an AI draft with indented lines lists them too.
+// Indent is nesting: two items written on separate indented lines must not merge, and a deeper
+// indent must come out one level down.
+const nested = ['正文', '', '- 甲', '  乙', '    丙'].join('\n')
+const nestedOut = formatLocally(nested)
+const nestedList = renderMarkdown(nestedOut).find((node) => node.node === 'ul')
+const depths = (nestedList?.children ?? []).map((item) => item.props?.['data-depth'] ?? '1')
+// 极简写: spaces are structure.
+const bulletDraft = ['正文', '', '- 甲'].join('\n')
+const continued = internals.continueBulletLine(bulletDraft, bulletDraft.length)
+check('Enter continues a bullet at the same level', continued?.text.endsWith('\n- '), JSON.stringify(continued))
+const burstOne = internals.spaceBurstLine(continued.text, continued.text.length)
+check('a space burst goes one level deeper', burstOne?.text.endsWith('\n  - '), JSON.stringify(burstOne))
+const burstTwo = internals.spaceBurstLine(burstOne.text, burstOne.text.length)
+check('a second burst goes deeper again', burstTwo?.text.endsWith('\n    - '), JSON.stringify(burstTwo))
+const outdented = internals.dedentLine(burstTwo.text, burstTwo.text.length)
+check('holding space comes back one level', outdented?.text.endsWith('\n  - '), JSON.stringify(outdented))
+const promoted = internals.spaceBurstLine('正文文字', 0)
+check('two spaces promote a prose line to a bullet', promoted?.text === '- 正文文字', JSON.stringify(promoted))
+
+check('a deeper indent is a nested item', depths.join(',') === '1,2,3', JSON.stringify(depths))
+check('indented lines never merge into one bullet', (nestedList?.children ?? []).length === 3, JSON.stringify((nestedList?.children ?? []).length))
+const twoWords = ['正文', '', '  安安卓', '    喵喵喵'].join('\n')
+const twoList = renderMarkdown(formatLocally(twoWords)).find((node) => node.node === 'ul')
+check('a second indented line is its own child', (twoList?.children ?? []).length === 2, JSON.stringify((twoList?.children ?? []).map((item) => item.props?.['data-depth'])))
+
 check('the renderer lists indented lines', renderMarkdown(indentedNote).some((node) => node.node === 'ul'), JSON.stringify(renderMarkdown(indentedNote).map((node) => node.node)))
 
 check('a stray star separator becomes a bullet', normalizeStrayAsterisks('** 风险 环境不稳定') === '- 风险 环境不稳定', JSON.stringify(normalizeStrayAsterisks('** 风险 环境不稳定')))

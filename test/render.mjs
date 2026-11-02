@@ -501,6 +501,12 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the quick note is formatted too', /const body = formatLocally\(quickText\)\.trim\(\)/.test(boardSource))
     check('the structured save formats its body', /const structured = formatLocally\(enhance\.body\)\.trim\(\)/.test(boardSource))
     check('editing keeps the stored text on screen', /setDraft\(body\)/.test(boardSource))
+    // History ergonomics: a draggable column, two-line cards, and the width remembered.
+    check('the note list can be widened', /dshn-splitter/.test(panelSource) && /--dshn-list-width/.test(panelSource))
+    check('the list width is remembered', /dshn\.history\.listWidth/.test(panelSource))
+    check('cards clamp to two lines', /line-clamp: 2/.test(headCss) && /-webkit-line-clamp: 2/.test(headCss))
+    check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 6px 14px/.test(headCss))
+
     check('all four save paths remain', saveSites.length === 4, String(saveSites.length))
   }
 

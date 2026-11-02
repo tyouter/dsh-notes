@@ -322,6 +322,11 @@
       // The highlight layer behind the textarea; kept in sync so the mark stays under the
       // right characters when the text scrolls.
       const marksRef = useRef(null)
+      // The editor itself, so a keystroke can rewrite a line and put the caret back.
+      const areaRef = useRef(null)
+      // Space typing: bursts indent, a held space outdents. Timing lives in a ref because it must
+      // not re-render the box on every keypress.
+      const spaceRef = useRef({ lastAt: 0, burst: 0, holdStart: 0, lastDedent: 0 })
       // A Format proposal: shown in the render area until applied or discarded, so the
       // source stays the single place you edit.
       // A translation made from the preview: the note itself is only replaced on Apply.
@@ -360,6 +365,50 @@
         } catch (problem) {
           setStatus('')
           setEnhanceError(String(problem?.message ?? problem))
+        }
+      }
+
+      /** Write a rewritten line back and restore the caret where the transform put it. */
+      const commitLine = (next) => {
+        if (next === null || next === undefined) return false
+        setDraft(next.text)
+        const caret = next.caret
+        setTimeout(() => {
+          const area = areaRef.current
+          if (area === null) return
+          area.focus()
+          area.setSelectionRange(caret, caret)
+        }, 0)
+        return true
+      }
+
+      /**
+       * 极简写: spaces are structure.
+       *
+       * Enter on a bullet continues at the same level. Two spaces pressed in one burst promote the
+       * line (a plain line becomes a bullet, a bullet goes one level deeper). Holding space comes
+       * back one level. Everything else types normally.
+       */
+      const onSpaceKeyDown = (event) => {
+        const now = Date.now()
+        const state = spaceRef.current
+        if (event.repeat) {
+          if (now - state.holdStart < 380) return
+          if (now - state.lastDedent < 260) return
+          state.lastDedent = now
+          if (commitLine(dedentLine(draft, event.target.selectionStart))) event.preventDefault()
+          return
+        }
+        state.holdStart = now
+        if (now - state.lastAt < 150) state.burst += 1
+        else state.burst = 1
+        state.lastAt = now
+        if (state.burst >= 2) {
+          // The caret sits after the first space; the second one is being consumed.
+          if (commitLine(spaceBurstLine(draft, event.target.selectionStart + 1))) {
+            event.preventDefault()
+            state.burst = 0
+          }
         }
       }
 
@@ -852,6 +901,7 @@
                   draft.slice(activeRange.end),
                 ),
             h('textarea', {
+            ref: areaRef,
             className: 'dshn-textarea',
             value: draft,
             placeholder: t.composePlaceholder,
@@ -873,6 +923,16 @@
               if (modifier && event.key === 'Enter') {
                 event.preventDefault()
                 void saveDraft()
+                return
+              }
+              // 极简写: two spaces in one burst indent, a held space outdents, Enter continues a
+              // bullet at the same level. Everything else types normally.
+              if (event.key === ' ' && modifier === false && event.altKey === false) {
+                onSpaceKeyDown(event)
+                return
+              }
+              if (event.key === 'Enter' && event.shiftKey === false && modifier === false) {
+                if (commitLine(continueBulletLine(draft, event.target.selectionStart))) event.preventDefault()
               }
             },
             'aria-label': t.composePlaceholder,

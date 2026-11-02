@@ -96,6 +96,7 @@
         enhanceFailed: '整理失败',
         enhanceSlow: (seconds) => `已等 ${seconds} 秒，模型还在写⬦`,
         collapseList: '收起列表',
+        resizeList: '拖动调整列表宽度',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -241,6 +242,7 @@
         enhanceFailed: 'Structuring failed',
         enhanceSlow: (seconds) => `Still writing after ${seconds}s⬦`,
         collapseList: 'Collapse list',
+        resizeList: 'Drag to resize the note list',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -769,38 +771,133 @@
      * The first indented line after prose becomes "- 第一点"; a line that follows an existing item is
      * a continuation of that item, which is how wrapped bullets stay together.
      */
+    /** Width of a line's leading whitespace, tabs counted as two spaces. */
+    function indentWidth(rawIndent) {
+      return String(rawIndent ?? '').replace(/\t/g, '  ').length
+    }
+
+    /**
+     * One indent step is one level, relative to the item above.
+     *
+     * The rule is about typing, not about counting spaces: 2 spaces under a paragraph is a top-level
+     * bullet, 2 spaces under a bullet is its child, and a deeper indent under a child is the next
+     * level down again. Levels are clamped so a page cannot drift into a staircase.
+     */
+    function indentLevel(rawIndent) {
+      const width = indentWidth(rawIndent)
+      if (width < 2) return 1
+      return Math.min(4, 1 + Math.floor(width / 2))
+    }
+
+    /** The bullet text for a level: "- " prefixed by 2 spaces per level below the first. */
+    function bulletText(level, content) {
+      return '  '.repeat(Math.max(0, level - 1)) + '- ' + String(content ?? '').trim()
+    }
+
+    /**
+     * An indented line is an item at that depth.
+     *
+     * It used to be a continuation of the item above when it was deeper, which merged two items into
+     * one bullet — the bug where "安安卓 / 喵喵喵" came out as a single line.
+     */
     function normalizeIndentedBullets(text) {
-      const lines = String(text ?? '').split(/\r?\n/)
-      // Width of the current item's indent, so a deeper line continues it and an equal one is a
-      // sibling. -1 means "the previous line was not an item".
-      let itemIndent = -1
-      return lines
+      // Level of the previous item and the indent it was written with, so one indent step means one
+      // level regardless of how many spaces were typed.
+      let prevLevel = 0
+      let prevWidth = 0
+      let prevWasItem = false
+      return String(text ?? '')
+        .split(/\r?\n/)
         .map((line) => {
           if (line.trim() === '') {
-            itemIndent = -1
+            prevWasItem = false
+            prevLevel = 0
+            prevWidth = 0
             return line
           }
-          const leading = line.match(/^(\t| {2,})/)?.[1] ?? ''
-          const width = leading.replace(/\t/g, '  ').length
+          const width = indentWidth(line.match(/^\s*/)?.[0] ?? '')
+          if (hasMarker(line)) {
+            prevWasItem = true
+            prevLevel = Math.max(1, indentLevel(line.match(/^\s*/)?.[0] ?? ''))
+            prevWidth = width
+            return line
+          }
           const indented = line.match(/^(\t| {2,})(\S.*)$/)
-          const marker = hasMarker(line)
-
-          if (marker) {
-            itemIndent = line.match(/^\s*/)[0].length
-            return line
-          }
           if (indented === null) {
-            itemIndent = -1
+            prevWasItem = false
+            prevLevel = 0
+            prevWidth = 0
             return line
           }
-          // Deeper than the current item: a wrapped continuation, left alone.
-          if (itemIndent >= 0 && width > itemIndent) return line
-          itemIndent = width
-          // Indent 2-4 is the first item level; deeper indents keep their nesting.
-          const depth = width <= 4 ? 1 : Math.min(3, Math.floor(width / 2) - 1)
-          return '  '.repeat(depth - 1) + '- ' + indented[2].trim()
+          let level
+          if (prevWasItem === false) level = 1
+          else if (width > prevWidth) level = Math.min(4, prevLevel + 1)
+          else if (width === prevWidth) level = prevLevel
+          else level = Math.max(1, prevLevel - 1)
+          prevWasItem = true
+          prevLevel = level
+          prevWidth = width
+          return bulletText(level, indented[2])
         })
         .join('\n')
+    }
+
+    /** Where the line around `index` starts and ends. */
+    function lineBounds(text, index) {
+      const source = String(text ?? '')
+      const at = Math.max(0, Math.min(index, source.length))
+      const start = source.lastIndexOf('\n', at - 1) + 1
+      const breakAt = source.indexOf('\n', at)
+      return { start, end: breakAt < 0 ? source.length : breakAt }
+    }
+
+    /** The bullet level of a line, or null when the line is not an item. */
+    function lineBulletLevel(line) {
+      const match = String(line ?? '').match(/^(\s*)-\s+\S?/)
+      if (match === null) return null
+      return indentLevel(match[1])
+    }
+
+    /** Enter on a bullet continues at the same level, marker included. */
+    function continueBulletLine(text, index) {
+      const source = String(text ?? '')
+      const { start, end } = lineBounds(source, index)
+      const level = lineBulletLevel(source.slice(start, end))
+      if (level === null) return null
+      const insert = '\n' + '  '.repeat(Math.max(0, level - 1)) + '- '
+      return { text: source.slice(0, index) + insert + source.slice(index), caret: index + insert.length }
+    }
+
+    /**
+     * Two spaces in one burst at the start of a line promote it: a plain line becomes a bullet, a
+     * bullet line goes one level deeper.
+     */
+    function spaceBurstLine(text, index) {
+      const source = String(text ?? '')
+      const { start, end } = lineBounds(source, index)
+      const line = source.slice(start, end)
+      const level = lineBulletLevel(line)
+      if (level === null) {
+        if (source.slice(start, index).trim() !== '') return null
+        const content = line.trim()
+        const replaced = bulletText(1, content)
+        return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + 2 + content.length }
+      }
+      const content = line.replace(/^\s*-\s+/, '')
+      const replaced = bulletText(Math.min(3, level + 1), content)
+      return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
+    }
+
+    /** Holding space comes back one level; marker and text stay put. */
+    function dedentLine(text, index) {
+      const source = String(text ?? '')
+      const { start, end } = lineBounds(source, index)
+      const line = source.slice(start, end)
+      const level = lineBulletLevel(line)
+      if (level === null || level === 0) return null
+      const content = line.replace(/^\s*-\s+/, '')
+      const replaced = bulletText(level - 1, content)
+      return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
     }
 
     /**
@@ -1507,7 +1604,11 @@
               ...list.items.map((item, index) =>
                 h(
                   'li',
-                  { key: index, 'data-task': item.task === undefined ? undefined : String(item.task) },
+                  {
+                    key: index,
+                    'data-task': item.task === undefined ? undefined : String(item.task),
+                    'data-depth': item.level > 1 ? String(item.level) : undefined,
+                  },
                   ...marked(
                     inlineSpans(item.text, `li${blocks.length}-${index}`),
                     marks?.has(plainLine(item.text)) ? marks : undefined,
@@ -1621,13 +1722,13 @@
             else task = 'pending'
             content = box[2]
           }
-          list.items.push({ text: content, task })
+          // Depth comes from the indent, so nesting survives into the page.
+          list.items.push({ text: content, task, level: Math.max(1, indentLevel(line.match(/^\s*/)?.[0] ?? '')) })
           continue
         }
-        // An indented continuation belongs to the previous list item.
+        // A deeper indented line is its own nested item: indent is meaning.
         if (list !== null && /^\s{2,}\S/.test(raw)) {
-          const item = list.items[list.items.length - 1]
-          if (item !== undefined) item.text += ` ${line.trim()}`
+          list.items.push({ text: line.trim(), task: undefined, level: Math.max(1, indentLevel(raw.match(/^\s*/)?.[0] ?? '')) })
           continue
         }
         flushList()
@@ -1872,6 +1973,46 @@
 
 /* ---- history ---- */
 .dshn-history { padding: 14px 20px 16px; gap: 10px; }
+/* ---- history: a column you can widen, cards two lines long ---- */
+.dshn-history .dshn-list { width: var(--dshn-list-width, 288px); }
+.dshn-history .dshn-body[data-collapsed="true"] .dshn-list { width: auto; }
+.dshn-splitter {
+  width: 8px;
+  cursor: col-resize;
+  border-radius: 4px;
+  background: transparent;
+  position: relative;
+  touch-action: none;
+}
+.dshn-splitter::after {
+  content: '';
+  position: absolute;
+  inset: 8px 3px;
+  border-radius: 3px;
+  background: var(--dsw-alias-border-l1);
+  transition: background .12s ease;
+}
+.dshn-splitter:hover::after,
+.dshn-splitter:active::after { background: var(--dsw-alias-brand-primary); }
+.dshn-splitter[data-hidden="true"] { display: none; }
+.dshn-item-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.5;
+}
+.dshn-detail-bar .dshn-btn {
+  padding: 5px 12px;
+  font-size: 12.5px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+  border-radius: var(--dshn-r-sm);
+}
+.dshn-detail-bar .dshn-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
+.dshn-detail-bar .dshn-btn.danger { color: var(--dsw-alias-state-error-primary); }
+.dshn-detail-bar .dshn-btn.primary { padding: 5px 16px; font-weight: 600; }
 .dshn-body { display: flex; gap: 14px; flex: 1 1 auto; min-height: 0; }
 .dshn-list {
   width: 288px;
@@ -2083,6 +2224,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-md-list li { margin: 3px 0; padding-left: 2px; }
 .dshn-md-list li::marker { color: var(--dsw-alias-label-secondary); }
 .dshn-md-list li[data-task]::marker { content: ''; }
+/* Nesting: each level steps in and changes the marker, so a sub-item reads as a sub-item. */
+.dshn-md-list li[data-depth="2"] { margin-left: 1.15em; list-style-type: circle; }
+.dshn-md-list li[data-depth="3"] { margin-left: 2.3em; list-style-type: square; }
+.dshn-md-list li[data-depth="4"] { margin-left: 3.45em; list-style-type: '–  '; }
 .dshn-md-list li[data-task="true"] { color: var(--dsw-alias-label-secondary); text-decoration: line-through; }
 /* The marker is cleared for task items, so the box itself has to be drawn — otherwise an
    unchecked item reads as indented plain text. */
@@ -2680,7 +2825,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* The toolbar stays inside the source sheet, so the left page keeps the exact layout it
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
-.dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools {
+.dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+.dshn-capture-tools .dshn-btn { padding: 6px 14px; font-size: 13px; font-weight: 500; }
+.dshn-capture-tools .dshn-btn.primary { padding: 6px 18px; font-weight: 600; }
+.dshn-capture-tools {
   /* Both pages carry a footer strip on the same line, so the two toolbars sit at the
      same height and the pages stay symmetrical. */
   margin-top: auto;
