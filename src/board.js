@@ -372,7 +372,9 @@
           }
           const span = range === null ? draft : draft.slice(range.start, range.end)
           const cleaned = repairCoverage(span, preserveMarkup(span, body))
-          const remaining = typographyIssues(span, cleaned, { title: String(repaired?.title ?? '') })
+          const repairedTitle = String(repaired?.title ?? '')
+          const composedRepair = range === null ? composeFormattedNote(repairedTitle, cleaned) : preserveLabel(span, cleaned)
+          const remaining = typographyIssues(span, composedRepair, { title: repairedTitle })
           // A repair that is not better than the first answer is discarded.
           if (remaining.length >= issues.length) {
             acceptFirst()
@@ -430,7 +432,9 @@
               // Markup first, then re-insert any source line the rewrite dropped: the result must
               // contain everything the author wrote, without asking the user to notice.
               const rawBody = repairCoverage(sourceSpan, preserveMarkup(sourceSpan, String(parsed.body ?? '')))
-              const issues = typographyIssues(sourceSpan, rawBody, { title: rawTitle })
+              // Check what the user would apply: the body alone is missing the title line by design.
+              const composedCheck = range === null ? composeFormattedNote(rawTitle, rawBody) : preserveLabel(sourceSpan, rawBody)
+              const issues = typographyIssues(sourceSpan, composedCheck, { title: rawTitle })
               const accept = (body) => {
                 setEnhance({
                   // A ranged result has no separate title: the source's label stands in for it.

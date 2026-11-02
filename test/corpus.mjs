@@ -64,7 +64,12 @@ const stylesEnd = stylesStart < 0 ? -1 : bundle.indexOf('\n`', stylesStart)
 const STYLES = stylesStart >= 0 && stylesEnd > 0 ? bundle.slice(stylesStart + 'const STYLES = `'.length, stylesEnd) : ''
 
 // ------------------------------------------------------------------------- host discovery ---
-const candidates = ['http://127.0.0.1:57123', 'http://127.0.0.1:63984', 'http://127.0.0.1:50504', 'http://127.0.0.1:55838']
+// The app picks a new port each start; pass DSH_NOTES_PORT to target a specific one.
+const ports = (process.env.DSH_NOTES_PORT ?? '60337,57123,63984,50504,55838')
+  .split(',')
+  .map((value) => value.trim())
+  .filter((value) => value !== '')
+const candidates = ports.map((port) => 'http://127.0.0.1:' + port)
 let api = null
 for (const base of candidates) {
   try {
@@ -139,6 +144,45 @@ const corpus = [
     id: '09-technical',
     kind: '技术笔记：命令、代码、路径、错误',
     note: '构建报错 ETIMEDOUT registry.npmjs.org 超时\n试了 npm ci --prefer-offline 仍然失败\n临时办法：换 registry https://registry.npmmirror.com\n之后要改 .npmrc 的 registry 字段\n另外 CI 缓存目录 ~/.npm 需要保留',
+  },
+  {
+    id: '12-spaces-times',
+    kind: '低投入：纯空格分词、行首时间、无标点',
+    note: [
+      '今天好累',
+      '早上开会 9:40 到 11:00 讲了啥记不太清 大概是上线时间',
+      '李四说要压测 但机器不够 具体哪天没说',
+      '报销 发票 月底前 1280',
+      '明天下班前 给王五回个电话',
+    ].join('\n'),
+  },
+  {
+    id: '13-chinese-numbers',
+    kind: '低投入：1、2、3 加顿号连写',
+    note: [
+      '1、把接口字段定下来 inputoutput 还是 promptresponse 没定',
+      '2、压测环境找张三要',
+      '3、配色下版再说',
+    ].join('\n'),
+  },
+  {
+    id: '14-dashes-colons',
+    kind: '低投入：短线 + 冒号标签',
+    note: [
+      '- 报销：发票月底前交 金额1280 我还没交',
+      '- 部署：rollback 脚本没写 王五说先手动回滚',
+      '- 配色：雾面灰配钛合金 下版再说',
+    ].join('\n'),
+  },
+  {
+    id: '15-arrow-flow',
+    kind: '低投入：箭头表示流程',
+    note: ['用户下单 -> 校验库存 -> 扣款 -> 发货', '其中扣款失败要回滚库存 目前没实现'].join('\n'),
+  },
+  {
+    id: '16-oral-blob',
+    kind: '低投入：一整段口头话，无分行',
+    note: '那个缓存的事我想了一下还是得先埋点不然没法验证我先看看LCP怎么采集然后找李四确认他那边能不能出数据下周再说',
   },
   {
     id: '11-representative',
@@ -221,8 +265,39 @@ for (const entry of corpus) {
 
   const title = String(draft.title ?? '')
   const bodyRaw = String(draft.body ?? '')
-  const repaired = repairCoverage(entry.note, preserveMarkup(entry.note, bodyRaw))
-  const issues = typographyIssues(entry.note, repaired, { title })
+  let repaired = repairCoverage(entry.note, preserveMarkup(entry.note, bodyRaw))
+  let issues = typographyIssues(entry.note, repaired, { title })
+  // Mirror the app: defects trigger one repair request, and the judge is the *repaired* result.
+  let gateRepaired = false
+  if (issues.length > 0) {
+    try {
+      const second = await realFetch(`${api}/enhance`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: entry.note,
+          instruction: '上一版有以下问题，请修正后重新输出整篇：\n- ' + issues.join('\n- '),
+        }),
+      })
+      const secondPayload = await second.json()
+      const repairedDraft = secondPayload?.data?.draft ?? {}
+      if (String(repairedDraft.body ?? '').trim() !== '') {
+        const span = entry.note
+        const cleaned = repairCoverage(span, preserveMarkup(span, String(repairedDraft.body)))
+        const composed = String(repairedDraft.title ?? '').trim() === ''
+          ? cleaned
+          : `# ${String(repairedDraft.title).trim()}\n\n${cleaned}`
+        const remaining = typographyIssues(span, composed, { title: String(repairedDraft.title ?? '') })
+        if (remaining.length < issues.length) {
+          gateRepaired = true
+          repaired = cleaned
+          issues = remaining
+        }
+      }
+    } catch {
+      /* keep the first result */
+    }
+  }
   const report = fidelityReport(entry.note, repaired, { sameLanguage: true })
   const composed = title.trim() === '' ? repaired : `# ${title}\n\n${repaired}`
   const tree = renderNoteBody(composed)
@@ -279,12 +354,17 @@ for (const entry of corpus) {
     'utf8',
   )
 
+  // A title remark cannot be repaired by re-asking reliably; it only depends on the brief.
+  const advisory = issues.filter((issue) => issue.includes('照抄'))
+  const blocking = issues.filter((issue) => issue.includes('照抄') === false)
+
   rows.push({
     id: entry.id,
     kind: entry.kind,
     chars: entry.note.length,
     elapsed,
-    issues: issues.length,
+    issues: blocking.length,
+    advisory: advisory.length,
     issueText: issues,
     missing: report.missing.length,
     lineDelta: report.lineDelta,
@@ -298,7 +378,7 @@ for (const entry of corpus) {
   console.log(
     `${entry.id.padEnd(22)} ${String(entry.note.length).padStart(4)}ch ${String(elapsed).padStart(5)}ms  issues=${issues.length} missing=${report.missing.length} lines=${stats.headings}H/${stats.items}I/${stats.bullets}B  tr=${translateMode} ${translated === '' ? '' : translated.split(/\r?\n/).length + '/' + composed.split(/\r?\n/).length}`,
   )
-  if (issues.length > 0) for (const issue of issues) console.log(`    - ${issue}`)
+  if (issues.length > 0) for (const issue of issues) console.log(`    - ${entry.id === 'x' ? '' : ''}${issue}`)
 }
 
 await writeFile(join(previewDir, 'index.html'), indexPage(rows), 'utf8')

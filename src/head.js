@@ -433,7 +433,7 @@
       if (lines[index].trim().startsWith('#') === false && parseEnumerator(lines[index]) !== null) {
         return { title: '', rest: String(text ?? '') }
       }
-      const title = lines[index].replace(/^#{1,6}\s+/, '').replace(/^\s*[-*+]\s+/, '').trim()
+      const title = lines[index].replace(/^#{1,6}\s+/, '').replace(/^\s*[-*+·•—–]\s+/, '').trim()
       const before = lines.slice(0, index).join('\n')
       const after = lines.slice(index + 1).join('\n')
       const rest = [before, after].filter((part) => part.trim() !== '').join('\n\n')
@@ -514,6 +514,9 @@
       )
       if (match === null) return null
       const [, space, open = '', token, close = '', rest] = match
+      // "9:40 站会" is a time, not an outline item; "1:2" is a ratio. Both would otherwise read as
+      // "number + colon". A marker needs a non-digit right after the colon.
+      if ((close === ':' || close === '：') && /^\d{1,2}$/.test(token) && /^\d/.test(rest)) return null
       let style = 'arabic'
       let value
       if (CHINESE_VALUES[token] !== undefined) {
@@ -823,7 +826,7 @@
           quotes.push(quote[1].trim())
           continue
         }
-        const bullet = line.match(/^\s*[-*+]\s+(.*)$/)
+        const bullet = line.match(/^\s*[-*+·•—–]\s+(.*)$/)
         if (bullet !== null) bullets.push(bullet[1].trim())
       }
       return { headings, quotes, bullets }
@@ -851,7 +854,7 @@
           const trimmed = line.trim()
           if (trimmed === '') return line
           // Already carries a marker: leave it.
-          if (/^(#{1,6}\s|>|\s*[-*+]\s)/.test(line)) return line
+          if (/^(#{1,6}\s|>|\s*[-*+·•—–]\s)/.test(line)) return line
           const heading = source.headings.find((entry) => entry.text === trimmed && used.has(entry.text) === false)
           if (heading !== undefined) {
             used.add(heading.text)
@@ -881,7 +884,7 @@
     /** Lower-case, no spaces, no emphasis marks: rough but stable for "did this survive". */
     function comparableText(text) {
       return String(text ?? '')
-        .replace(/^\s*(#{1,6}\s+|>\s?|[-*+]\s+)/, '')
+        .replace(/^\s*(#{1,6}\s+|>\s?|[-*+·•—–]\s+)/, '')
         .replace(/[\s*_`~>#+•]+/g, '')
         .replace(/^([一二三四五六七八九十]+|[0-9]+|[A-Za-z])[.、)）]/, '')
         .toLowerCase()
@@ -1035,6 +1038,24 @@
       if (/^(以下是|这是|整理|Here is|Below is)/i.test(firstLine)) {
         issues.push('不要输出「以下是…」这类说明，直接从标题开始。')
       }
+      // A title that merely repeats the opening sentence is not a summary. "今天好累" said
+      // nothing about a note covering meetings, a load test and an expense; "Release 计划讨论"
+      // is a title the author wrote, and is left alone.
+      const sourceFirst = contentLines(sourceText)[0] ?? ''
+      const sentenceLike =
+        /(我|我们|咱们|今天|昨天|明天|今早|刚才|最近)/.test(sourceFirst) || /[，。！？、；]$/.test(sourceFirst)
+      if (
+        sentenceLike &&
+        title.trim() !== '' &&
+        /^\s{0,3}#/.test(sourceFirst) === false &&
+        comparableText(title) === comparableText(sourceFirst)
+      ) {
+        issues.push(
+          '标题直接照抄了原文第一句（"' +
+            sourceFirst.slice(0, 18) +
+            '…"）。请用一句话概括整篇内容作为标题，不要复制正文句子。',
+        )
+      }
       // The title must not be repeated inside the body.
       const heading = comparableText(title)
       if (heading !== '' && contentLines(outputText).filter((line) => comparableText(line) === heading).length > 1) {
@@ -1091,7 +1112,7 @@
       if (value.trim() === '') return false
       const markers = [
         /^#{1,6}\s+\S/m,
-        /^\s*[-*+]\s+\S/m,
+        /^\s*[-*+·•—–]\s+\S/m,
         /^\s*\d+[.)]\s+\S/m,
         /^\s*>\s?\S/m,
         /\*\*[^*\n]+\*\*/,
@@ -1231,7 +1252,7 @@
         .replace(/`([^`]*)`/g, '$1')
         .replace(/^#{1,6}\s+/, '')
         .replace(/^>\s*/, '')
-        .replace(/^[-*+]\s+/, '')
+        .replace(/^[-*+·•—–]\s+/, '')
         .replace(/^\d+[.)]\s+/, '')
         .trim()
     }
@@ -1396,7 +1417,7 @@
         const enumerator = parseEnumerator(line)
         // Bullets are checked first below; every other enumerated line keeps its marker as text so
         // numbering can never be restarted by a separate <ol>.
-        if (enumerator !== null && !/^\s*[-*+]\s+/.test(line)) {
+        if (enumerator !== null && !/^\s*[-*+·•—–]\s+/.test(line)) {
           flushParagraph()
           flushList()
           const shapeKey = [enumerator.style, enumerator.open, enumerator.close].join('|')
@@ -1442,7 +1463,7 @@
           inQuote = true
           continue
         }
-        const bullet = line.match(/^\s*[-*+]\s+(.*)$/)
+        const bullet = line.match(/^\s*[-*+·•—–]\s+(.*)$/)
         const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/)
         if (bullet !== null || numbered !== null) {
           flushParagraph()

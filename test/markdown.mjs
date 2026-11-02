@@ -355,6 +355,24 @@ check('three stars do too', normalizeStrayAsterisks('*** 需要机器') === '- �
 check('bold emphasis is untouched', normalizeStrayAsterisks('**加粗** 后面有字') === '**加粗** 后面有字', JSON.stringify(normalizeStrayAsterisks('**加粗** 后面有字')))
 check('a normal bullet is untouched', normalizeStrayAsterisks('- 一条') === '- 一条')
 check('prose is not a marker', parseEnumerator('2026 年计划') === null)
+// People write times and ratios: neither is an outline marker.
+check('a time is not a list marker', parseEnumerator('9:40 站会') === null, JSON.stringify(parseEnumerator('9:40 站会')))
+check('a ratio is not a list marker', parseEnumerator('1:2 比例') === null, JSON.stringify(parseEnumerator('1:2 比例')))
+check('a colon marker still works', parseEnumerator('1: 第一条') !== null, JSON.stringify(parseEnumerator('1: 第一条')))
+// Dashes people actually type.
+const dashLines = renderMarkdown(["- 横线", "— 长横", "– 短横", "· 中点", "• 圆点"].join("\n"))
+const dashItems = (() => {
+  const out = []
+  const walk = (node) => {
+    if (node === null || node === undefined || typeof node === 'string') return
+    if (Array.isArray(node)) return node.forEach(walk)
+    if (node.node === 'li') out.push(node)
+    ;(node.children ?? []).forEach(walk)
+  }
+  walk(dashLines)
+  return out
+})()
+check('five kinds of dash become list items', dashItems.length === 5, String(dashItems.length))
 check('a heading is not an enumerator', parseEnumerator('# 标题') === null)
 check(
   'bracketed numbers renumber in place',

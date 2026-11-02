@@ -332,6 +332,16 @@ function comparableOf(value) {
 // message is written so it can be sent straight back to the model for one repair pass.
 const gateSource = ['## 待整理', '下周安排：', '周二对齐接口', '周三出 demo', '周四评审'].join('\n')
 
+// The model reused "今天好累" (the opening sentence) as the title of a note about meetings,
+// load tests and expenses: a title has to summarise, not quote.
+const copied = typographyIssues('今天好累\n早上开会 9:40\n报销 1280', '今天好累\n\n早上开会 9:40\n\n报销 1280', { title: '今天好累' })
+check('typography: a copied first sentence is flagged', copied.some((issue) => issue.includes('照抄')), JSON.stringify(copied))
+const realHeading = typographyIssues('# 缓存优化记录\n- 命中缓存 0.4 秒', '缓存优化记录\n\n- 命中缓存 0.4 秒', { title: '缓存优化记录' })
+const labelFirst = typographyIssues('Release 计划讨论\n1. 版本号 2.4.0', 'Release 计划讨论\n\n1. 版本号 2.4.0', { title: 'Release 计划讨论' })
+check('typography: a label first line is not a sentence', labelFirst.length === 0, JSON.stringify(labelFirst))
+
+check('typography: a real heading is not flagged', realHeading.length === 0, JSON.stringify(realHeading))
+
 check('typography: a clean rewrite has no issues', typographyIssues(gateSource, gateSource, { title: '待整理' }).length === 0, JSON.stringify(typographyIssues(gateSource, gateSource, { title: '待整理' })))
 
 const mergedLines = ['## 待整理', '周二对齐接口 周三出 demo', '周四评审'].join('\n')
