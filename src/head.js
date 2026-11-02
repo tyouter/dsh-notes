@@ -888,17 +888,31 @@
       return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
     }
 
-    /** Holding space comes back one level; marker and text stay put. */
-    function dedentLine(text, index) {
+    /**
+     * Backspace at the front of a bullet backs out: one level up, and at the first level the marker
+     * goes away so the line is prose again.
+     *
+     * `index` is the caret. It only fires while the caret is inside the marker (leading indent plus
+     * "- "), so deleting characters inside the text still deletes characters.
+     */
+    function backspaceLine(text, index) {
       const source = String(text ?? '')
       const { start, end } = lineBounds(source, index)
       const line = source.slice(start, end)
       const level = lineBulletLevel(line)
-      if (level === null || level === 0) return null
+      if (level === null) return null
+      const markerEnd = line.match(/^\s*-\s+/)?.[0].length ?? 0
+      if (index - start > markerEnd) return null
       const content = line.replace(/^\s*-\s+/, '')
+      if (level <= 1) {
+        // The last backspace: bullet -> prose, caret at the start of the line.
+        return { text: source.slice(0, start) + content + source.slice(end), caret: start }
+      }
       const replaced = bulletText(level - 1, content)
-      return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
+      const caret = start + Math.max(0, (index - start) - 2)
+      return { text: source.slice(0, start) + replaced + source.slice(end), caret }
     }
+
 
     /**
      * Turn a line-leading run of asterisks into a bullet.

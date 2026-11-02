@@ -906,17 +906,31 @@ window.__ModuleLoader__.load({
       return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
     }
 
-    /** Holding space comes back one level; marker and text stay put. */
-    function dedentLine(text, index) {
+    /**
+     * Backspace at the front of a bullet backs out: one level up, and at the first level the marker
+     * goes away so the line is prose again.
+     *
+     * `index` is the caret. It only fires while the caret is inside the marker (leading indent plus
+     * "- "), so deleting characters inside the text still deletes characters.
+     */
+    function backspaceLine(text, index) {
       const source = String(text ?? '')
       const { start, end } = lineBounds(source, index)
       const line = source.slice(start, end)
       const level = lineBulletLevel(line)
-      if (level === null || level === 0) return null
+      if (level === null) return null
+      const markerEnd = line.match(/^\s*-\s+/)?.[0].length ?? 0
+      if (index - start > markerEnd) return null
       const content = line.replace(/^\s*-\s+/, '')
+      if (level <= 1) {
+        // The last backspace: bullet -> prose, caret at the start of the line.
+        return { text: source.slice(0, start) + content + source.slice(end), caret: start }
+      }
       const replaced = bulletText(level - 1, content)
-      return { text: source.slice(0, start) + replaced + source.slice(end), caret: start + replaced.length }
+      const caret = start + Math.max(0, (index - start) - 2)
+      return { text: source.slice(0, start) + replaced + source.slice(end), caret }
     }
+
 
     /**
      * Turn a line-leading run of asterisks into a bullet.
@@ -3570,8 +3584,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const marksRef = useRef(null)
       // The editor itself, so a keystroke can rewrite a line and put the caret back.
       const areaRef = useRef(null)
-      // Space typing: bursts indent, a held space outdents. Timing lives in a ref because it must
-      // not re-render the box on every keypress.
+      // Space typing: a burst indents. Timing lives in a ref because it must not re-render the
+      // box on every keypress.
       const spaceRef = useRef({ lastAt: 0, burst: 0, holdStart: 0, lastDedent: 0 })
       // A Format proposal: shown in the render area until applied or discarded, so the
       // source stays the single place you edit.
@@ -3638,14 +3652,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const onSpaceKeyDown = (event) => {
         const now = Date.now()
         const state = spaceRef.current
-        if (event.repeat) {
-          if (now - state.holdStart < 380) return
-          if (now - state.lastDedent < 260) return
-          state.lastDedent = now
-          if (commitLine(dedentLine(draft, event.target.selectionStart))) event.preventDefault()
-          return
-        }
-        state.holdStart = now
+        // A held space is just spaces now: backing out belongs to Backspace.
+        if (event.repeat) return
         if (now - state.lastAt < 150) state.burst += 1
         else state.burst = 1
         state.lastAt = now
@@ -4171,14 +4179,20 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 void saveDraft()
                 return
               }
-              // 极简写: two spaces in one burst indent, a held space outdents, Enter continues a
-              // bullet at the same level. Everything else types normally.
+              // 极简写: two spaces in one burst indent, Enter continues a bullet at the same level,
+              // Backspace backs out. TAB is deliberately unbound: it is reserved for the autocomplete
+              // trigger, so it must not be spent on indentation.
               if (event.key === ' ' && modifier === false && event.altKey === false) {
                 onSpaceKeyDown(event)
                 return
               }
               if (event.key === 'Enter' && event.shiftKey === false && modifier === false) {
                 if (commitLine(continueBulletLine(draft, event.target.selectionStart))) event.preventDefault()
+                return
+              }
+              // Backspace inside the marker backs out: one level up, then prose at the first level.
+              if (event.key === 'Backspace' && modifier === false && event.altKey === false) {
+                if (commitLine(backspaceLine(draft, event.target.selectionStart))) event.preventDefault()
               }
             },
             'aria-label': t.composePlaceholder,
@@ -5472,7 +5486,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, dedentLine, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, backspaceLine, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

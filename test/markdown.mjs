@@ -382,8 +382,21 @@ const burstOne = internals.spaceBurstLine(continued.text, continued.text.length)
 check('a space burst goes one level deeper', burstOne?.text.endsWith('\n  - '), JSON.stringify(burstOne))
 const burstTwo = internals.spaceBurstLine(burstOne.text, burstOne.text.length)
 check('a second burst goes deeper again', burstTwo?.text.endsWith('\n    - '), JSON.stringify(burstTwo))
-const outdented = internals.dedentLine(burstTwo.text, burstTwo.text.length)
-check('holding space comes back one level', outdented?.text.endsWith('\n  - '), JSON.stringify(outdented))
+// Backspace backs out: one level up, and the first level returns the line to prose.
+const caretAtMarker = (value) => {
+  const start = value.lastIndexOf('\n') + 1
+  const marker = value.slice(start).match(/^\s*- /)
+  return start + (marker === null ? 0 : marker[0].length)
+}
+const deepest = ['正文', '', '- 甲', '    - '].join('\n')
+const upOne = internals.backspaceLine(deepest, caretAtMarker(deepest))
+check('Backspace backs out one level', upOne?.text.endsWith('\n  - '), JSON.stringify(upOne))
+const upTwo = internals.backspaceLine(upOne.text, caretAtMarker(upOne.text))
+check('Backspace reaches the first level', upTwo?.text.endsWith('\n- '), JSON.stringify(upTwo))
+const asProse = internals.backspaceLine(upTwo.text, caretAtMarker(upTwo.text))
+check('the last Backspace turns the bullet back into prose', asProse !== null && /\n$/.test(asProse.text), JSON.stringify(asProse))
+check('Backspace inside the text is left to the browser', internals.backspaceLine('- 甲乙丙', 6) === null)
+
 const promoted = internals.spaceBurstLine('正文文字', 0)
 check('two spaces promote a prose line to a bullet', promoted?.text === '- 正文文字', JSON.stringify(promoted))
 

@@ -324,8 +324,8 @@
       const marksRef = useRef(null)
       // The editor itself, so a keystroke can rewrite a line and put the caret back.
       const areaRef = useRef(null)
-      // Space typing: bursts indent, a held space outdents. Timing lives in a ref because it must
-      // not re-render the box on every keypress.
+      // Space typing: a burst indents. Timing lives in a ref because it must not re-render the
+      // box on every keypress.
       const spaceRef = useRef({ lastAt: 0, burst: 0, holdStart: 0, lastDedent: 0 })
       // A Format proposal: shown in the render area until applied or discarded, so the
       // source stays the single place you edit.
@@ -392,14 +392,8 @@
       const onSpaceKeyDown = (event) => {
         const now = Date.now()
         const state = spaceRef.current
-        if (event.repeat) {
-          if (now - state.holdStart < 380) return
-          if (now - state.lastDedent < 260) return
-          state.lastDedent = now
-          if (commitLine(dedentLine(draft, event.target.selectionStart))) event.preventDefault()
-          return
-        }
-        state.holdStart = now
+        // A held space is just spaces now: backing out belongs to Backspace.
+        if (event.repeat) return
         if (now - state.lastAt < 150) state.burst += 1
         else state.burst = 1
         state.lastAt = now
@@ -925,14 +919,20 @@
                 void saveDraft()
                 return
               }
-              // 极简写: two spaces in one burst indent, a held space outdents, Enter continues a
-              // bullet at the same level. Everything else types normally.
+              // 极简写: two spaces in one burst indent, Enter continues a bullet at the same level,
+              // Backspace backs out. TAB is deliberately unbound: it is reserved for the autocomplete
+              // trigger, so it must not be spent on indentation.
               if (event.key === ' ' && modifier === false && event.altKey === false) {
                 onSpaceKeyDown(event)
                 return
               }
               if (event.key === 'Enter' && event.shiftKey === false && modifier === false) {
                 if (commitLine(continueBulletLine(draft, event.target.selectionStart))) event.preventDefault()
+                return
+              }
+              // Backspace inside the marker backs out: one level up, then prose at the first level.
+              if (event.key === 'Backspace' && modifier === false && event.altKey === false) {
+                if (commitLine(backspaceLine(draft, event.target.selectionStart))) event.preventDefault()
               }
             },
             'aria-label': t.composePlaceholder,
