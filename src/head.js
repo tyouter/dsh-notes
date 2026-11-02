@@ -1146,10 +1146,19 @@
     /** A note with its title rendered in first-level heading style. */
     function renderNoteBody(text, marks) {
       const { title, rest } = splitNoteTitle(text)
+      // The title is the first line shown in a larger style, not a separate document: when the
+      // selection covers that line, the title carries the same mark the body lines do.
+      const titleMarked = title !== '' && marks instanceof Set && marks.has(plainLine(title))
       return h(
         'div',
         { className: 'dshn-note' },
-        title === '' ? null : h('div', { className: 'dshn-note-title' }, title),
+        title === ''
+          ? null
+          : h(
+              'div',
+              { className: 'dshn-note-title' + (titleMarked ? ' dshn-preview-mark' : '') },
+              ...inlineSpans(title, 'note-title'),
+            ),
         rest.trim() === '' ? null : h('div', { className: 'dshn-md' }, renderMarkdown(rest, marks)),
       )
     }

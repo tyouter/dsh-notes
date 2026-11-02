@@ -372,6 +372,14 @@ check('a short label is not duplicated', (JSON.stringify(busyTree).match(/正在
 const longBusy = internals.PreviewBusy({ label: '正在翻译，这一步可能要等十几秒' })
 check('a long label does not duplicate either', (JSON.stringify(longBusy).match(/正在翻译，这一步可能要等十几秒/g) ?? []).length === 1, JSON.stringify(longBusy))
 
+// The first line is displayed as the note's title; selecting it must highlight the title too,
+// otherwise the top line looks unselectable even though it is inside the selection.
+const titleTree = internals.renderNoteBody(['今天好累', '早上开会 9:40', '', '报销 1280'].join('\n'), new Set(['今天好累']))
+const titleBlock = titleTree.children[0]
+check('selecting the first line marks the title', String(titleBlock?.props?.className ?? '').includes('dshn-preview-mark'), JSON.stringify(titleBlock))
+const plainTitle = internals.renderNoteBody(['今天好累', '早上开会 9:40'].join('\n'), new Set(['报销 1280']))
+check('an unrelated selection leaves the title plain', String(plainTitle.children[0]?.props?.className ?? '').includes('dshn-preview-mark') === false, JSON.stringify(plainTitle.children[0]))
+
 check('a marked line renders inside a mark', marks.length === 2, String(marks.length))
 check('an unmarked line stays plain', marks.every((node) => !JSON.stringify(node).includes('另一段')), JSON.stringify(marks))
 
