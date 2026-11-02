@@ -25,7 +25,7 @@ const completionPrompt = buildCompleteMessage({
   section: '会议',
 })
 check('the completion prompt forbids new facts', completionPrompt.includes('不要引入原文没有的专有信息'))
-check('the completion prompt caps the length', completionPrompt.includes('1 句') && completionPrompt.includes('120 字'))
+check('the completion prompt caps the length', completionPrompt.includes('最多 3 句') && completionPrompt.includes('120 字'))
 check('the completion prompt names the section', completionPrompt.includes('当前小节：会议'))
 check('the completion prompt allows saying nothing', completionPrompt.includes('输出一个空字符串'))
 

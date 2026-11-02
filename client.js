@@ -3771,24 +3771,15 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         setGhost(null)
       }
 
-      /** Is the caret in a place where a next sentence makes sense? */
-      const atSentenceBoundary = (value, caret) => {
-        const at = Math.max(0, Math.min(caret, value.length))
-        const before = value.slice(0, at)
-        const last = before.slice(-1)
-        if (before.trim() === '') return false
-        // End of a line, or right after terminal punctuation.
-        return /[。！？!?…：:；;\n]/.test(last)
-      }
-
       /**
-       * Ask for a completion. The document is consulted first and answers without a request; the
-       * model is only asked when the document has nothing repeated to offer.
+       * Ask for a completion. Typing stopped — that is the only condition; the caret may sit at the end
+       * of a sentence or in the middle of a word. The document is consulted first and answers without a
+       * request; the model is only asked when the document has nothing repeated to offer.
        */
       const requestCompletion = async (caret) => {
         const value = draftRef.current
+        // Typing is what stops; where the caret ended up does not matter.
         if (value.trim() === '' || busy !== '' || enhancing || translating) return
-        if (!atSentenceBoundary(value, caret)) return
 
         const repeat = repetitionSuggestion(value, caret)
         if (repeat !== null) {
