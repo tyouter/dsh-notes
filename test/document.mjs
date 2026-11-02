@@ -352,6 +352,25 @@ const droppedIssues = typographyIssues(gateSource, dropped, {})
 check('typography: dropped content is reported with the text', droppedIssues.some((issue) => issue.includes('周四评审')), JSON.stringify(droppedIssues))
 check('typography: a shortfall is reported as lines', droppedIssues.some((issue) => issue.includes('少了')), JSON.stringify(droppedIssues))
 
+// ---- task markers ----
+// Notes use more than [ ] and [x]: "[?]" means undecided and must not render as literal text.
+const tasks = ['- [ ] 报销发票', '- [x] 写文档', '- [?] 配色定稿', '- [~] 压测进行中'].join('\n')
+const taskTree = renderMarkdown(tasks)
+const findList = (node) => {
+  if (node === null || node === undefined || typeof node === 'string') return null
+  if (Array.isArray(node)) { for (const child of node) { const hit = findList(child); if (hit !== null) return hit } return null }
+  const className = String(node.props?.className ?? '')
+  if (className.includes('dshn-md-list')) return node
+  for (const child of node.children ?? []) { const hit = findList(child); if (hit !== null) return hit }
+  return null
+}
+const list = findList(taskTree)
+const marks = (list?.children ?? []).map((item) => String(item.props?.['data-task']))
+check('task markers: four items are found', marks.length === 4, JSON.stringify(marks))
+check('task markers: open and done are recognised', marks[0] === 'false' && marks[1] === 'true', JSON.stringify(marks))
+check('task markers: undecided and in-progress are pending', marks[2] === 'pending' && marks[3] === 'pending', JSON.stringify(marks))
+check('task markers: the bracket token is not shown', (list?.children ?? []).every((item) => !JSON.stringify(item).includes('[?]')), JSON.stringify(list))
+
 // A note that starts with an outline item must not grow a title.
 const sourceOutline = ['1. 报销', '(1) 发票月底前交', '① 备注'].join('\n')
 const split = splitNoteTitle(sourceOutline)

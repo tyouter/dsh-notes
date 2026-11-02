@@ -443,6 +443,8 @@ check('the picker is only read by translate', (boardSource.match(/TARGET_LANGUAG
     check('a structuring result can be applied', boardSource.includes('applyEnhance'))
     check('apply replaces only the selected span', /draft\.slice\(0, enhance\.range\.start\)/.test(boardSource))
     check('the structure button names its scope', boardSource.includes('t.structureSelection'))
+    // The band reported "未出现" on translations, where words are meant to change.
+    check('no fidelity band is rendered', /dshn-fidelity'/.test(boardSource) === false, 'the band is still rendered')
     check('a structuring failure stays visible', boardSource.includes('enhanceError !== \'\'') && boardSource.includes("className: 'dshn-err'"))
     check('the failure keeps the preview page open', /const showRender =[\s\S]{0,400}enhanceError !== ''/.test(boardSource))
     // Both pages end on the same line, and the preview scrolls inside its own page.

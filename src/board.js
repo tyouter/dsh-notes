@@ -863,26 +863,6 @@
       // well would duplicate the untouched parts around the tinted block.
       const formatDocument = formatted === null ? '' : formatted.text
 
-      // Fidelity is checked for whatever the preview would apply: a structuring draft against the
-      // text that produced it, a translation against the draft it translated.
-      const fidelitySource =
-        enhance !== null ? (enhance.range === null ? draft : draft.slice(enhance.range.start, enhance.range.end)) : draft
-      const fidelityOutput = enhance !== null ? structureText : formatDocument
-      const report = fidelityOutput.trim() === '' ? null : fidelityReport(fidelitySource, fidelityOutput, { sameLanguage: true })
-      const fidelity = fidelityIssues(report)
-        ? h(
-            'div',
-            { className: 'dshn-fidelity', role: 'status' },
-            '原文 ' +
-              report.sourceLines +
-              ' 行 → 结果 ' +
-              report.outputLines +
-              ' 行' +
-              (report.headingDelta === 0 ? '' : '，标题数 ' + (report.headingDelta > 0 ? '+' : '') + report.headingDelta) +
-              (report.missing.length === 0 ? '' : '；未出现：' + report.missing.slice(0, 2).map((line) => line.slice(0, 18)).join(' / ')),
-          )
-        : null
-
       const renderNode =
         enhance === null && formatted === null && enhanceError !== ''
           ? h(
@@ -909,7 +889,6 @@
                     t.chars(draft.length) +
                     (enhance.title === '' ? '' : ' · ' + enhance.title),
                 ),
-                fidelity,
                 enhanceDocument.trim() === ''
                   ? h('div', { className: 'dshn-cap' }, t.enhanceSub)
                   : renderProposalDocument(enhanceDocument, enhance.range),

@@ -1453,9 +1453,13 @@
           }
           let content = ordered ? numbered[1] : bullet[1]
           let task
-          const box = content.match(/^\[( |x|X)\]\s+(.*)$/)
+          // Any bracket token is a task marker: done, open, or undecided ("?"), in progress ("~").
+          const box = content.match(/^\[([ xX?~\-_.])\]\s+(.*)$/)
           if (box !== null) {
-            task = box[1].toLowerCase() === 'x'
+            const mark = box[1].toLowerCase()
+            if (mark === 'x') task = true
+            else if (mark === ' ') task = false
+            else task = 'pending'
             content = box[2]
           }
           list.items.push({ text: content, task })
@@ -1925,6 +1929,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-md-list li[data-task="true"]::before { content: '☑'; color: var(--dsw-alias-brand-primary); }
 .dshn-md-list li[data-task="false"] { color: var(--dsw-alias-label-primary); }
 .dshn-md-list li[data-task="false"]::before { content: '☐'; }
+/* Undecided or in-progress items: hollow diamond, normal colour, no strikethrough. */
+.dshn-md-list li[data-task="pending"] { color: var(--dsw-alias-label-primary); }
+.dshn-md-list li[data-task="pending"]::before { content: '◇'; color: var(--dsw-alias-label-secondary); }
 .dshn-md-quote {
   margin: 8px 0 12px;
   padding: 4px 12px;
