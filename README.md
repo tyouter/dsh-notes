@@ -1,6 +1,7 @@
 # The notebook: how it works and where to look
 
-`@local/dsh-notes` — a local notebook inside DSH, in three tabs.
+`@local/dsh-notes` 1.0.0 — a local notebook inside DSH, in three tabs. See
+[CHANGELOG.md](CHANGELOG.md) for what the first official release contains.
 
 | Tab | What it is |
 | --- | --- |
