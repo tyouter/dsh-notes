@@ -381,6 +381,10 @@ try {
     // Structure never translates; Translate works on the structuring result when present.
     check('translation reads the structuring draft', /const sourceText = enhance\.body\.trim\(\)/.test(boardSource))
     check('there is no source-translation path', /const sourceText = enhance\.body\.trim\(\)/.test(boardSource) && (boardSource.match(/const sourceText =/g) ?? []).length === 1)
+    check(
+      'translate falls back when the host rejects lines',
+      /rejectedIndexed/.test(boardSource) && /useIndexed = false/.test(boardSource) && /text: sourceText/.test(boardSource),
+    )
     check('a translation replaces the draft body', /setEnhance\(\{ \.\.\.enhance, title: '', body: assembled \}/.test(boardSource))
     // Translation is a proposal on the source, not on a structuring result.
     // Structure never translates; Translate works on the structuring result when present.

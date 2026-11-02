@@ -597,8 +597,6 @@
           sourceText,
         )
         const spanText = structureRange === null ? '' : draft.slice(structureRange.start, structureRange.end)
-        // A Latin-script target gets Arabic numbering: the model may keep 一、二、三 or repeat
-        // "1."; converting first then renumbering makes the outline correct either way.
         const latinTarget = /^[A-Za-z]/.test(target)
         const finish = (raw) => {
           if (partial) return normalizeTranslatedLabel(spanText, raw)
@@ -606,6 +604,7 @@
           // translation keeps its hierarchy instead of collapsing into one flat sequence.
           return renumberByTemplate(enhance.draftText ?? enhance.body, raw, { latin: latinTarget })
         }
+
         setTranslating(true)
         setTranslateSeconds(0)
         setEnhanceError('')
@@ -613,40 +612,59 @@
         const signal = beginCall()
         let buffer = ''
         let lastPaint = 0
+        // Set when the indexed request is rejected, so the next pass uses the plain-text form.
+        let rejectedIndexed = false
+
+        const handler = (event, payload) => {
+          if (event === 'delta') {
+            buffer += String(payload?.text ?? '').replace(/<<\d+>>\s?/g, '')
+            const now = Date.now()
+            if (now - lastPaint < 80) return
+            lastPaint = now
+            setEnhance({ ...enhance, title: '', body: buffer })
+            return
+          }
+          if (event === 'error') {
+            if (useIndexed === true) {
+              rejectedIndexed = true
+              return
+            }
+            setEnhanceError(String(payload?.message ?? t.enhanceFailed))
+            return
+          }
+          if (event !== 'done') return
+          const indexedLines = Array.isArray(payload?.lines) ? payload.lines : null
+          const plain = String(payload?.text ?? '').trim()
+          if (indexedLines === null && plain === '') return
+          const assembled = indexedLines === null ? finish(plain) : finish(assembleIndexedLines(sourceText, indexedLines))
+          setEnhance({ ...enhance, title: '', body: assembled })
+          setStatus(t.translated)
+          setTimeout(() => setStatus(''), 1600)
+        }
+
+        // The draft goes out as numbered lines; a host without that mode rejects them, and the
+        // same request is repeated as plain text so translation works before a restart.
+        const draftLines = sourceText.split(/\r?\n/)
+        let useIndexed = true
         try {
-          // Numbered-line mode: the draft goes out as lines and comes back indexed, so the result
-          // mirrors the draft's line structure exactly.
-          const draftLines = sourceText.split(/\r?\n/)
-          await streamEvents(
-            '/translate/stream',
-            { lines: draftLines, target, keepNumbering: partial },
-            (event, payload) => {
-              if (event === 'delta') {
-                buffer += String(payload?.text ?? '').replace(/<<\d+>>\s?/g, '')
-                // Repaint a few times a second: live enough, cheap enough to render.
-                const now = Date.now()
-                if (now - lastPaint < 80) return
-                lastPaint = now
-                setEnhance({ ...enhance, title: '', body: buffer })
-                return
-              }
-              if (event === 'error') {
-                setEnhanceError(String(payload?.message ?? t.enhanceFailed))
-                return
-              }
-              if (event !== 'done') return
-              // Indexed payload: rebuild with the draft's newlines. Missing entries fall back to the
-              // source line, so nothing can vanish.
-              const indexed = Array.isArray(payload?.lines) ? payload.lines : null
-              const translated = indexed === null ? String(payload?.text ?? '').trim() : ''
-              if (indexed === null && translated === '') return
-              const assembled = indexed === null ? finish(translated) : finish(assembleIndexedLines(sourceText, indexed))
-              setEnhance({ ...enhance, title: '', body: assembled })
-              setStatus(t.translated)
-              setTimeout(() => setStatus(''), 1600)
-            },
-            signal,
-          )
+          for (let pass = 0; pass < 2; pass += 1) {
+            rejectedIndexed = false
+            buffer = ''
+            await streamEvents(
+              '/translate/stream',
+              useIndexed
+                ? { lines: draftLines, target, keepNumbering: partial }
+                : { text: sourceText, target, keepNumbering: partial },
+              handler,
+              signal,
+            )
+            if (rejectedIndexed === true) {
+              useIndexed = false
+              setEnhanceError('')
+              continue
+            }
+            break
+          }
         } catch (problem) {
           setEnhanceError(problem?.name === 'AbortError' ? t.enhanceStopped : String(problem?.message ?? problem))
         } finally {

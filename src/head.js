@@ -786,6 +786,27 @@
       return label.raw + '\n\n' + body
     }
 
+    /**
+     * Turn a line-leading run of asterisks into a bullet.
+     *
+     * Notes often use "*" or "***" as separators. A rewrite turns some of them into bullets and
+     * leaves others behind, which then render as literal asterisks ("** 风险 环境不稳定"). One or
+     * more stars followed by text is a bullet, not emphasis — emphasis never starts a line without
+     * text on both sides.
+     */
+    function normalizeStrayAsterisks(text) {
+      return String(text ?? '')
+        .split(/\r?\n/)
+        .map((line) => {
+          const match = line.match(/^\s*(\*{1,4})\s*(\S.*)$/)
+          if (match === null) return line
+          // Emphasis opens and closes before any text continues: "**bold** and more".
+          if (/^\s*\*\*[^*]+\*\*/.test(line)) return line
+          return '- ' + match[2]
+        })
+        .join('\n')
+    }
+
     /** The markers a source text used, per line, for restoring what a rewrite dropped. */
     function markupOf(text) {
       const headings = []
@@ -1304,7 +1325,7 @@
 
     /** Render a note body as Markdown blocks. */
     function renderMarkdown(source) {
-      const lines = String(source ?? '').split(/\r?\n/)
+      const lines = normalizeStrayAsterisks(String(source ?? '')).split(/\r?\n/)
       const blocks = []
       let paragraph = []
       let list = null

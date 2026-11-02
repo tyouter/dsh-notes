@@ -91,7 +91,7 @@ try {
 
   const internals = globalThis.__dshNotesInternals
   if (internals === undefined) throw new Error('test seam did not expose the renderer')
-  const { renderMarkdown, stripInline, titleOf, previewOf, looksStructured, composeFormattedNote, splitNoteTitle, renderNoteBody, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, outlineLevels, outlineEntries } = internals
+  const { renderMarkdown, stripInline, titleOf, previewOf, looksStructured, composeFormattedNote, splitNoteTitle, renderNoteBody, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, normalizeStrayAsterisks, parseEnumerator, convertEnumerators, renumberByTemplate, outlineLevels, outlineEntries } = internals
 
   // ---- the markers that showed up raw in the UI ----
   check('stripInline removes bold', stripInline('**目标**') === '目标', stripInline('**目标**'))
@@ -349,6 +349,11 @@ for (const [sample, style] of [
   check('parses ' + sample, parsed !== null && parsed.style === style, JSON.stringify(parsed))
 }
 check('a bullet is not a marker', parseEnumerator('- 一条') === null)
+// A rewrite that leaves "**  风险" behind must not print literal asterisks.
+check('a stray star separator becomes a bullet', normalizeStrayAsterisks('** 风险 环境不稳定') === '- 风险 环境不稳定', JSON.stringify(normalizeStrayAsterisks('** 风险 环境不稳定')))
+check('three stars do too', normalizeStrayAsterisks('*** 需要机器') === '- 需要机器', JSON.stringify(normalizeStrayAsterisks('*** 需要机器')))
+check('bold emphasis is untouched', normalizeStrayAsterisks('**加粗** 后面有字') === '**加粗** 后面有字', JSON.stringify(normalizeStrayAsterisks('**加粗** 后面有字')))
+check('a normal bullet is untouched', normalizeStrayAsterisks('- 一条') === '- 一条')
 check('prose is not a marker', parseEnumerator('2026 年计划') === null)
 check('a heading is not an enumerator', parseEnumerator('# 标题') === null)
 check(
