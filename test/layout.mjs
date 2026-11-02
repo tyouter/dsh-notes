@@ -47,7 +47,7 @@ check('the chat box keeps a definite column', /display:\s*flex/.test(chatBox) &&
 
 const quickStart = css.lastIndexOf('.dshn-quick-box {')
 const quickBox = quickStart < 0 ? '' : css.slice(quickStart, css.indexOf('}', quickStart) + 1)
-check('the quick note stays bottom aligned', /margin-top:\s*auto/.test(css.slice(quickStart, quickStart + 600)), quickBox.slice(0, 200))
+check('the quick note splits instead of hugging the bottom', /flex: 1 1 50%/.test(css), 'no split rule')
 check('the quick note keeps the dock covered', /position:\s*absolute/.test(blockOf('.dshn-chat-box,')) || true)
 
 // ---------------------------------------------------------------- preview page ---
@@ -97,6 +97,17 @@ body{margin:0;background:#fafafa;font:13px/1.6 -apple-system,"Segoe UI",system-u
 await mkdir(previewDir, { recursive: true })
 await writeFile(join(previewDir, 'layout-dock.html'), html, 'utf8')
 console.log('      preview: exports/previews/layout-dock.html')
+
+// The quick-note pane used to be content-sized and bottom aligned, which left a large empty
+// area above a short form; it fills the dock now and the two sheets share it.
+const quickLayer = blockOf('.dshn-quick-box')
+check('the quick note fills its dock', /flex: 1 1 auto/.test(css.slice(css.indexOf('.dshn-quick-box > .dshn-capture-box'), css.indexOf('.dshn-quick-box > .dshn-capture-box') + 200)), 'the layer is not stretched')
+const compactBoxStart = css.indexOf(".dshn-capture-box[data-layout='compact'] {")
+const compactBox = compactBoxStart < 0 ? '' : css.slice(compactBoxStart, css.indexOf('}', compactBoxStart) + 1)
+check('the compact capture box fills the dock', /display:\s*flex/.test(compactBox) && /min-height:\s*0/.test(compactBox), compactBox.slice(0, 160))
+const compactSheetStart = css.indexOf(".dshn-capture-box[data-layout='compact'] .dshn-sheet {")
+const compactSheet = compactSheetStart < 0 ? '' : css.slice(compactSheetStart, css.indexOf('}', compactSheetStart) + 1)
+check('each compact sheet takes half', /flex:\s*1 1 50%/.test(compactSheet), compactSheet.slice(0, 200))
 
 const boardSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
 check('a collapsed wrapper is repaired at runtime', /function repairChain\(/.test(boardSource) && /repairChain\(node\)/.test(boardSource), 'repairChain is missing or not called')

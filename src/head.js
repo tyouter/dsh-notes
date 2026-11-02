@@ -2518,18 +2518,29 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 /* The quick-note layer sits on top and is opaque, so it really covers the chat. */
 .dshn-quick-box {
-  /* Content-sized and bottom-aligned, so the capture form sits on the same bottom
-     line as the chat composer. */
+  /* Fills the dock and splits it, rather than sitting at the bottom of a mostly empty column. */
   min-height: 0;
   background: var(--dsw-alias-bg-layer-1);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 2px;
   border-radius: var(--dshn-r-sm);
 }
 .dshn-quick-box > .dshn-capture-box {
+  flex: 1 1 auto;
   min-height: 0;
-  /* Bottom alignment without flex-end: a scroll container that uses flex-end clips the top. */
-  margin-top: auto;
+  height: 100%;
+}
+/* The compact pane owns the column's height: the two sheets share it half each. */
+.dshn-capture-box[data-layout='compact'] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.dshn-capture-box[data-layout='compact'] .dshn-sheets {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 /* The compact sheet has no frame of its own: it lives inside the board column. */
 .dshn-capture-box[data-layout='compact'] .dshn-sheet {
@@ -2538,6 +2549,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   gap: 10px;
   min-height: 0;
   min-width: 0;
+  /* Half of the pane, and each half scrolls its own content. */
+  flex: 1 1 50%;
+  overflow: hidden;
 }
 
 /* In the board's narrow column the two pages stack instead of squeezing. */
@@ -2554,8 +2568,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   gap: 10px;
 }
 .dshn-capture-box[data-layout='compact'] .dshn-sheet[data-role='render'] .dshn-page-render {
-  max-height: 40vh;
+  /* The sheet's toolbar (translate) sits below this, so the page itself takes the rest. */
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
   overflow-y: auto;
+}
+.dshn-capture-box[data-layout='compact'] .dshn-sheet[data-role='source'] .dshn-composer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dshn-capture-box[data-layout='compact'] .dshn-sheet[data-role='source'] .dshn-textarea {
+  flex: 1 1 auto;
+  min-height: 84px;
+  height: auto;
+  resize: none;
 }
 
 /* A draft card above the composer makes the pane taller; it grows up to the dock's
