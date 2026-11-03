@@ -4305,6 +4305,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const runEnhance = async () => {
         // The result lands in the preview: never run it into a collapsed pane.
         setPreviewOpen(true)
+        // A pending suggestion would paint over the draft; the range is what is being structured.
+        dismissGhost()
         // Same rule as Format: one helper decides the span.
         const range = editorRange()
         const source = range === null ? draft : draft.slice(range.start, range.end)
@@ -4824,6 +4826,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               // A visible selection replaces the accepted mark: one highlight at a time, and the one
               // the author just made is the one that matters.
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
+              // The suggestion is a continuation at the caret. With a range selected it is not a
+              // continuation of anything, and drawing it would put ghost text inside the text.
+              if (end > start) dismissGhost()
               followCaret(event.target.selectionStart ?? 0)
             },
             onKeyUp: (event) => {
@@ -4833,6 +4838,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               // A visible selection replaces the accepted mark: one highlight at a time, and the one
               // the author just made is the one that matters.
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
+              // The suggestion is a continuation at the caret. With a range selected it is not a
+              // continuation of anything, and drawing it would put ghost text inside the text.
+              if (end > start) dismissGhost()
               followCaret(event.target.selectionStart ?? 0)
             },
             onMouseUp: (event) => {
@@ -4842,6 +4850,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               // A visible selection replaces the accepted mark: one highlight at a time, and the one
               // the author just made is the one that matters.
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
+              // The suggestion is a continuation at the caret. With a range selected it is not a
+              // continuation of anything, and drawing it would put ghost text inside the text.
+              if (end > start) dismissGhost()
               followCaret(event.target.selectionStart ?? 0)
             },
             onKeyDown: (event) => {

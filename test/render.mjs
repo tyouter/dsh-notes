@@ -444,7 +444,7 @@ const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
 
     // Structure respects the selection exactly like Format does.
     check('one helper defines the selected range', boardSource.includes('const editorRange = () =>'))
-    check('structure uses the shared range', /const runEnhance = async \(\) => \{[\s\S]{0,220}editorRange\(\)/.test(boardSource))
+    check('structure uses the shared range', /const runEnhance = async \(\) => \{[\s\S]{0,420}editorRange\(\)/.test(boardSource))
 check('the live preview needs no range', boardSource.includes('const runFormat') === false)
     check('the selected span is highlighted', boardSource.includes("className: 'dshn-editor-mark'"))
     check('the preview translates the selection', /const span = range === null \? draft : draft\.slice\(range\.start, range\.end\)/.test(boardSource))
@@ -477,7 +477,7 @@ check('the busy chip replaces the translate button', /translating\s*\?\s*busyChi
     check('an empty draft shows no preview page', /const showRender = hasContent && previewOpen/.test(boardSource))
     check('the preview can be put away by hand', /previewOpen/.test(boardSource) && /dshn-preview-handle/.test(boardSource) && /aria-expanded': String\(previewOpen\)/.test(boardSource))
     check('the handle sits on the seam, not in the toolbar', /\.dshn-preview-handle \{[^}]*position: absolute/.test(headCss) && /data-role': 'preview-toggle'/.test(boardSource) === false)
-    check('Structure opens the pane', /setPreviewOpen\(true\)\n\s*\/\/ Same rule as Format/.test(boardSource))
+    check('Structure opens the pane', /setPreviewOpen\(true\)[\s\S]{0,260}\/\/ Same rule as Format/.test(boardSource))
     check('a hidden preview keeps its column', /data-hidden': 'true'/.test(boardSource) && /\[data-hidden='true'\]/.test(headCss))
     check('hiding does not stretch the editor', /\[data-mode='single'\] \.dshn-sheet \{ flex: 1 1 auto; max-width: none/.test(headCss) === false)
 
@@ -528,6 +528,11 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
 
     // Copy as Markdown, beside Edit: the note goes to an agent with standard syntax.
     check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
+    // The blurred/duplicated text under a line: a ghost drawn inside a range. A range is not a
+    // continuation, so the suggestion goes away when one exists.
+    check('a range ends the suggestion', (boardSource.match(/if \(end > start\) dismissGhost\(\)/g) ?? []).length === 3)
+    check('structuring clears the suggestion', /const runEnhance = async \(\) => \{[\s\S]{0,260}dismissGhost\(\)/.test(boardSource))
+
     // One highlight at a time: the author's selection outranks the span TAB inserted earlier.
     check('the selection wins over the accepted mark', /fits\(accepted\) && activeRange === null \? accepted : null/.test(boardSource))
     check('selecting text ends the accepted span', /if \(end > start && accepted !== null && \(accepted\.start !== start \|\| accepted\.end !== end\)\) setAccepted\(null\)/.test(boardSource))
