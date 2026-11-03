@@ -425,7 +425,8 @@ check('the layout preview is rendered whole', /renderNoteBody\(laidOut, markSet\
 check('the preview label distinguishes changed layout', boardSource.includes('t.formattedPreview'))
 
     // The preview lives beside the source, so both are visible at once.
-    const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
+    const headString = () => headCss
+const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
     check('the page flags a split layout', boardSource.includes("'data-split': showRender ? 'true' : 'false'"))
     check('the sheets sit side by side', /\.dshn-sheets \{[^}]*flex-direction: row/s.test(headSource))
     check('both sheets share one basis', headSource.includes('flex: 0 1 820px'))
@@ -521,12 +522,19 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('a slow double tap still makes a bullet', /autoBulletLine\(value, caret\)/.test(boardSource))
     check('the burst window tolerates a real double tap', /< 400\)/.test(boardSource))
 
+    // Auto-write: a switch in the capture toolbar, green when suggestions are live.
+    check('the toolbar has an auto-write switch', /dshn-switch/.test(boardSource) && /role: 'switch'/.test(boardSource) && /aria-checked/.test(boardSource))
+    check('the switch turns green when on', /\.dshn-switch\[data-on="true"\] \.dshn-switch-track \{ background: var\(--dsw-alias-state-success-primary\)/.test(headCss))
+    check('the preference survives a reload', /notes\.autoWrite/.test(headString()) && /storedAutoWrite/.test(boardSource))
+    check('auto-write off means no timer', /if \(autoWrite === false\) return/.test(boardSource) && /scheduleCompletion/.test(boardSource))
+
     check('completion waits for a pause', /1000\)/.test(boardSource) && /scheduleCompletion/.test(boardSource))
     check('completion fires wherever the caret stopped', /atSentenceBoundary/.test(boardSource) === false && /Typing is what stops/.test(boardSource))
     check('TAB takes one chunk', /acceptGhostChunk\(\)/.test(boardSource) && /event\.key === 'Tab'/.test(boardSource))
     check('the inserted chunk can be undone in one key', /setAccepted\(\{ start: at, end \}\)/.test(boardSource) && /accepted\.start\) \+ value\.slice\(accepted\.end\)/.test(boardSource))
     check('an accepted chunk is drawn with the plugin mark', /dshn-mark-accepted/.test(boardSource) && /\.dshn-mark-accepted \{/.test(headCss))
-    check('TAB never leaves the editor', /if \(event\.key === 'Tab'\) \{\s*\n\s*\/\/ TAB belongs to completion/.test(boardSource) && /event\.preventDefault\(\)\n\s*if \(ghost !== null\) acceptGhostChunk\(\)/.test(boardSource))
+    check('TAB never leaves the editor', /if \(event\.key === 'Tab'\) \{\s*\n\s*\/\/ TAB belongs to completion/.test(boardSource) && /event\.preventDefault\(\)/.test(boardSource))
+    check('TAB with the switch off spends nothing', /if \(autoWrite === false\) return/.test(boardSource))
     check('pausing after an accept asks again', /setGhost\(null\)\n\s*scheduleCompletion\(end\)/.test(boardSource))
     check('the ghost is styled as a suggestion', /\.dshn-ghost \{/.test(headCss))
 

@@ -75,6 +75,9 @@ window.__ModuleLoader__.load({
         ask: '提问',
         thinking: '思考中…',
 
+        autoWrite: '自动写作',
+        autoWriteHint: '自动写作已关闭：不产生推荐，也不消耗 token',
+        autoWriteOnHint: '停顿 1 秒后自动给出下一句',
         composePlaceholder: '写点什么… 第一行会成为标题',
         enhance: '结构化',
         format: 'Format',
@@ -221,6 +224,9 @@ window.__ModuleLoader__.load({
         ask: 'Ask',
         thinking: 'Thinking…',
 
+        autoWrite: 'Auto-write',
+        autoWriteHint: 'Auto-write is off: no suggestions, no tokens spent',
+        autoWriteOnHint: 'Suggests the next sentence after a 1s pause',
         composePlaceholder: 'Write something⬦ the first line becomes the title',
         enhance: 'Structure',
         format: 'Format',
@@ -374,6 +380,17 @@ window.__ModuleLoader__.load({
     }
 
     /** The remembered target language id; Chinese unless the user chose otherwise. */
+    /** Auto-write is a preference, not note state: it survives a reload. */
+    function storedAutoWrite() {
+      try {
+        const stored = localStorage.getItem('notes.autoWrite')
+        if (stored === 'off') return false
+      } catch {
+        /* storage may be unavailable */
+      }
+      return true
+    }
+
     function storedTargetLanguage() {
       try {
         const stored = localStorage.getItem('notes.targetLang')
@@ -3072,6 +3089,43 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+/* ---- auto-write switch: a small track that turns green when suggestions are live ---- */
+.dshn-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 11.5px;
+}
+.dshn-switch:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 999px; }
+.dshn-switch-track {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--dsw-alias-border-l2);
+  transition: background .16s ease;
+  flex: none;
+}
+.dshn-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: transform .16s ease;
+}
+.dshn-switch[data-on="true"] .dshn-switch-track { background: var(--dsw-alias-state-success-primary); }
+.dshn-switch[data-on="true"] .dshn-switch-knob { transform: translateX(13px); }
+.dshn-switch[data-on="true"] { color: var(--dsw-alias-label-primary); }
 .dshn-capture-tools .dshn-btn { padding: 6px 14px; font-size: 13px; font-weight: 500; }
 .dshn-capture-tools .dshn-btn.primary { padding: 6px 18px; font-weight: 600; }
 .dshn-capture-tools {
@@ -3781,6 +3835,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const [streaming, setStreaming] = useState('')
       const [enhanceError, setEnhanceError] = useState('')
       const [status, setStatus] = useState('')
+      // Auto-write: whether a pause is enough to get a suggestion, or TAB must ask.
+      const [autoWrite, setAutoWrite] = useState(() => storedAutoWrite())
       // Target language for the structured result; '' means "follow the source".
       const [targetLang, setTargetLang] = useState(() => storedTargetLanguage())
       // No mode: the textarea is the source, and a rendered mirror below it updates
@@ -3913,6 +3969,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const requestCompletion = async (caret) => {
         const value = draftRef.current
         // Typing is what stops; where the caret ended up does not matter.
+        // Off means off: no request, no tokens.
+        if (autoWrite === false) return
         if (value.trim() === '' || busy !== '' || enhancing || translating) return
 
         const repeat = repetitionSuggestion(value, caret)
@@ -3945,6 +4003,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         const state = completeRef.current
         if (state.idle !== 0) clearTimeout(state.idle)
         setGhost(null)
+        // With auto-write off, nothing appears until TAB asks.
+        if (autoWrite === false) return
         state.idle = setTimeout(() => {
           state.idle = 0
           void requestCompletion(caret)
@@ -4550,6 +4610,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               if (event.key === 'Tab') {
                 // TAB belongs to completion: it must never move focus out of the editor.
                 event.preventDefault()
+                if (autoWrite === false) return
                 if (ghost !== null) acceptGhostChunk()
                 else void requestCompletion(areaRef.current?.selectionStart ?? draft.length)
                 return
@@ -4602,6 +4663,30 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           'div',
           { className: 'dshn-row dshn-capture-tools' },
           h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
+          h(
+            'button',
+            {
+              className: 'dshn-switch',
+              type: 'button',
+              'data-on': String(autoWrite),
+              role: 'switch',
+              'aria-checked': String(autoWrite),
+              title: autoWrite ? t.autoWriteOnHint : t.autoWriteHint,
+              onClick: () => {
+                const next = !autoWrite
+                setAutoWrite(next)
+                try {
+                  localStorage.setItem('notes.autoWrite', next ? 'on' : 'off')
+                } catch {
+                  /* the preference is cosmetic */
+                }
+                if (next === false) dismissGhost()
+                else scheduleCompletion(areaRef.current?.selectionStart ?? draft.length)
+              },
+            },
+            h('span', { className: 'dshn-switch-track' }, h('span', { className: 'dshn-switch-knob' })),
+            h('span', null, t.autoWrite),
+          ),
           h('span', { className: 'dshn-grow' }),
           h(
             'button',

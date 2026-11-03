@@ -57,6 +57,9 @@
         ask: '提问',
         thinking: '思考中…',
 
+        autoWrite: '自动写作',
+        autoWriteHint: '自动写作已关闭：不产生推荐，也不消耗 token',
+        autoWriteOnHint: '停顿 1 秒后自动给出下一句',
         composePlaceholder: '写点什么… 第一行会成为标题',
         enhance: '结构化',
         format: 'Format',
@@ -203,6 +206,9 @@
         ask: 'Ask',
         thinking: 'Thinking…',
 
+        autoWrite: 'Auto-write',
+        autoWriteHint: 'Auto-write is off: no suggestions, no tokens spent',
+        autoWriteOnHint: 'Suggests the next sentence after a 1s pause',
         composePlaceholder: 'Write something⬦ the first line becomes the title',
         enhance: 'Structure',
         format: 'Format',
@@ -356,6 +362,17 @@
     }
 
     /** The remembered target language id; Chinese unless the user chose otherwise. */
+    /** Auto-write is a preference, not note state: it survives a reload. */
+    function storedAutoWrite() {
+      try {
+        const stored = localStorage.getItem('notes.autoWrite')
+        if (stored === 'off') return false
+      } catch {
+        /* storage may be unavailable */
+      }
+      return true
+    }
+
     function storedTargetLanguage() {
       try {
         const stored = localStorage.getItem('notes.targetLang')
@@ -3054,6 +3071,43 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+/* ---- auto-write switch: a small track that turns green when suggestions are live ---- */
+.dshn-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 11.5px;
+}
+.dshn-switch:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 999px; }
+.dshn-switch-track {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--dsw-alias-border-l2);
+  transition: background .16s ease;
+  flex: none;
+}
+.dshn-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: transform .16s ease;
+}
+.dshn-switch[data-on="true"] .dshn-switch-track { background: var(--dsw-alias-state-success-primary); }
+.dshn-switch[data-on="true"] .dshn-switch-knob { transform: translateX(13px); }
+.dshn-switch[data-on="true"] { color: var(--dsw-alias-label-primary); }
 .dshn-capture-tools .dshn-btn { padding: 6px 14px; font-size: 13px; font-weight: 500; }
 .dshn-capture-tools .dshn-btn.primary { padding: 6px 18px; font-weight: 600; }
 .dshn-capture-tools {

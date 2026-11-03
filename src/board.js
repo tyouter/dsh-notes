@@ -307,6 +307,8 @@
       const [streaming, setStreaming] = useState('')
       const [enhanceError, setEnhanceError] = useState('')
       const [status, setStatus] = useState('')
+      // Auto-write: whether a pause is enough to get a suggestion, or TAB must ask.
+      const [autoWrite, setAutoWrite] = useState(() => storedAutoWrite())
       // Target language for the structured result; '' means "follow the source".
       const [targetLang, setTargetLang] = useState(() => storedTargetLanguage())
       // No mode: the textarea is the source, and a rendered mirror below it updates
@@ -439,6 +441,8 @@
       const requestCompletion = async (caret) => {
         const value = draftRef.current
         // Typing is what stops; where the caret ended up does not matter.
+        // Off means off: no request, no tokens.
+        if (autoWrite === false) return
         if (value.trim() === '' || busy !== '' || enhancing || translating) return
 
         const repeat = repetitionSuggestion(value, caret)
@@ -471,6 +475,8 @@
         const state = completeRef.current
         if (state.idle !== 0) clearTimeout(state.idle)
         setGhost(null)
+        // With auto-write off, nothing appears until TAB asks.
+        if (autoWrite === false) return
         state.idle = setTimeout(() => {
           state.idle = 0
           void requestCompletion(caret)
@@ -1076,6 +1082,7 @@
               if (event.key === 'Tab') {
                 // TAB belongs to completion: it must never move focus out of the editor.
                 event.preventDefault()
+                if (autoWrite === false) return
                 if (ghost !== null) acceptGhostChunk()
                 else void requestCompletion(areaRef.current?.selectionStart ?? draft.length)
                 return
@@ -1128,6 +1135,30 @@
           'div',
           { className: 'dshn-row dshn-capture-tools' },
           h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
+          h(
+            'button',
+            {
+              className: 'dshn-switch',
+              type: 'button',
+              'data-on': String(autoWrite),
+              role: 'switch',
+              'aria-checked': String(autoWrite),
+              title: autoWrite ? t.autoWriteOnHint : t.autoWriteHint,
+              onClick: () => {
+                const next = !autoWrite
+                setAutoWrite(next)
+                try {
+                  localStorage.setItem('notes.autoWrite', next ? 'on' : 'off')
+                } catch {
+                  /* the preference is cosmetic */
+                }
+                if (next === false) dismissGhost()
+                else scheduleCompletion(areaRef.current?.selectionStart ?? draft.length)
+              },
+            },
+            h('span', { className: 'dshn-switch-track' }, h('span', { className: 'dshn-switch-knob' })),
+            h('span', null, t.autoWrite),
+          ),
           h('span', { className: 'dshn-grow' }),
           h(
             'button',
