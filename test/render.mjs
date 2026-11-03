@@ -525,6 +525,10 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     // Collapsing the drawer must hand the width to the detail column, not keep a blank strip.
     check('the collapsed drawer frees its width', /\.dshn-list\[data-collapsed="true"\] \{[^}]*width: 0/.test(headCss) && /data-collapsed="true"\] \.dshn-list \{ width: auto/.test(headCss) === false)
 
+    // Copy as Markdown, beside Edit: the note goes to an agent with standard syntax.
+    check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
+    check('copying says it worked', /setCopied\(true\)/.test(panelSource) && /1000|1400/.test(panelSource) && /data-copied/.test(panelSource))
+
     check('the detail actions sit on the right', /dshn-detail-actions/.test(panelSource) && /dshn-grow/.test(panelSource.slice(panelSource.indexOf('dshn-detail-bar'), panelSource.indexOf('dshn-detail-bar') + 1200)))
     check('the bar is a flex row', /\.dshn-detail-bar \{[^}]*display: flex/.test(headCss) && /\.dshn-detail-bar \{[^}]*align-items: center/.test(headCss))
     check('pin and delete are icon buttons with labels', /dshn-icon-btn/.test(panelSource) && /aria-label/.test(panelSource.slice(panelSource.indexOf('dshn-icon-btn') - 400, panelSource.indexOf('dshn-icon-btn') + 900)))

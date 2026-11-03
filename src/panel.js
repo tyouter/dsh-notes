@@ -388,6 +388,8 @@
       const [tagFilter, setTagFilter] = useState('')
       const [showAllTags, setShowAllTags] = useState(false)
       const [editing, setEditing] = useState(false)
+      // "已复制" for a moment after the Markdown button is pressed.
+      const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
       const [listOpen, setListOpen] = useState(true)
       // The list is a column you can widen: dragged between 200 and 520 px and remembered.
@@ -427,6 +429,33 @@
           { key: 'earlier', label: t.earlier, notes: buckets.earlier },
         ].filter((group) => group.notes.length > 0)
       }, [filtered, t])
+
+      /** Put the note on the clipboard as standard Markdown. */
+      const copyMarkdown = async () => {
+        if (selected === null) return
+        const markdown = toStandardMarkdown(selected.body ?? '')
+        if (markdown === '') return
+        try {
+          if (navigator.clipboard?.writeText !== undefined) {
+            await navigator.clipboard.writeText(markdown)
+          } else {
+            // Older embeddings: a hidden textarea plus the legacy copy command.
+            const area = document.createElement('textarea')
+            area.value = markdown
+            area.setAttribute('readonly', '')
+            area.style.position = 'fixed'
+            area.style.opacity = '0'
+            document.body.appendChild(area)
+            area.select()
+            document.execCommand('copy')
+            document.body.removeChild(area)
+          }
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1400)
+        } catch {
+          /* the clipboard can be blocked; the label simply does not change */
+        }
+      }
 
       const action = async (operation) => {
         try {
@@ -625,6 +654,22 @@
                           h('path', { d: 'M12 13v7' }),
                         ),
                       ),
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn',
+                          title: copied ? t.copied : t.copyMarkdown,
+                          'aria-label': copied ? t.copied : t.copyMarkdown,
+                          'data-copied': String(copied),
+                          onClick: () => void copyMarkdown(),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('rect', { x: 9, y: 9, width: 11, height: 11, rx: 2 }),
+                          h('path', { d: 'M5 15V6a2 2 0 0 1 2-2h8' }),
+                        ),
+                      ),
                       editing
                         ? null
                         : h(
@@ -715,7 +760,7 @@
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

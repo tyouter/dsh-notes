@@ -120,6 +120,8 @@ window.__ModuleLoader__.load({
         enhanceSlow: (seconds) => `已等 ${seconds} 秒，模型还在写⬦`,
         collapseList: '收起列表',
         resizeList: '拖动调整列表宽度',
+    copyMarkdown: '复制 Markdown',
+    copied: '已复制',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -271,6 +273,8 @@ window.__ModuleLoader__.load({
         enhanceSlow: (seconds) => `Still writing after ${seconds}s⬦`,
         collapseList: 'Collapse list',
         resizeList: 'Drag to resize the note list',
+    copyMarkdown: 'Copy Markdown',
+    copied: 'Copied',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -1457,6 +1461,57 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /**
+     * The note as standard Markdown, for pasting into another agent or a repository.
+     *
+     * The notebook keeps the author's numbering — 「一、」「1、」「①」 all mean an item — but those
+     * markers are plain text to a Markdown parser elsewhere. This converts the title to `# …`,
+     * outline numbering to `1.`, and symbolic markers to `-`, keeping indentation as nesting.
+     */
+    function toStandardMarkdown(text) {
+      const raw = String(text ?? '').replace(/\r\n/g, '\n').trim()
+      if (raw === '') return ''
+      const { title, rest } = splitNoteTitle(raw)
+      const lines = normalizeIndentedBullets(rest).split('\n')
+      const counters = new Map()
+      const output = []
+      for (const line of lines) {
+        if (line.trim() === '') {
+          output.push('')
+          continue
+        }
+        const indent = line.match(/^\s*/)?.[0] ?? ''
+        const enumerator = parseEnumerator(line)
+        if (enumerator !== null && /^\s*[-*+·•—–]\s+/.test(line) === false) {
+          const depth = Math.floor(indent.replace(/\t/g, '  ').length / 2)
+          const kind = enumerator.style
+          if (kind === 'arabic' && enumerator.close === '.') {
+            // Already standard.
+            const current = (counters.get(depth) ?? 0) + 1
+            counters.set(depth, current)
+            output.push(`${indent}${current}. ${enumerator.rest}`)
+            continue
+          }
+          if (kind === 'symbol' || kind === 'circled') {
+            counters.delete(depth)
+            output.push(`${indent}- ${enumerator.rest}`)
+            continue
+          }
+          const current = (counters.get(depth) ?? 0) + 1
+          counters.set(depth, current)
+          output.push(`${indent}${current}. ${enumerator.rest}`)
+          continue
+        }
+        // A plain line ends the running list.
+        counters.clear()
+        output.push(line.replace(/^\s*[-*+·•—–]\s+/, (match) => match))
+      }
+      const body = output.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+      const heading = title === '' ? '' : `# ${title}`
+      if (heading === '') return body
+      return body === '' ? heading : `${heading}\n\n${body}`
+    }
+
     /** The note without its title line, for views that already show the title. */
     function renderNoteRest(text) {
       const { rest } = splitNoteTitle(text)
@@ -2249,6 +2304,7 @@ window.__ModuleLoader__.load({
   color: var(--dsw-alias-brand-primary);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
 }
+.dshn-icon-btn[data-copied="true"] { color: var(--dsw-alias-state-success-primary); }
 .dshn-icon-btn.dshn-danger:hover {
   color: var(--dsw-alias-state-error-primary);
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
@@ -5838,6 +5894,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const [tagFilter, setTagFilter] = useState('')
       const [showAllTags, setShowAllTags] = useState(false)
       const [editing, setEditing] = useState(false)
+      // "已复制" for a moment after the Markdown button is pressed.
+      const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
       const [listOpen, setListOpen] = useState(true)
       // The list is a column you can widen: dragged between 200 and 520 px and remembered.
@@ -5877,6 +5935,33 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           { key: 'earlier', label: t.earlier, notes: buckets.earlier },
         ].filter((group) => group.notes.length > 0)
       }, [filtered, t])
+
+      /** Put the note on the clipboard as standard Markdown. */
+      const copyMarkdown = async () => {
+        if (selected === null) return
+        const markdown = toStandardMarkdown(selected.body ?? '')
+        if (markdown === '') return
+        try {
+          if (navigator.clipboard?.writeText !== undefined) {
+            await navigator.clipboard.writeText(markdown)
+          } else {
+            // Older embeddings: a hidden textarea plus the legacy copy command.
+            const area = document.createElement('textarea')
+            area.value = markdown
+            area.setAttribute('readonly', '')
+            area.style.position = 'fixed'
+            area.style.opacity = '0'
+            document.body.appendChild(area)
+            area.select()
+            document.execCommand('copy')
+            document.body.removeChild(area)
+          }
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1400)
+        } catch {
+          /* the clipboard can be blocked; the label simply does not change */
+        }
+      }
 
       const action = async (operation) => {
         try {
@@ -6075,6 +6160,22 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                           h('path', { d: 'M12 13v7' }),
                         ),
                       ),
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn',
+                          title: copied ? t.copied : t.copyMarkdown,
+                          'aria-label': copied ? t.copied : t.copyMarkdown,
+                          'data-copied': String(copied),
+                          onClick: () => void copyMarkdown(),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('rect', { x: 9, y: 9, width: 11, height: 11, rx: 2 }),
+                          h('path', { d: 'M5 15V6a2 2 0 0 1 2-2h8' }),
+                        ),
+                      ),
                       editing
                         ? null
                         : h(
@@ -6165,7 +6266,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

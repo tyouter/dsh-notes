@@ -406,6 +406,16 @@ check('the document answers its own repetition first', repeatHit?.source === 'do
 check('the repeated phrase continues, not repeats', repeatHit?.text.includes('会议') === true && repeatHit?.matched === '产品上线', JSON.stringify(repeatHit))
 // A suggestion must add, not restate: the reported bug was the last bullet appearing twice.
 const listNote = ['关注点', '- 什么是鸿蒙座舱', '- 对新车销量的影响力（定性，非定量）'].join('\n')
+// Copy as Markdown: standard syntax another agent can parse.
+const copySource = ['鸿蒙座舱 6.0', '', '一、什么是座舱', '二、竞品定位', '1、销量影响', '① 压测'].join('\n')
+const copied = internals.toStandardMarkdown(copySource)
+check('the copy puts a # heading first', copied.split('\n')[0] === '# 鸿蒙座舱 6.0', JSON.stringify(copied))
+check('outline numbering becomes 1.', /^1\. 什么是座舱$/m.test(copied) && /^2\. 竞品定位$/m.test(copied) && /^3\. 销量影响$/m.test(copied), JSON.stringify(copied))
+check('a circled marker becomes a bullet', /^- 压测$/m.test(copied), JSON.stringify(copied))
+check('nesting survives', internals.toStandardMarkdown(['计划', '', '- 一', '  二'].join('\n')).includes('  - 二'))
+check('already-standard markdown is untouched', internals.toStandardMarkdown(['标题', '', '1. 甲', '- 乙'].join('\n')) === '# 标题\n\n1. 甲\n- 乙', JSON.stringify(internals.toStandardMarkdown(['标题', '', '1. 甲', '- 乙'].join('\n'))))
+check('an empty note copies nothing', internals.toStandardMarkdown('   ') === '')
+
 check('a suggestion that restates a line is rejected', internals.duplicateSuggestion(listNote, '对新车销量的影响力（定性，非定量）'))
 check('a suggestion with a marker is rejected too', internals.duplicateSuggestion(listNote, '- 对新车销量的影响力（定性，非定量）'))
 check('a suggestion that repeats the whole phrase is rejected', internals.duplicateSuggestion('今天好累。', '今天好累。'))
