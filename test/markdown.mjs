@@ -404,6 +404,14 @@ const repeatAt = repeatNote.lastIndexOf('产品上线') + 4
 const repeatHit = internals.repetitionSuggestion(repeatNote, repeatAt)
 check('the document answers its own repetition first', repeatHit?.source === 'document', JSON.stringify(repeatHit))
 check('the repeated phrase continues, not repeats', repeatHit?.text.includes('会议') === true && repeatHit?.matched === '产品上线', JSON.stringify(repeatHit))
+// A suggestion must add, not restate: the reported bug was the last bullet appearing twice.
+const listNote = ['关注点', '- 什么是鸿蒙座舱', '- 对新车销量的影响力（定性，非定量）'].join('\n')
+check('a suggestion that restates a line is rejected', internals.duplicateSuggestion(listNote, '对新车销量的影响力（定性，非定量）'))
+check('a suggestion with a marker is rejected too', internals.duplicateSuggestion(listNote, '- 对新车销量的影响力（定性，非定量）'))
+check('a suggestion that repeats the whole phrase is rejected', internals.duplicateSuggestion('今天好累。', '今天好累。'))
+check('a genuinely new item is allowed', internals.duplicateSuggestion(listNote, '对渠道与库存的影响') === false)
+check('a short fragment is allowed', internals.duplicateSuggestion(listNote, '渠道') === false)
+
 check('a note with nothing repeated has no local answer', internals.repetitionSuggestion('今天好累。', 5) === null)
 
 check('Backspace inside the text is left to the browser', internals.backspaceLine('- 甲乙丙', 6) === null)

@@ -4,7 +4,7 @@
 // whose agent calls the query tools, and the editor copilot is gone. What remains
 // here is the structuring prompt's shape and the term extractor the tools use.
 import { buildEnhanceMessage, readEnhanceResult, dedupeTitle } from '../lib/prompt.js'
-import { buildCompleteMessage } from '../lib/complete.js'
+import { buildCompleteMessage, listContextOf } from '../lib/complete.js'
 import { topTerms } from '../lib/text.js'
 
 let failures = 0
@@ -24,6 +24,14 @@ const completionPrompt = buildCompleteMessage({
   caret: 30,
   section: '会议',
 })
+// The list case: a new item, not a repeat.
+const listText = ['## 关注点', '- 什么是鸿蒙座舱', '- 对新车销量的影响力（定性，非定量）', '- '].join('\n')
+const listMessage = buildCompleteMessage({ text: listText, caret: listText.length, list: listContextOf(listText, listText.length) })
+check('the completion prompt forbids restating', listMessage.includes('不要重复原文里已经写过的句子或列表项'))
+check('the list prompt asks for a new item', listMessage.includes('只输出一个**新的**条目'))
+check('the list marker reaches the prompt', listMessage.includes('标记是「-」'))
+check('a prose stretch is told not to list', buildCompleteMessage({ text: '一段话。', caret: 4, list: null }).includes('不要写成列表'))
+
 check('the completion prompt forbids new facts', completionPrompt.includes('不要引入原文没有的专有信息'))
 check('the completion prompt caps the length', completionPrompt.includes('最多 3 句') && completionPrompt.includes('120 字'))
 check('the completion prompt names the section', completionPrompt.includes('当前小节：会议'))

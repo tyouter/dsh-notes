@@ -1002,6 +1002,33 @@ window.__ModuleLoader__.load({
       return { text: source.slice(0, start) + newLine + source.slice(end), caret: start + prefix.length + caretOffset }
     }
 
+    /** A comparison key: markers, punctuation and spacing removed, Latin lowercased. */
+    function compareKey(value) {
+      return String(value ?? '')
+        .replace(/^\s*(?:[-*+·•—–]|\d+[.)、]|\(\d+\)|[①-⑳])\s*/, '')
+        .replace(/[\s，。．！？!?,.;:；：、“”"'（）()《》【】\-—–]/g, '')
+        .toLowerCase()
+    }
+
+    /**
+     * Would this suggestion repeat something already in the note?
+     *
+     * The completion is supposed to add, not restate: a duplicate is worse than nothing, because the
+     * author has to find it and delete it. Compares against every line and against the whole tail.
+     */
+    function duplicateSuggestion(draft, suggestion) {
+      const key = compareKey(suggestion)
+      if (key.length < 2) return false
+      const lines = String(draft ?? '').split(/\r?\n/)
+      for (const line of lines) {
+        const lineKey = compareKey(line)
+        if (lineKey === '') continue
+        if (lineKey === key) return true
+        if (lineKey.includes(key)) return true
+      }
+      return compareKey(draft).includes(key)
+    }
+
     /** Enter on a bullet continues at the same level, marker included. */
     function continueBulletLine(text, index) {
       const source = String(text ?? '')
@@ -4022,7 +4049,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         if (autoWrite === false) return
         if (value.trim() === '' || busy !== '' || enhancing || translating) return
 
-        const repeat = repetitionSuggestion(value, caret)
+        // In a list the next useful thing is a new item, not a repeated phrase.
+        const inList = /^\s*(?:[-*+·•—–]|\d+[.)])\s+/.test(value.slice(value.lastIndexOf('\n') + 1))
+        const repeat = inList ? null : repetitionSuggestion(value, caret)
         if (repeat !== null) {
           const chunks = suggestionChunks(repeat.text)
           if (chunks.length > 0) {
@@ -4037,6 +4066,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           const data = await post('/complete', { text: value, caret }, controller.signal)
           completeRef.current.abort = null
           const suggestion = String(data?.text ?? '')
+          // A suggestion that restates the note is noise: drop it instead of showing it.
+          if (duplicateSuggestion(value, suggestion)) return
           const chunks = suggestionChunks(suggestion)
           // Typing may have resumed while the model was thinking.
           if (chunks.length > 0 && draftRef.current === value) {
@@ -6134,7 +6165,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

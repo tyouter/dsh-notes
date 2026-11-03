@@ -984,6 +984,33 @@
       return { text: source.slice(0, start) + newLine + source.slice(end), caret: start + prefix.length + caretOffset }
     }
 
+    /** A comparison key: markers, punctuation and spacing removed, Latin lowercased. */
+    function compareKey(value) {
+      return String(value ?? '')
+        .replace(/^\s*(?:[-*+·•—–]|\d+[.)、]|\(\d+\)|[①-⑳])\s*/, '')
+        .replace(/[\s，。．！？!?,.;:；：、“”"'（）()《》【】\-—–]/g, '')
+        .toLowerCase()
+    }
+
+    /**
+     * Would this suggestion repeat something already in the note?
+     *
+     * The completion is supposed to add, not restate: a duplicate is worse than nothing, because the
+     * author has to find it and delete it. Compares against every line and against the whole tail.
+     */
+    function duplicateSuggestion(draft, suggestion) {
+      const key = compareKey(suggestion)
+      if (key.length < 2) return false
+      const lines = String(draft ?? '').split(/\r?\n/)
+      for (const line of lines) {
+        const lineKey = compareKey(line)
+        if (lineKey === '') continue
+        if (lineKey === key) return true
+        if (lineKey.includes(key)) return true
+      }
+      return compareKey(draft).includes(key)
+    }
+
     /** Enter on a bullet continues at the same level, marker included. */
     function continueBulletLine(text, index) {
       const source = String(text ?? '')

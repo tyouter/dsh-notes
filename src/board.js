@@ -455,7 +455,9 @@
         if (autoWrite === false) return
         if (value.trim() === '' || busy !== '' || enhancing || translating) return
 
-        const repeat = repetitionSuggestion(value, caret)
+        // In a list the next useful thing is a new item, not a repeated phrase.
+        const inList = /^\s*(?:[-*+·•—–]|\d+[.)])\s+/.test(value.slice(value.lastIndexOf('\n') + 1))
+        const repeat = inList ? null : repetitionSuggestion(value, caret)
         if (repeat !== null) {
           const chunks = suggestionChunks(repeat.text)
           if (chunks.length > 0) {
@@ -470,6 +472,8 @@
           const data = await post('/complete', { text: value, caret }, controller.signal)
           completeRef.current.abort = null
           const suggestion = String(data?.text ?? '')
+          // A suggestion that restates the note is noise: drop it instead of showing it.
+          if (duplicateSuggestion(value, suggestion)) return
           const chunks = suggestionChunks(suggestion)
           // Typing may have resumed while the model was thinking.
           if (chunks.length > 0 && draftRef.current === value) {
