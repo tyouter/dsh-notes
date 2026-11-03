@@ -1158,21 +1158,6 @@
           'div',
           { className: 'dshn-row dshn-capture-tools' },
           h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
-          hasContent
-            ? h(
-                'button',
-                {
-                  className: 'dshn-btn ghost',
-                  type: 'button',
-                  'data-role': 'preview-toggle',
-                  'data-on': String(previewOpen),
-                  'aria-pressed': String(previewOpen),
-                  title: previewOpen ? t.previewHide : t.previewShow,
-                  onClick: () => setPreviewOpen(!previewOpen),
-                },
-                (previewOpen ? '◫ ' : '◧ ') + (previewOpen ? t.previewHide : t.previewShow),
-              )
-            : null,
           h(
             'button',
             {
@@ -1475,6 +1460,29 @@
             ? [showRender ? renderSheet : null, editorSheet]
             : [editorSheet, renderSheet]
           ).filter((node) => node !== null && node !== undefined),
+          // Side by side, the toggle sits on the seam itself: a drawer handle, not a toolbar item.
+          compactLayout === false && hasContent
+            ? h(
+                'button',
+                {
+                  key: 'handle',
+                  className: 'dshn-preview-handle',
+                  type: 'button',
+                  'data-open': String(previewOpen),
+                  'aria-expanded': String(previewOpen),
+                  'aria-label': previewOpen ? t.previewHide : t.previewShow,
+                  title: previewOpen ? t.previewHide : t.previewShow,
+                  onClick: () => setPreviewOpen(!previewOpen),
+                },
+                h(
+                  'svg',
+                  { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                  previewOpen
+                    ? h('path', { d: 'M9 6l6 6-6 6' })
+                    : h('path', { d: 'M15 6l-6 6 6 6' }),
+                ),
+              )
+            : null,
         ),
         statusLine,
       )

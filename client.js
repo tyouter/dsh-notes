@@ -3093,6 +3093,34 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+/* ---- preview drawer handle: a tab on the seam between the pages ---- */
+.dshn-sheets { position: relative; }
+.dshn-preview-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: 18px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+  transition: color .12s ease, border-color .12s ease, background .12s ease;
+}
+.dshn-preview-handle:hover {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+}
+.dshn-preview-handle:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+.dshn-preview-handle[data-open="false"] { color: var(--dsw-alias-label-primary); }
 /* A hidden page keeps its column: hiding changes what you see, not the layout. */
 .dshn-sheet[data-hidden='true'] { visibility: hidden; pointer-events: none; }
 /* Stacked layout: an empty half would be dead space, so the editor takes the height there. */
@@ -4697,21 +4725,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           'div',
           { className: 'dshn-row dshn-capture-tools' },
           h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
-          hasContent
-            ? h(
-                'button',
-                {
-                  className: 'dshn-btn ghost',
-                  type: 'button',
-                  'data-role': 'preview-toggle',
-                  'data-on': String(previewOpen),
-                  'aria-pressed': String(previewOpen),
-                  title: previewOpen ? t.previewHide : t.previewShow,
-                  onClick: () => setPreviewOpen(!previewOpen),
-                },
-                (previewOpen ? '◫ ' : '◧ ') + (previewOpen ? t.previewHide : t.previewShow),
-              )
-            : null,
           h(
             'button',
             {
@@ -5014,6 +5027,29 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             ? [showRender ? renderSheet : null, editorSheet]
             : [editorSheet, renderSheet]
           ).filter((node) => node !== null && node !== undefined),
+          // Side by side, the toggle sits on the seam itself: a drawer handle, not a toolbar item.
+          compactLayout === false && hasContent
+            ? h(
+                'button',
+                {
+                  key: 'handle',
+                  className: 'dshn-preview-handle',
+                  type: 'button',
+                  'data-open': String(previewOpen),
+                  'aria-expanded': String(previewOpen),
+                  'aria-label': previewOpen ? t.previewHide : t.previewShow,
+                  title: previewOpen ? t.previewHide : t.previewShow,
+                  onClick: () => setPreviewOpen(!previewOpen),
+                },
+                h(
+                  'svg',
+                  { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                  previewOpen
+                    ? h('path', { d: 'M9 6l6 6-6 6' })
+                    : h('path', { d: 'M15 6l-6 6 6 6' }),
+                ),
+              )
+            : null,
         ),
         statusLine,
       )
