@@ -27,6 +27,11 @@ const completionPrompt = buildCompleteMessage({
 // The list case: a new item, not a repeat.
 const listText = ['## 关注点', '- 什么是鸿蒙座舱', '- 对新车销量的影响力（定性，非定量）', '- '].join('\n')
 const listMessage = buildCompleteMessage({ text: listText, caret: listText.length, list: listContextOf(listText, listText.length) })
+// Structuring a selection must not grow it into new points.
+const selectionMessage = buildEnhanceMessage({ text: '当你用复杂的笔记软件被工具栏干扰时', scope: 'selection' })
+check('a selection is told not to add points', selectionMessage.includes('不要新增原文没有的条目'), selectionMessage.slice(-200))
+check('a whole note gets no selection wording', buildEnhanceMessage({ text: '整篇', scope: 'note' }).includes('不要新增原文没有的条目') === false)
+
 check('the completion prompt forbids restating', listMessage.includes('不要重复原文里已经写过的句子或列表项'))
 check('the list prompt asks for a new item', listMessage.includes('只输出一个**新的**条目'))
 check('the list marker reaches the prompt', listMessage.includes('标记是「-」'))

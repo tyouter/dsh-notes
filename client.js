@@ -1006,6 +1006,39 @@ window.__ModuleLoader__.load({
       return { text: source.slice(0, start) + newLine + source.slice(end), caret: start + prefix.length + caretOffset }
     }
 
+    /**
+     * Place a suggestion chunk into the note.
+     *
+     * A chunk is model output, so it may start with a list marker even though the caret sits at the end
+     * of a sentence. Pasted verbatim that produces "...管理。 - 你的笔记…" — a marker inside a line, which
+     * is not a list and not a sentence. Three cases:
+     *   - the caret is already on a marker ("- " alone)  -> drop the chunk's own marker;
+     *   - the caret is mid-line and the chunk has a marker -> start a new line;
+     *   - anything else                                     -> insert as-is.
+     */
+    function insertChunkAt(value, at, chunk) {
+      const text = String(value ?? '')
+      const position = Math.max(0, Math.min(Number(at) || 0, text.length))
+      const source = String(chunk ?? '')
+      if (source === '') return { value: text, start: position, end: position }
+      const lineStart = text.lastIndexOf('\n', position - 1) + 1
+      const before = text.slice(lineStart, position)
+      const marker = source.match(/^(\s*)(?:[-*+·•—–]|\d+[.)])\s+/)
+      let insert = source
+      if (marker !== null) {
+        if (/^\s*(?:[-*+·•—–]|\d+[.)])\s*$/.test(before)) {
+          insert = source.slice(marker[0].length)
+        } else if (before.trim() !== '') {
+          insert = '\n' + source.replace(/^[ \t]+/, '')
+        }
+      }
+      return {
+        value: text.slice(0, position) + insert + text.slice(position),
+        start: position,
+        end: position + insert.length,
+      }
+    }
+
     /** A comparison key: markers, punctuation and spacing removed, Latin lowercased. */
     function compareKey(value) {
       return String(value ?? '')
@@ -4173,10 +4206,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         }
         const value = draftRef.current
         const at = Math.max(0, Math.min(ghost.at, value.length))
-        const next = value.slice(0, at) + chunk + value.slice(at)
-        const end = at + chunk.length
-        setDraft(next)
-        setAccepted({ start: at, end })
+        // A chunk may start with a list marker; placing it verbatim mid-sentence glues "- …" onto the
+        // line. insertChunkAt decides where it really goes.
+        const placed = insertChunkAt(value, at, chunk)
+        const end = placed.end
+        setDraft(placed.value)
+        setAccepted({ start: placed.start, end })
         // Caret right after the chunk, no browser selection: the mark is ours to keep.
         setTimeout(() => {
           const area = areaRef.current
@@ -4208,6 +4243,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         try {
           const data = await post('/enhance', {
             text: source,
+            scope: range === null ? 'note' : 'selection',
             instruction: '上一版有以下问题，请修正后重新输出整篇：\n- ' + issues.join('\n- '),
           })
           const repaired = data?.draft
@@ -4264,7 +4300,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         const ticker = setInterval(() => setEnhanceSeconds(Math.round((Date.now() - startedAt) / 1000)), 250)
         const signal = beginCall()
         try {
-          await streamEvents('/enhance/stream', { text }, (event, payload) => {
+          // A selection is restructured as a selection: the prompt then keeps its item count.
+          const scope = range === null ? 'note' : 'selection'
+          await streamEvents('/enhance/stream', { text, scope }, (event, payload) => {
             if (event === 'delta') {
               // Deltas still arrive (that is how the call is tracked); they are not painted: a
               // half-written answer reads as broken Markdown.
@@ -6285,7 +6323,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

@@ -405,8 +405,9 @@ check('the preview can translate the note itself', /const runPreviewTranslate = 
 
 // Regression: the picker leaked into Structure, so an English target produced an English
 // title above a Chinese body.
-check('structure sends no target language', boardSource.includes("streamEvents('/enhance/stream', { text }"))
-check('structure is the only structuring caller', (boardSource.match(/streamEvents\('\/enhance\/stream', \{ text \}/g) ?? []).length === 1)
+    // The call carries the text and the scope; the target language belongs to Translate only.
+    check('structure sends no target language', /streamEvents\('\/enhance\/stream', \{ text, scope \}/.test(boardSource) && /enhance\/stream[\s\S]{0,80}language/.test(boardSource) === false)
+    check('structure is the only structuring caller', (boardSource.match(/streamEvents\('\/enhance\/stream'/g) ?? []).length === 1)
 check('the picker feeds both translate flows', (boardSource.match(/resolveTranslateTarget\(/g) ?? []).length >= 2)
     check('the client states whether to keep numbering', boardSource.includes('keepNumbering: partial'))
     check('translation uses its own route', boardSource.includes("'/translate/stream'"))
@@ -563,7 +564,9 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('a moved caret drops a stale suggestion', /const followCaret = \(caret\) => \{/.test(boardSource) && /followCaret\(event\.target\.selectionStart/.test(boardSource))
     check('Backspace only undoes a chunk the caret is inside', /caret >= accepted\.start && caret <= accepted\.end/.test(boardSource))
 
-    check('the inserted chunk can be undone in one key', /setAccepted\(\{ start: at, end \}\)/.test(boardSource) && /accepted\.start\) \+ value\.slice\(accepted\.end\)/.test(boardSource))
+    // A chunk is placed through insertChunkAt (a marker must not land mid-sentence), and the
+    // accepted span it reports is what Backspace removes.
+    check('the inserted chunk can be undone in one key', /const placed = insertChunkAt\(value, at, chunk\)/.test(boardSource) && /const end = placed\.end/.test(boardSource) && /accepted\.start\) \+ value\.slice\(accepted\.end\)/.test(boardSource))
     check('an accepted chunk is drawn with the plugin mark', /dshn-mark-accepted/.test(boardSource) && /\.dshn-mark-accepted \{/.test(headCss))
     check('TAB never leaves the editor', /if \(event\.key === 'Tab'\) \{\s*\n\s*\/\/ TAB belongs to completion/.test(boardSource) && /event\.preventDefault\(\)/.test(boardSource))
     check('TAB with the switch off spends nothing', /if \(autoWrite === false\) return/.test(boardSource))

@@ -510,10 +510,12 @@
         }
         const value = draftRef.current
         const at = Math.max(0, Math.min(ghost.at, value.length))
-        const next = value.slice(0, at) + chunk + value.slice(at)
-        const end = at + chunk.length
-        setDraft(next)
-        setAccepted({ start: at, end })
+        // A chunk may start with a list marker; placing it verbatim mid-sentence glues "- …" onto the
+        // line. insertChunkAt decides where it really goes.
+        const placed = insertChunkAt(value, at, chunk)
+        const end = placed.end
+        setDraft(placed.value)
+        setAccepted({ start: placed.start, end })
         // Caret right after the chunk, no browser selection: the mark is ours to keep.
         setTimeout(() => {
           const area = areaRef.current
@@ -545,6 +547,7 @@
         try {
           const data = await post('/enhance', {
             text: source,
+            scope: range === null ? 'note' : 'selection',
             instruction: '上一版有以下问题，请修正后重新输出整篇：\n- ' + issues.join('\n- '),
           })
           const repaired = data?.draft
@@ -601,7 +604,9 @@
         const ticker = setInterval(() => setEnhanceSeconds(Math.round((Date.now() - startedAt) / 1000)), 250)
         const signal = beginCall()
         try {
-          await streamEvents('/enhance/stream', { text }, (event, payload) => {
+          // A selection is restructured as a selection: the prompt then keeps its item count.
+          const scope = range === null ? 'note' : 'selection'
+          await streamEvents('/enhance/stream', { text, scope }, (event, payload) => {
             if (event === 'delta') {
               // Deltas still arrive (that is how the call is tracked); they are not painted: a
               // half-written answer reads as broken Markdown.

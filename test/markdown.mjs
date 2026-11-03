@@ -409,6 +409,20 @@ const listNote = ['关注点', '- 什么是鸿蒙座舱', '- 对新车销量的�
 // Copy as Markdown: standard syntax another agent can parse.
 const copySource = ['鸿蒙座舱 6.0', '', '一、什么是座舱', '二、竞品定位', '1、销量影响', '① 压测'].join('\n')
 const copied = internals.toStandardMarkdown(copySource)
+// A suggestion chunk carrying a list marker must not be pasted into the middle of a sentence.
+const sentence = 'AI 随时相伴，你的笔记 AI 替你管理。'
+const placedMid = internals.insertChunkAt(sentence, sentence.length, '- 你的笔记永远在，不去、不乱、不打扰。')
+check('a marker chunk mid-sentence starts a new line', placedMid.value === sentence + '\n- 你的笔记永远在，不去、不乱、不打扰。', JSON.stringify(placedMid.value))
+check('the accepted span covers the inserted line', placedMid.start === sentence.length && placedMid.end === placedMid.value.length)
+
+const onMarker = '- '
+const placedOnMarker = internals.insertChunkAt(onMarker, onMarker.length, '- 第二个条目')
+check('a marker chunk on an empty bullet drops its own marker', placedOnMarker.value === '- 第二个条目', JSON.stringify(placedOnMarker.value))
+
+const plain = internals.insertChunkAt('把工具退到背景里，', 9, '文字才会回到前台。')
+check('a plain chunk is inserted as-is', plain.value === '把工具退到背景里，文字才会回到前台。', JSON.stringify(plain.value))
+check('an empty chunk changes nothing', internals.insertChunkAt('abc', 1, '').value === 'abc')
+
 check('the copy puts a # heading first', copied.split('\n')[0] === '# 鸿蒙座舱 6.0', JSON.stringify(copied))
 check('outline numbering becomes 1.', /^1\. 什么是座舱$/m.test(copied) && /^2\. 竞品定位$/m.test(copied) && /^3\. 销量影响$/m.test(copied), JSON.stringify(copied))
 check('a circled marker becomes a bullet', /^- 压测$/m.test(copied), JSON.stringify(copied))

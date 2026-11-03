@@ -988,6 +988,39 @@
       return { text: source.slice(0, start) + newLine + source.slice(end), caret: start + prefix.length + caretOffset }
     }
 
+    /**
+     * Place a suggestion chunk into the note.
+     *
+     * A chunk is model output, so it may start with a list marker even though the caret sits at the end
+     * of a sentence. Pasted verbatim that produces "...管理。 - 你的笔记…" — a marker inside a line, which
+     * is not a list and not a sentence. Three cases:
+     *   - the caret is already on a marker ("- " alone)  -> drop the chunk's own marker;
+     *   - the caret is mid-line and the chunk has a marker -> start a new line;
+     *   - anything else                                     -> insert as-is.
+     */
+    function insertChunkAt(value, at, chunk) {
+      const text = String(value ?? '')
+      const position = Math.max(0, Math.min(Number(at) || 0, text.length))
+      const source = String(chunk ?? '')
+      if (source === '') return { value: text, start: position, end: position }
+      const lineStart = text.lastIndexOf('\n', position - 1) + 1
+      const before = text.slice(lineStart, position)
+      const marker = source.match(/^(\s*)(?:[-*+·•—–]|\d+[.)])\s+/)
+      let insert = source
+      if (marker !== null) {
+        if (/^\s*(?:[-*+·•—–]|\d+[.)])\s*$/.test(before)) {
+          insert = source.slice(marker[0].length)
+        } else if (before.trim() !== '') {
+          insert = '\n' + source.replace(/^[ \t]+/, '')
+        }
+      }
+      return {
+        value: text.slice(0, position) + insert + text.slice(position),
+        start: position,
+        end: position + insert.length,
+      }
+    }
+
     /** A comparison key: markers, punctuation and spacing removed, Latin lowercased. */
     function compareKey(value) {
       return String(value ?? '')
