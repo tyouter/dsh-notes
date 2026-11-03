@@ -3013,6 +3013,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   color: transparent;
   z-index: 0;
 }
+.dshn-mark-accepted {
+  /* Same green as an action range: the chunk is in the note already, and one Backspace takes it out. */
+  color: transparent;
+  background: var(--dshn-heat-1);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--dshn-heat-1);
+}
 .dshn-editor-mark {
   /* A highlighter stroke rather than an underline: the light green from the heat palette,
      which already exists in both themes. Text stays transparent — the textarea draws it. */

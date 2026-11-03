@@ -524,7 +524,10 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('completion waits for a pause', /1000\)/.test(boardSource) && /scheduleCompletion/.test(boardSource))
     check('completion fires wherever the caret stopped', /atSentenceBoundary/.test(boardSource) === false && /Typing is what stops/.test(boardSource))
     check('TAB takes one chunk', /acceptGhostChunk\(\)/.test(boardSource) && /event\.key === 'Tab'/.test(boardSource))
-    check('the inserted chunk can be undone in one key', /setSelectionRange\(at, end\)/.test(boardSource) && /1400\)/.test(boardSource))
+    check('the inserted chunk can be undone in one key', /setAccepted\(\{ start: at, end \}\)/.test(boardSource) && /accepted\.start\) \+ value\.slice\(accepted\.end\)/.test(boardSource))
+    check('an accepted chunk is drawn with the plugin mark', /dshn-mark-accepted/.test(boardSource) && /\.dshn-mark-accepted \{/.test(headCss))
+    check('TAB never leaves the editor', /if \(event\.key === 'Tab'\) \{\s*\n\s*\/\/ TAB belongs to completion/.test(boardSource) && /event\.preventDefault\(\)\n\s*if \(ghost !== null\) acceptGhostChunk\(\)/.test(boardSource))
+    check('pausing after an accept asks again', /setGhost\(null\)\n\s*scheduleCompletion\(end\)/.test(boardSource))
     check('the ghost is styled as a suggestion', /\.dshn-ghost \{/.test(headCss))
 
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 6px 14px/.test(headCss))

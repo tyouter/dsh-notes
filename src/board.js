@@ -326,10 +326,13 @@
       const areaRef = useRef(null)
       // Completion: the ghost is a chunk list plus the index already accepted, and its position.
       const [ghost, setGhost] = useState(null)
+      // The span the last TAB inserted. It is drawn with the plugin's own mark and removed in one
+      // keystroke, so accepting never depends on the browser's selection.
+      const [accepted, setAccepted] = useState(null)
       // Latest draft, so the 1s timer reads the text as it is when it fires.
       const draftRef = useRef('')
       draftRef.current = draft
-      const completeRef = useRef({ idle: 0, abort: null, hold: 0 })
+      const completeRef = useRef({ idle: 0, abort: null })
       // Space typing: a burst indents. Timing lives in a ref because it must not re-render the
       // box on every keypress.
       const spaceRef = useRef({ lastAt: 0, burst: 0, holdStart: 0, lastDedent: 0 })
@@ -490,21 +493,21 @@
         const next = value.slice(0, at) + chunk + value.slice(at)
         const end = at + chunk.length
         setDraft(next)
-        const state = completeRef.current
-        if (state.hold !== 0) clearTimeout(state.hold)
+        setAccepted({ start: at, end })
+        // Caret right after the chunk, no browser selection: the mark is ours to keep.
         setTimeout(() => {
           const area = areaRef.current
           if (area === null) return
           area.focus()
-          area.setSelectionRange(at, end)
+          area.setSelectionRange(end, end)
         }, 0)
-        state.hold = setTimeout(() => {
-          const area = areaRef.current
-          if (area === null) return
-          if (area.selectionStart === at && area.selectionEnd === end) area.setSelectionRange(end, end)
-        }, 1400)
-        if (ghost.index + 1 < ghost.chunks.length) setGhost({ ...ghost, at: end, index: ghost.index + 1 })
-        else setGhost(null)
+        if (ghost.index + 1 < ghost.chunks.length) {
+          setGhost({ ...ghost, at: end, index: ghost.index + 1 })
+        } else {
+          // Nothing queued: pause, and the next suggestion arrives on its own.
+          setGhost(null)
+          scheduleCompletion(end)
+        }
         return true
       }
 
@@ -971,6 +974,44 @@
         draft.trim() !== '' ||
         enhanceError !== ''
 
+      /**
+       * The highlight layer behind the textarea.
+       *
+       * Priority: the suggestion (ghost text), then the chunk the last TAB inserted, then an action
+       * range. They are drawn in one pass so the layer never disagrees with the draft.
+       */
+      const mirrorNodes = (() => {
+        const nodes = []
+        const ghostNode = () =>
+          ghost === null
+            ? null
+            : h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': ghost.source }, ghost.chunks[ghost.index] ?? '')
+        if (accepted !== null) {
+          nodes.push(draft.slice(0, accepted.start))
+          nodes.push(h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, draft.slice(accepted.start, accepted.end)))
+          if (ghost !== null) {
+            nodes.push(ghostNode())
+            nodes.push(draft.slice(ghost.at))
+          } else {
+            nodes.push(draft.slice(accepted.end))
+          }
+          return nodes
+        }
+        if (ghost !== null) {
+          nodes.push(draft.slice(0, ghost.at))
+          nodes.push(ghostNode())
+          nodes.push(draft.slice(ghost.at))
+          return nodes
+        }
+        if (activeRange !== null) {
+          nodes.push(draft.slice(0, activeRange.start))
+          nodes.push(h('mark', { key: 'range', className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)))
+          nodes.push(draft.slice(activeRange.end))
+          return nodes
+        }
+        return null
+      })()
+
       // The source sheet: the textarea and the toolbar, exactly as before a preview
       // exists. Keeping the toolbar here is what leaves the left sheet unchanged.
       const editorSheet = h(
@@ -987,23 +1028,9 @@
           h(
             'div',
             { className: 'dshn-editor-area' },
-            activeRange === null && ghost === null
+            mirrorNodes === null
               ? null
-              : h(
-                  'div',
-                  { className: 'dshn-editor-marks', 'aria-hidden': 'true', ref: marksRef },
-                  ghost === null
-                    ? draft.slice(0, activeRange.start)
-                    : draft.slice(0, ghost.at),
-                  ghost === null
-                    ? h('mark', { className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end))
-                    : h(
-                        'span',
-                        { className: 'dshn-ghost', 'data-source': ghost.source },
-                        ghost.chunks[ghost.index] ?? '',
-                      ),
-                  ghost === null ? draft.slice(activeRange.end) : draft.slice(ghost.at),
-                ),
+              : h('div', { className: 'dshn-editor-marks', 'aria-hidden': 'true', ref: marksRef }, ...mirrorNodes),
             h('textarea', {
             ref: areaRef,
             className: 'dshn-textarea',
@@ -1014,6 +1041,8 @@
             onChange: (event) => {
               const value = event.target.value
               const caret = event.target.selectionStart ?? value.length
+              // Any real edit ends the accepted span.
+              if (accepted !== null) setAccepted(null)
               // Two spaces at the start of a line are a bullet, however fast they were typed.
               const bulleted = autoBulletLine(value, caret)
               setDraft(bulleted === null ? value : bulleted.text)
@@ -1044,9 +1073,11 @@
                 void saveDraft()
                 return
               }
-              if (event.key === 'Tab' && ghost !== null) {
+              if (event.key === 'Tab') {
+                // TAB belongs to completion: it must never move focus out of the editor.
                 event.preventDefault()
-                acceptGhostChunk()
+                if (ghost !== null) acceptGhostChunk()
+                else void requestCompletion(areaRef.current?.selectionStart ?? draft.length)
                 return
               }
               if (event.key === 'Escape' && ghost !== null) {
@@ -1066,6 +1097,26 @@
               }
               // Backspace inside the marker backs out: one level up, then prose at the first level.
               if (event.key === 'Backspace' && modifier === false && event.altKey === false) {
+                // A chunk that TAB just inserted goes in one keystroke, wherever the caret sits.
+                if (accepted !== null) {
+                  const value = draftRef.current
+                  const caret = event.target.selectionStart ?? 0
+                  if (caret <= accepted.end) {
+                    setDraft(value.slice(0, accepted.start) + value.slice(accepted.end))
+                    setAccepted(null)
+                    setGhost(null)
+                    const target = accepted.start
+                    setTimeout(() => {
+                      const area = areaRef.current
+                      if (area === null) return
+                      area.focus()
+                      area.setSelectionRange(target, target)
+                    }, 0)
+                    event.preventDefault()
+                    return
+                  }
+                  setAccepted(null)
+                }
                 if (commitLine(backspaceLine(draft, event.target.selectionStart))) event.preventDefault()
               }
             },
