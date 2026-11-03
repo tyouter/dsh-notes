@@ -4048,6 +4048,27 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // The textarea's current selection, used to format just that part.
       const [selected, setSelected] = useState({ start: 0, end: 0 })
 
+      /**
+       * Forget every overlay that was positioned against the current text.
+       *
+       * The marks layer paints the suggestion and the accepted span at character offsets. When the
+       * draft is replaced or emptied (save, load, cancel) those offsets point into text that no longer
+       * exists, and the layer keeps drawing them at the top of an empty editor — grey text over the
+       * placeholder, which reads as blurred double characters.
+       */
+      const clearOverlays = () => {
+        setGhost(null)
+        setAccepted(null)
+        setSelected({ start: 0, end: 0 })
+        const timer = completeRef.current
+        if (timer !== null && timer !== undefined) {
+          clearTimeout(timer.idle)
+          if (timer.abort !== null && timer.abort !== undefined) timer.abort.abort()
+          timer.idle = 0
+          timer.abort = null
+        }
+      }
+
       const flash = (label) => {
         setStatus(label)
         setTimeout(() => setStatus(''), 1600)
@@ -4062,11 +4083,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         try {
           if (props.noteId === undefined) {
             await post('/note', { body, tags: parseTags(pendingTags), source: 'panel' })
+            clearOverlays()
             setDraft('')
           } else {
             // Editing an existing note: update it in place, and leave the source showing exactly
             // what was written to disk.
             await put('/note/' + encodeURIComponent(props.noteId), { body })
+            clearOverlays()
             setDraft(body)
           }
           flash(t.saved)
@@ -4702,25 +4725,37 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
        */
       const mirrorNodes = (() => {
         const nodes = []
+        // An overlay whose offsets no longer fit the text is stale: drawing it would paint text that
+        // the editor does not contain (the blurred double characters).
+        const fits = (range) =>
+          range !== null &&
+          range !== undefined &&
+          Number.isFinite(range.start) &&
+          Number.isFinite(range.end) &&
+          range.start >= 0 &&
+          range.end >= range.start &&
+          range.end <= draft.length
+        const liveGhost = ghost !== null && fits({ start: ghost.at, end: ghost.at }) ? ghost : null
+        const liveAccepted = accepted !== null && fits(accepted) ? accepted : null
         const ghostNode = () =>
-          ghost === null
+          liveGhost === null
             ? null
-            : h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': ghost.source }, ghost.chunks[ghost.index] ?? '')
-        if (accepted !== null) {
-          nodes.push(draft.slice(0, accepted.start))
-          nodes.push(h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, draft.slice(accepted.start, accepted.end)))
-          if (ghost !== null) {
+            : h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': liveGhost.source }, liveGhost.chunks[liveGhost.index] ?? '')
+        if (liveAccepted !== null) {
+          nodes.push(draft.slice(0, liveAccepted.start))
+          nodes.push(h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, draft.slice(liveAccepted.start, liveAccepted.end)))
+          if (liveGhost !== null) {
             nodes.push(ghostNode())
-            nodes.push(draft.slice(ghost.at))
+            nodes.push(draft.slice(liveGhost.at))
           } else {
-            nodes.push(draft.slice(accepted.end))
+            nodes.push(draft.slice(liveAccepted.end))
           }
           return nodes
         }
-        if (ghost !== null) {
-          nodes.push(draft.slice(0, ghost.at))
+        if (liveGhost !== null) {
+          nodes.push(draft.slice(0, liveGhost.at))
           nodes.push(ghostNode())
-          nodes.push(draft.slice(ghost.at))
+          nodes.push(draft.slice(liveGhost.at))
           return nodes
         }
         if (activeRange !== null) {

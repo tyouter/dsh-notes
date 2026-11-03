@@ -528,6 +528,11 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
 
     // Copy as Markdown, beside Edit: the note goes to an agent with standard syntax.
     check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
+    // The blurred double text: an overlay left over from a cleared draft painted over the placeholder.
+    check('a stale overlay is not painted', /const fits = \(range\) =>[\s\S]{0,320}range\.end <= draft\.length/.test(boardSource))
+    check('the mirror uses the clipped overlays', /const liveGhost = ghost !== null && fits/.test(boardSource) && /const liveAccepted = accepted !== null && fits/.test(boardSource))
+    check('saving clears every overlay', /const clearOverlays = \(\) => \{/.test(boardSource) && (boardSource.match(/clearOverlays\(\)\s*\n\s*setDraft/g) ?? []).length >= 1)
+
     check('copying shows a tick', /dshn-copy-check/.test(panelSource) && /copied\s*\n\s*\? h\(/.test(panelSource))
     check('the tick pops, with a reduced-motion exit', /@keyframes dshn-copy-pop/.test(headCss) && /prefers-reduced-motion: reduce[\s\S]{0,120}dshn-copy-check \{ animation: none/.test(headCss))
 
