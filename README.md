@@ -40,17 +40,21 @@ The full pitch — scenario, pain, need, feature — is in [docs/marketing/pitch
 
 ![The whole workflow](docs/marketing/dsh-notes-demo.gif)
 
-*Starting to write, spaces becoming structure, the pause that gets a suggestion, structuring only a
-selected range, applying it, translating, saving — and the board at the end.*
+*The whole workflow, in the real UI and in English: write → it typesets → a pause gets a suggestion →
+select a range and structure only that range → apply → translate the note → save → edit in History →
+copy as Markdown → the board.*
+
+The stills use a real note and the two real charts from this notebook; the UI labels are the ones the
+panel shows in an English locale.
 
 | | |
 | --- | --- |
-| ![Start writing](docs/marketing/01-write-now.png) | ![A suggestion after a pause](docs/marketing/02-pause-and-tab.png) |
+| ![Start writing](docs/marketing/01-write-now.png) | ![A suggestion after a pause](docs/marketing/02-suggestion.png) |
 | **Open and write.** Two spaces make a bullet, indentation makes the next level, and the right page typesets while you type. | **The pause is the trigger.** After a second of silence the note's own wording answers first; only then is the model asked. TAB takes it, one Backspace undoes it. |
 | ![Structuring a range](docs/marketing/03-structure-range.png) | ![Apply and translate](docs/marketing/04-apply-translate.png) |
-| **Structure only the range you selected.** The draft lands on the right page; the rest of the note is untouched until Apply. | **Apply, translate, save.** The source keeps its own words, the translation can be discarded, and saving stores the page you see. |
-| ![The board](docs/marketing/05-board.png) | |
-| **One more thing: the board.** Statistics from the notes themselves, and a real agent session that queries the notebook instead of guessing. | |
+| **Structure only the range you selected.** The draft is the right page; the rest of the note is untouched until Apply. | **Apply, then translate.** Apply rewrites just the selection; Translate works on the note from the live preview. Saving stores the page you see. |
+| ![History and copy](docs/marketing/05-history-copy.png) | ![The board](docs/marketing/06-board.png) |
+| **History is the same editor.** Edit reuses the two pages, Save keeps the note, and Copy turns it into standard Markdown with one click. | **One more thing: the board.** The charts are the ones pinned from earlier sessions, and the answer counts a real tag across the notes. |
 
 The assets are generated from the plugin's own renderer and stylesheet, frame by frame:
 `node tools/marketing-11.mjs --capture` then `python tools/marketing_gif.py --dir exports/marketing-11`.
