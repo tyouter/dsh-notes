@@ -1,7 +1,9 @@
 // Host-side smoke test: the store, the prompts, and the tool adapters.
 // Run with: node test/host.mjs
 
-import { mkdir, rm } from 'node:fs/promises'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -261,6 +263,37 @@ if (queryTool !== undefined) {
 if (typeof disposeQueryTools === 'function') disposeQueryTools()
 tokenDb.close()
 await rm(tokenVault, { recursive: true, force: true })
+
+// ---- outside edits ----
+// The notebook is plain JSON on disk, so another window or an editor can rewrite it. The store used
+// to cache its first read forever, which is why the panel could look stale until something forced a
+// second load.
+{
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-host-fresh-'))
+  const store = new NoteStore({ config: { notesPath: root } })
+  await store.save({ body: '第一版', source: 'panel' })
+  const before = await store.list()
+  const file = join(root, 'notes.json')
+  const parsed = JSON.parse(readFileSync(file, 'utf8'))
+  parsed.notes.push({
+    id: 'n-external',
+    title: '外部写入',
+    body: '别人写的',
+    tags: [],
+    source: 'panel',
+    pinned: false,
+    ai: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+  // let the mtime move past the write we just made
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  writeFileSync(file, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
+  const after = await store.list()
+  check('a file changed on disk is picked up', after.notes.length === before.notes.length + 1, JSON.stringify({ before: before.notes.length, after: after.notes.length }))
+  check('the external note is readable', after.notes.some((note) => String(note.body).includes('别人写的')))
+  await rm(root, { recursive: true, force: true })
+}
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exitCode = failures === 0 ? 0 : 1

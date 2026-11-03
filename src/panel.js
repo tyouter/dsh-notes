@@ -252,6 +252,34 @@
         }
       }, [refresh])
 
+      // Coming back to the plugin must show what is on disk now: a tab switch, the window
+      // regaining focus, or the page becoming visible all refresh immediately instead of waiting for
+      // the next poll tick.
+      useEffect(() => {
+        void refresh()
+      }, [tab, refresh])
+
+      useEffect(() => {
+        const onFocus = () => void refresh()
+        const onVisible = () => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'visible') void refresh()
+        }
+        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+          window.addEventListener('focus', onFocus)
+        }
+        if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+          document.addEventListener('visibilitychange', onVisible)
+        }
+        return () => {
+          if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+            window.removeEventListener('focus', onFocus)
+          }
+          if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+            document.removeEventListener('visibilitychange', onVisible)
+          }
+        }
+      }, [refresh])
+
       // The AI tab probes whether the notebook preset bundle is installed; the
       // conversation still works without it (see lib/sessions.js).
       useEffect(() => {

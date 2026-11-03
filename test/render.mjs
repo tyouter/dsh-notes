@@ -541,6 +541,12 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the preference survives a reload', /notes\.autoWrite/.test(headString()) && /storedAutoWrite/.test(boardSource))
     check('auto-write off means no timer', /if \(autoWrite === false\) return/.test(boardSource) && /scheduleCompletion/.test(boardSource))
 
+    // Staleness: opening the plugin or switching tabs must read the notebook, not wait for the poll.
+    check('a tab switch refreshes', /useEffect\(\(\) => \{\n\s*void refresh\(\)\n\s*\}, \[tab, refresh\]\)/.test(panelSource))
+    check('the window regaining focus refreshes', /addEventListener\('focus', onFocus\)/.test(panelSource))
+    check('the page becoming visible refreshes', /addEventListener\('visibilitychange', onVisible\)/.test(panelSource))
+    check('the store reloads when the files change', /async isStale\(\)/.test(await readFile(join(packageDir, 'lib', 'store.js'), 'utf8')))
+
     check('completion waits for a pause', /1000\)/.test(boardSource) && /scheduleCompletion/.test(boardSource))
     check('completion fires wherever the caret stopped', /atSentenceBoundary/.test(boardSource) === false && /Typing is what stops/.test(boardSource))
     check('TAB takes one chunk', /acceptGhostChunk\(\)/.test(boardSource) && /event\.key === 'Tab'/.test(boardSource))
