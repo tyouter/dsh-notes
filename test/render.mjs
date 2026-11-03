@@ -487,6 +487,10 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the capture box starts compact unless asked for a page', findAll(box, 'dshn-capture-box')[0]?.props['data-layout'] === 'compact')
     const asPage = render(internals.CaptureBox, { ...captureProps, layout: 'page' })
     check('the 记录 tab gets the page layout', findAll(asPage, 'dshn-capture-box')[0]?.props['data-layout'] === 'page')
+    // The switch lives in the shared toolbar, so the history editor (same box, page layout) has it too.
+    check('the switch is in the shared toolbar', findAll(asPage, 'dshn-switch').length === 1, String(findAll(asPage, 'dshn-switch').length))
+    check('the switch is in the compact toolbar as well', findAll(box, 'dshn-switch').length === 1, String(findAll(box, 'dshn-switch').length))
+    check('one preference store for both', (headSource.match(/notes\.autoWrite/g) ?? []).length === 1 && /storedAutoWrite/.test(boardSource))
     // Editing a note mounts the same capture components: no second editor, no sidebar.
     const captureSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
     const panelSource = await readFile(join(packageDir, 'src', 'panel.js'), 'utf8')
