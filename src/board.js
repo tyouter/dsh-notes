@@ -307,6 +307,8 @@
       const [streaming, setStreaming] = useState('')
       const [enhanceError, setEnhanceError] = useState('')
       const [status, setStatus] = useState('')
+      // The preview page can be put away by hand; Structure brings it back.
+      const [previewOpen, setPreviewOpen] = useState(true)
       // Auto-write: whether a pause is enough to get a suggestion, or TAB must ask.
       const [autoWrite, setAutoWrite] = useState(() => storedAutoWrite())
       // Target language for the structured result; '' means "follow the source".
@@ -575,6 +577,8 @@
       }
 
       const runEnhance = async () => {
+        // The result lands in the preview: never run it into a collapsed pane.
+        setPreviewOpen(true)
         // Same rule as Format: one helper decides the span.
         const range = editorRange()
         const source = range === null ? draft : draft.slice(range.start, range.end)
@@ -980,13 +984,10 @@
 
       const structured = looksStructured(draft)
       // A Format proposal always previews; otherwise only structured text does.
-      const showRender =
-        enhance !== null ||
-        // Generating counts: the page appears immediately so streaming is visible from the
-        // first token instead of after the answer lands.
-        enhancing ||
-        draft.trim() !== '' ||
-        enhanceError !== ''
+      // There is something worth previewing once there is text, a draft, or a failure to report.
+      const hasContent = enhance !== null || enhancing || draft.trim() !== '' || enhanceError !== ''
+      // Empty draft: no preview page at all. Non-empty but put away by hand: also no page.
+      const showRender = hasContent && previewOpen
 
       /**
        * The highlight layer behind the textarea.
@@ -1157,6 +1158,21 @@
           'div',
           { className: 'dshn-row dshn-capture-tools' },
           h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
+          hasContent
+            ? h(
+                'button',
+                {
+                  className: 'dshn-btn ghost',
+                  type: 'button',
+                  'data-role': 'preview-toggle',
+                  'data-on': String(previewOpen),
+                  'aria-pressed': String(previewOpen),
+                  title: previewOpen ? t.previewHide : t.previewShow,
+                  onClick: () => setPreviewOpen(!previewOpen),
+                },
+                (previewOpen ? '◫ ' : '◧ ') + (previewOpen ? t.previewHide : t.previewShow),
+              )
+            : null,
           h(
             'button',
             {
@@ -1440,8 +1456,15 @@
         // "what it looks like" then "where you type".
         h(
           'div',
-          { className: 'dshn-sheets', 'data-order': compactLayout ? 'render-first' : 'source-first' },
-          ...(compactLayout ? [renderSheet, editorSheet] : [editorSheet, renderSheet]),
+          {
+            className: 'dshn-sheets',
+            'data-order': compactLayout ? 'render-first' : 'source-first',
+            'data-mode': showRender ? 'split' : 'single',
+          },
+          ...(compactLayout
+            ? [showRender ? renderSheet : null, editorSheet]
+            : [editorSheet, showRender ? renderSheet : null]
+          ).filter((node) => node !== null && node !== undefined),
         ),
         statusLine,
       )

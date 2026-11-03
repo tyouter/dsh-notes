@@ -57,6 +57,8 @@
         ask: '提问',
         thinking: '思考中…',
 
+        previewShow: '展开预览',
+        previewHide: '收起预览',
         autoWrite: '自动写作',
         autoWriteHint: '自动写作已关闭：不产生推荐，也不消耗 token',
         autoWriteOnHint: '停顿 1 秒后自动给出下一句',
@@ -206,6 +208,8 @@
         ask: 'Ask',
         thinking: 'Thinking…',
 
+        previewShow: 'Show preview',
+        previewHide: 'Hide preview',
         autoWrite: 'Auto-write',
         autoWriteHint: 'Auto-write is off: no suggestions, no tokens spent',
         autoWriteOnHint: 'Suggests the next sentence after a 1s pause',
@@ -3071,6 +3075,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+/* One page, no split: the editor takes the row instead of hugging the centre. */
+.dshn-capture-box[data-layout='page'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; max-width: none; }
+.dshn-capture-box[data-layout='compact'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; }
+/* The preview toggle: quiet until hovered, pressed-looking state when the page is open. */
+.dshn-capture-tools [data-role='preview-toggle'] { padding: 4px 10px; font-size: 11.5px; }
+.dshn-capture-tools [data-role='preview-toggle'][data-on='true'] { color: var(--dsw-alias-label-primary); }
 /* ---- auto-write switch: a small track that turns green when suggestions are live ---- */
 .dshn-switch {
   display: inline-flex;

@@ -75,6 +75,8 @@ window.__ModuleLoader__.load({
         ask: '提问',
         thinking: '思考中…',
 
+        previewShow: '展开预览',
+        previewHide: '收起预览',
         autoWrite: '自动写作',
         autoWriteHint: '自动写作已关闭：不产生推荐，也不消耗 token',
         autoWriteOnHint: '停顿 1 秒后自动给出下一句',
@@ -224,6 +226,8 @@ window.__ModuleLoader__.load({
         ask: 'Ask',
         thinking: 'Thinking…',
 
+        previewShow: 'Show preview',
+        previewHide: 'Hide preview',
         autoWrite: 'Auto-write',
         autoWriteHint: 'Auto-write is off: no suggestions, no tokens spent',
         autoWriteOnHint: 'Suggests the next sentence after a 1s pause',
@@ -3089,6 +3093,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+/* One page, no split: the editor takes the row instead of hugging the centre. */
+.dshn-capture-box[data-layout='page'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; max-width: none; }
+.dshn-capture-box[data-layout='compact'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; }
+/* The preview toggle: quiet until hovered, pressed-looking state when the page is open. */
+.dshn-capture-tools [data-role='preview-toggle'] { padding: 4px 10px; font-size: 11.5px; }
+.dshn-capture-tools [data-role='preview-toggle'][data-on='true'] { color: var(--dsw-alias-label-primary); }
 /* ---- auto-write switch: a small track that turns green when suggestions are live ---- */
 .dshn-switch {
   display: inline-flex;
@@ -3835,6 +3845,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const [streaming, setStreaming] = useState('')
       const [enhanceError, setEnhanceError] = useState('')
       const [status, setStatus] = useState('')
+      // The preview page can be put away by hand; Structure brings it back.
+      const [previewOpen, setPreviewOpen] = useState(true)
       // Auto-write: whether a pause is enough to get a suggestion, or TAB must ask.
       const [autoWrite, setAutoWrite] = useState(() => storedAutoWrite())
       // Target language for the structured result; '' means "follow the source".
@@ -4103,6 +4115,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       }
 
       const runEnhance = async () => {
+        // The result lands in the preview: never run it into a collapsed pane.
+        setPreviewOpen(true)
         // Same rule as Format: one helper decides the span.
         const range = editorRange()
         const source = range === null ? draft : draft.slice(range.start, range.end)
@@ -4508,13 +4522,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
       const structured = looksStructured(draft)
       // A Format proposal always previews; otherwise only structured text does.
-      const showRender =
-        enhance !== null ||
-        // Generating counts: the page appears immediately so streaming is visible from the
-        // first token instead of after the answer lands.
-        enhancing ||
-        draft.trim() !== '' ||
-        enhanceError !== ''
+      // There is something worth previewing once there is text, a draft, or a failure to report.
+      const hasContent = enhance !== null || enhancing || draft.trim() !== '' || enhanceError !== ''
+      // Empty draft: no preview page at all. Non-empty but put away by hand: also no page.
+      const showRender = hasContent && previewOpen
 
       /**
        * The highlight layer behind the textarea.
@@ -4685,6 +4696,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           'div',
           { className: 'dshn-row dshn-capture-tools' },
           h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
+          hasContent
+            ? h(
+                'button',
+                {
+                  className: 'dshn-btn ghost',
+                  type: 'button',
+                  'data-role': 'preview-toggle',
+                  'data-on': String(previewOpen),
+                  'aria-pressed': String(previewOpen),
+                  title: previewOpen ? t.previewHide : t.previewShow,
+                  onClick: () => setPreviewOpen(!previewOpen),
+                },
+                (previewOpen ? '◫ ' : '◧ ') + (previewOpen ? t.previewHide : t.previewShow),
+              )
+            : null,
           h(
             'button',
             {
@@ -4968,8 +4994,15 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         // "what it looks like" then "where you type".
         h(
           'div',
-          { className: 'dshn-sheets', 'data-order': compactLayout ? 'render-first' : 'source-first' },
-          ...(compactLayout ? [renderSheet, editorSheet] : [editorSheet, renderSheet]),
+          {
+            className: 'dshn-sheets',
+            'data-order': compactLayout ? 'render-first' : 'source-first',
+            'data-mode': showRender ? 'split' : 'single',
+          },
+          ...(compactLayout
+            ? [showRender ? renderSheet : null, editorSheet]
+            : [editorSheet, showRender ? renderSheet : null]
+          ).filter((node) => node !== null && node !== undefined),
         ),
         statusLine,
       )

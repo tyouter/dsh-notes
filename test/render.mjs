@@ -344,8 +344,9 @@ check('the capture box has no Format action', findAll(box, 'dshn-btn').some((nod
     const sheetsOf = (tree) => findAll(tree, 'dshn-sheet')
     // 记录 passes layout:'page'; the board's quick note passes nothing at all, which was the bug:
     // the ordering test supplied 'compact' explicitly and never covered the real call.
-    const pageBox = render(internals.CaptureBox, { ...captureProps, layout: 'page' })
-    const quickBox = render(internals.CaptureBox, { ...captureProps })
+    const withDraft = { ...captureProps, initial: '正文一段' }
+    const pageBox = render(internals.CaptureBox, { ...withDraft, layout: 'page' })
+    const quickBox = render(internals.CaptureBox, { ...withDraft })
     const pageSheets = sheetsOf(pageBox).map((node) => node.props['data-role'])
     const quickSheets = sheetsOf(quickBox).map((node) => node.props['data-role'])
     check('the page keeps the source first', pageSheets[0] === 'source', JSON.stringify(pageSheets))
@@ -471,7 +472,11 @@ check('the busy chip replaces the translate button', /translating\s*\?\s*busyChi
     check('the selection translate splices the whole note', /spliceRange\(draft, preview\.range\.start, preview\.range\.end, preview\.text\)/.test(boardSource))
     check('the splice is laid out before rendering', /const previewLayout = preview === null \? '' : formatLocally\(previewSpliced\)/.test(boardSource))
     check('a structuring failure stays visible', boardSource.includes('enhanceError !== \'\'') && boardSource.includes("className: 'dshn-err'"))
-    check('the failure keeps the preview page open', /const showRender =[\s\S]{0,400}enhanceError !== ''/.test(boardSource))
+    check('the failure keeps the preview page open', /const hasContent =[\s\S]{0,200}enhanceError !== ''/.test(boardSource) && /const showRender = hasContent && previewOpen/.test(boardSource))
+    check('an empty draft shows no preview page', /const showRender = hasContent && previewOpen/.test(boardSource))
+    check('the preview can be put away by hand', /previewOpen/.test(boardSource) && /data-role': 'preview-toggle'/.test(boardSource))
+    check('Structure opens the pane', /setPreviewOpen\(true\)\n\s*\/\/ Same rule as Format/.test(boardSource))
+    check('a lone sheet takes the row', /data-mode': showRender \? 'split' : 'single'/.test(boardSource) && /data-mode='single'\] \.dshn-sheet/.test(headCss))
     // Both pages end on the same line, and the preview scrolls inside its own page.
     const sheetRule = headSource.slice(headSource.indexOf("[data-layout='page'] .dshn-sheet {"))
     check('a page has a definite height', /height: min\(78vh, 980px\)/.test(sheetRule.slice(0, 400)))
