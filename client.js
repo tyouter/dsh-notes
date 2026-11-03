@@ -2151,7 +2151,9 @@ window.__ModuleLoader__.load({
   flex-direction: column;
   gap: 10px;
   overflow: hidden;
-  padding: 0 2px 12px 4px;
+  /* The list spends its first two rows on "11 / 11" and the day label; the detail starts level with
+     the first card instead of hugging the tab bar. One number, easy to tune. */
+  padding: var(--dshn-detail-top, 40px) 2px 12px 4px;
 }
 .dshn-detail-bar {
   display: flex;
