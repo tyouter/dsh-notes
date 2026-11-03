@@ -2095,7 +2095,6 @@
 .dshn-history { padding: 14px 20px 16px; gap: 10px; }
 /* ---- history: a column you can widen, cards two lines long ---- */
 .dshn-history .dshn-list { width: var(--dshn-list-width, 288px); }
-.dshn-history .dshn-body[data-collapsed="true"] .dshn-list { width: auto; }
 .dshn-splitter {
   width: 8px;
   cursor: col-resize;
