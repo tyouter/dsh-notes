@@ -1007,6 +1007,67 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * What the mark layer draws behind the textarea, as a list of segments.
+     *
+     * The layer sits under the textarea, so its plain text must be *exactly* the textarea's text:
+     * one extra character and the glyphs stop lining up, which is what "blurred double text" looked
+     * like. Only three things may be added, each at a position that fits the draft:
+     *   {kind:'accepted'} the span the last TAB inserted
+     *   {kind:'ghost'}    the pending suggestion (never together with a range)
+     *   {kind:'range'}    the author's current selection
+     *
+     * Priority: range > accepted > ghost. A range means the author is pointing at text, so the
+     * suggestion (a continuation at the caret) and the accepted mark both step aside.
+     */
+    function mirrorSegments({ draft, ghost, accepted, range }) {
+      const text = String(draft ?? '')
+      const fits = (span) =>
+        span !== null &&
+        span !== undefined &&
+        Number.isFinite(span.start) &&
+        Number.isFinite(span.end) &&
+        span.start >= 0 &&
+        span.end >= span.start &&
+        span.end <= text.length
+      const ghostText = ghost === null || ghost === undefined ? '' : String((ghost.chunks ?? [])[ghost.index] ?? '')
+      const ghostAt = ghost === null || ghost === undefined ? 0 : Number(ghost.at)
+      const liveGhost = ghostText !== '' && Number.isFinite(ghostAt) && ghostAt >= 0 && ghostAt <= text.length ? { at: ghostAt, text: ghostText } : null
+      const liveRange = fits(range) && range.end > range.start ? range : null
+      const liveAccepted = fits(accepted) && accepted.end > accepted.start && liveRange === null ? accepted : null
+
+      if (liveRange !== null) {
+        return [
+          { kind: 'text', text: text.slice(0, liveRange.start) },
+          { kind: 'range', text: text.slice(liveRange.start, liveRange.end) },
+          { kind: 'text', text: text.slice(liveRange.end) },
+        ].filter((segment) => segment.text !== '')
+      }
+      if (liveAccepted !== null) {
+        const segments = [
+          { kind: 'text', text: text.slice(0, liveAccepted.start) },
+          { kind: 'accepted', text: text.slice(liveAccepted.start, liveAccepted.end) },
+        ]
+        const ghostAfter = liveGhost !== null && liveGhost.at >= liveAccepted.end ? liveGhost : null
+        if (ghostAfter !== null) {
+          segments.push({ kind: 'text', text: text.slice(liveAccepted.end, ghostAfter.at) })
+          segments.push({ kind: 'ghost', text: ghostAfter.text })
+          segments.push({ kind: 'text', text: text.slice(ghostAfter.at) })
+        } else {
+          segments.push({ kind: 'text', text: text.slice(liveAccepted.end) })
+        }
+        return segments.filter((segment) => segment.text !== '')
+      }
+      if (liveGhost !== null) {
+        return [
+          { kind: 'text', text: text.slice(0, liveGhost.at) },
+          { kind: 'ghost', text: liveGhost.text },
+          { kind: 'text', text: text.slice(liveGhost.at) },
+        ].filter((segment) => segment.text !== '')
+      }
+      return []
+    }
+
+    /**
      * Place a suggestion chunk into the note.
      *
      * A chunk is model output, so it may start with a list marker even though the caret sits at the end
@@ -4725,50 +4786,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
        * Priority: the suggestion (ghost text), then the chunk the last TAB inserted, then an action
        * range. They are drawn in one pass so the layer never disagrees with the draft.
        */
+      // The decision of what to draw lives in head.js (mirrorSegments) so it can be tested; this
+      // only turns segments into nodes. The plain text of the layer equals the textarea's text.
       const mirrorNodes = (() => {
-        const nodes = []
-        // An overlay whose offsets no longer fit the text is stale: drawing it would paint text that
-        // the editor does not contain (the blurred double characters).
-        const fits = (range) =>
-          range !== null &&
-          range !== undefined &&
-          Number.isFinite(range.start) &&
-          Number.isFinite(range.end) &&
-          range.start >= 0 &&
-          range.end >= range.start &&
-          range.end <= draft.length
-        const liveGhost = ghost !== null && fits({ start: ghost.at, end: ghost.at }) ? ghost : null
-        // The author's own selection is the thing being acted on: show it, not the span of a chunk
-        // that TAB inserted earlier. That mark is still removable with one Backspace.
-        const liveAccepted = accepted !== null && fits(accepted) && activeRange === null ? accepted : null
-        const ghostNode = () =>
-          liveGhost === null
-            ? null
-            : h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': liveGhost.source }, liveGhost.chunks[liveGhost.index] ?? '')
-        if (liveAccepted !== null) {
-          nodes.push(draft.slice(0, liveAccepted.start))
-          nodes.push(h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, draft.slice(liveAccepted.start, liveAccepted.end)))
-          if (liveGhost !== null) {
-            nodes.push(ghostNode())
-            nodes.push(draft.slice(liveGhost.at))
-          } else {
-            nodes.push(draft.slice(liveAccepted.end))
+        const segments = mirrorSegments({ draft, ghost, accepted, range: activeRange })
+        if (segments.length === 0) return null
+        return segments.map((segment, index) => {
+          if (segment.kind === 'text') return segment.text
+          if (segment.kind === 'range') {
+            return h('mark', { key: 'range', className: 'dshn-editor-mark' }, segment.text)
           }
-          return nodes
-        }
-        if (liveGhost !== null) {
-          nodes.push(draft.slice(0, liveGhost.at))
-          nodes.push(ghostNode())
-          nodes.push(draft.slice(liveGhost.at))
-          return nodes
-        }
-        if (activeRange !== null) {
-          nodes.push(draft.slice(0, activeRange.start))
-          nodes.push(h('mark', { key: 'range', className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)))
-          nodes.push(draft.slice(activeRange.end))
-          return nodes
-        }
-        return null
+          if (segment.kind === 'accepted') {
+            return h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, segment.text)
+          }
+          return h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': ghost?.source }, segment.text)
+        })
       })()
 
       // The source sheet: the textarea and the toolbar, exactly as before a preview
@@ -6386,7 +6418,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

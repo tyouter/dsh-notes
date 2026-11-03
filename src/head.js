@@ -989,6 +989,67 @@
     }
 
     /**
+     * What the mark layer draws behind the textarea, as a list of segments.
+     *
+     * The layer sits under the textarea, so its plain text must be *exactly* the textarea's text:
+     * one extra character and the glyphs stop lining up, which is what "blurred double text" looked
+     * like. Only three things may be added, each at a position that fits the draft:
+     *   {kind:'accepted'} the span the last TAB inserted
+     *   {kind:'ghost'}    the pending suggestion (never together with a range)
+     *   {kind:'range'}    the author's current selection
+     *
+     * Priority: range > accepted > ghost. A range means the author is pointing at text, so the
+     * suggestion (a continuation at the caret) and the accepted mark both step aside.
+     */
+    function mirrorSegments({ draft, ghost, accepted, range }) {
+      const text = String(draft ?? '')
+      const fits = (span) =>
+        span !== null &&
+        span !== undefined &&
+        Number.isFinite(span.start) &&
+        Number.isFinite(span.end) &&
+        span.start >= 0 &&
+        span.end >= span.start &&
+        span.end <= text.length
+      const ghostText = ghost === null || ghost === undefined ? '' : String((ghost.chunks ?? [])[ghost.index] ?? '')
+      const ghostAt = ghost === null || ghost === undefined ? 0 : Number(ghost.at)
+      const liveGhost = ghostText !== '' && Number.isFinite(ghostAt) && ghostAt >= 0 && ghostAt <= text.length ? { at: ghostAt, text: ghostText } : null
+      const liveRange = fits(range) && range.end > range.start ? range : null
+      const liveAccepted = fits(accepted) && accepted.end > accepted.start && liveRange === null ? accepted : null
+
+      if (liveRange !== null) {
+        return [
+          { kind: 'text', text: text.slice(0, liveRange.start) },
+          { kind: 'range', text: text.slice(liveRange.start, liveRange.end) },
+          { kind: 'text', text: text.slice(liveRange.end) },
+        ].filter((segment) => segment.text !== '')
+      }
+      if (liveAccepted !== null) {
+        const segments = [
+          { kind: 'text', text: text.slice(0, liveAccepted.start) },
+          { kind: 'accepted', text: text.slice(liveAccepted.start, liveAccepted.end) },
+        ]
+        const ghostAfter = liveGhost !== null && liveGhost.at >= liveAccepted.end ? liveGhost : null
+        if (ghostAfter !== null) {
+          segments.push({ kind: 'text', text: text.slice(liveAccepted.end, ghostAfter.at) })
+          segments.push({ kind: 'ghost', text: ghostAfter.text })
+          segments.push({ kind: 'text', text: text.slice(ghostAfter.at) })
+        } else {
+          segments.push({ kind: 'text', text: text.slice(liveAccepted.end) })
+        }
+        return segments.filter((segment) => segment.text !== '')
+      }
+      if (liveGhost !== null) {
+        return [
+          { kind: 'text', text: text.slice(0, liveGhost.at) },
+          { kind: 'ghost', text: liveGhost.text },
+          { kind: 'text', text: text.slice(liveGhost.at) },
+        ].filter((segment) => segment.text !== '')
+      }
+      return []
+    }
+
+    /**
      * Place a suggestion chunk into the note.
      *
      * A chunk is model output, so it may start with a list marker even though the caret sits at the end

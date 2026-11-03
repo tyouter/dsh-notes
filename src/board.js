@@ -1029,50 +1029,21 @@
        * Priority: the suggestion (ghost text), then the chunk the last TAB inserted, then an action
        * range. They are drawn in one pass so the layer never disagrees with the draft.
        */
+      // The decision of what to draw lives in head.js (mirrorSegments) so it can be tested; this
+      // only turns segments into nodes. The plain text of the layer equals the textarea's text.
       const mirrorNodes = (() => {
-        const nodes = []
-        // An overlay whose offsets no longer fit the text is stale: drawing it would paint text that
-        // the editor does not contain (the blurred double characters).
-        const fits = (range) =>
-          range !== null &&
-          range !== undefined &&
-          Number.isFinite(range.start) &&
-          Number.isFinite(range.end) &&
-          range.start >= 0 &&
-          range.end >= range.start &&
-          range.end <= draft.length
-        const liveGhost = ghost !== null && fits({ start: ghost.at, end: ghost.at }) ? ghost : null
-        // The author's own selection is the thing being acted on: show it, not the span of a chunk
-        // that TAB inserted earlier. That mark is still removable with one Backspace.
-        const liveAccepted = accepted !== null && fits(accepted) && activeRange === null ? accepted : null
-        const ghostNode = () =>
-          liveGhost === null
-            ? null
-            : h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': liveGhost.source }, liveGhost.chunks[liveGhost.index] ?? '')
-        if (liveAccepted !== null) {
-          nodes.push(draft.slice(0, liveAccepted.start))
-          nodes.push(h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, draft.slice(liveAccepted.start, liveAccepted.end)))
-          if (liveGhost !== null) {
-            nodes.push(ghostNode())
-            nodes.push(draft.slice(liveGhost.at))
-          } else {
-            nodes.push(draft.slice(liveAccepted.end))
+        const segments = mirrorSegments({ draft, ghost, accepted, range: activeRange })
+        if (segments.length === 0) return null
+        return segments.map((segment, index) => {
+          if (segment.kind === 'text') return segment.text
+          if (segment.kind === 'range') {
+            return h('mark', { key: 'range', className: 'dshn-editor-mark' }, segment.text)
           }
-          return nodes
-        }
-        if (liveGhost !== null) {
-          nodes.push(draft.slice(0, liveGhost.at))
-          nodes.push(ghostNode())
-          nodes.push(draft.slice(liveGhost.at))
-          return nodes
-        }
-        if (activeRange !== null) {
-          nodes.push(draft.slice(0, activeRange.start))
-          nodes.push(h('mark', { key: 'range', className: 'dshn-editor-mark' }, draft.slice(activeRange.start, activeRange.end)))
-          nodes.push(draft.slice(activeRange.end))
-          return nodes
-        }
-        return null
+          if (segment.kind === 'accepted') {
+            return h('mark', { key: 'accepted', className: 'dshn-mark-accepted' }, segment.text)
+          }
+          return h('span', { key: 'ghost', className: 'dshn-ghost', 'data-source': ghost?.source }, segment.text)
+        })
       })()
 
       // The source sheet: the textarea and the toolbar, exactly as before a preview

@@ -534,12 +534,14 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('structuring clears the suggestion', /const runEnhance = async \(\) => \{[\s\S]{0,260}dismissGhost\(\)/.test(boardSource))
 
     // One highlight at a time: the author's selection outranks the span TAB inserted earlier.
-    check('the selection wins over the accepted mark', /fits\(accepted\) && activeRange === null \? accepted : null/.test(boardSource))
+    // The range branch returns before the accepted branch: one highlight, and it is the author's.
+    check('the selection wins over the accepted mark', /const liveRange = fits\(range\) && range\.end > range\.start \? range : null/.test(headSource) && headSource.indexOf('if (liveRange !== null)' ) < headSource.indexOf('if (liveAccepted !== null)'))
     check('selecting text ends the accepted span', /if \(end > start && accepted !== null && \(accepted\.start !== start \|\| accepted\.end !== end\)\) setAccepted\(null\)/.test(boardSource))
 
     // The blurred double text: an overlay left over from a cleared draft painted over the placeholder.
-    check('a stale overlay is not painted', /const fits = \(range\) =>[\s\S]{0,320}range\.end <= draft\.length/.test(boardSource))
-    check('the mirror uses the clipped overlays', /const liveGhost = ghost !== null && fits/.test(boardSource) && /const liveAccepted = accepted !== null && fits/.test(boardSource))
+    // An overlay whose offsets do not fit the text is not drawn (the blurred double characters).
+    check('a stale overlay is not painted', /const fits = \(span\) =>[\s\S]{0,300}span\.end <= text\.length/.test(headSource))
+    check('the mirror asks the model for what to draw', /mirrorSegments\(\{ draft, ghost, accepted, range: activeRange \}\)/.test(boardSource))
     check('saving clears every overlay', /const clearOverlays = \(\) => \{/.test(boardSource) && (boardSource.match(/clearOverlays\(\)\s*\n\s*setDraft/g) ?? []).length >= 1)
 
     check('copying shows a tick', /dshn-copy-check/.test(panelSource) && /copied\s*\n\s*\? h\(/.test(panelSource))
