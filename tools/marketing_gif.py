@@ -1,10 +1,10 @@
-"""Assemble the captured demo frames into one GIF.
+"""Assemble captured demo frames into one GIF.
 
-Frames come from tools/marketing.mjs --capture. Pillow is the only requirement; it ships with the
-harness runtime.
+Frames come from tools/marketing-11.mjs --capture (or tools/marketing.mjs). Pillow is the only
+requirement; it ships with the harness runtime.
 
 Usage:
-  <python> tools/marketing_gif.py [--width 720] [--fps 10]
+  <python> tools/marketing_gif.py [--dir exports/marketing-11] [--width 720] [--fps 10] [--out path]
 """
 
 import argparse
@@ -17,18 +17,20 @@ from PIL import Image
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dir", default=os.path.join("exports", "marketing"))
     parser.add_argument("--width", type=int, default=720)
     parser.add_argument("--fps", type=int, default=10)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    frames_dir = os.path.join(root, "exports", "marketing", "frames")
-    out = args.out or os.path.join(root, "exports", "marketing", "dsh-notes-demo.gif")
+    base = args.dir if os.path.isabs(args.dir) else os.path.join(root, args.dir)
+    frames_dir = os.path.join(base, "frames")
+    out = args.out or os.path.join(base, "dsh-notes-demo.gif")
 
     paths = sorted(glob.glob(os.path.join(frames_dir, "f*.png")))
     if not paths:
-        print(f"no frames in {frames_dir}; run: node tools/marketing.mjs --capture")
+        print(f"no frames in {frames_dir}; run: node tools/marketing-11.mjs --capture")
         return 1
 
     first = Image.open(paths[0]).convert("RGB")

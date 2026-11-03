@@ -29,6 +29,23 @@ npm run build          # writes client.js from src/
 Requirements: a DSH build with `node:sqlite` (Node 24 ships it). No other runtime dependency is
 installed; everything under `lib/` is first-party.
 
+## What it looks like
+
+![The notebook, end to end](docs/marketing/dsh-notes-demo.gif)
+
+*Typing with spaces as structure, a suggestion after a one-second pause, TAB acceptance, and the
+structured result landing on the same page.*
+
+| | |
+| --- | --- |
+| ![Spaces are structure](docs/marketing/01-spaces-are-structure.png) | ![A suggestion after a pause](docs/marketing/02-suggestion.png) |
+| **Spaces are structure.** Two spaces make a bullet, indentation makes the next level, and the right page is typeset while you type. | **The pause is the trigger.** After a second of silence the note's own wording answers first; only then is the model asked. |
+| ![Accepted with one Backspace to undo](docs/marketing/03-accepted.png) | ![The structured result](docs/marketing/04-structured.png) |
+| **TAB accepts, green marks the chunk.** One Backspace takes it back; pause and the next suggestion follows the caret. | **Structure lands in place.** Title, sections and continuous numbering, with the source still editable beside it. |
+
+The assets are generated from the plugin's own renderer and stylesheet, frame by frame:
+`node tools/marketing-11.mjs --capture` then `python tools/marketing_gif.py --dir exports/marketing-11`.
+
 ## What it stores, and what leaves the machine
 
 - Notes are plain JSON files under `notes-vault/` in the workspace (configurable with `notesPath`),
