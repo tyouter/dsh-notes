@@ -528,6 +528,10 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
 
     // Copy as Markdown, beside Edit: the note goes to an agent with standard syntax.
     check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
+    // One highlight at a time: the author's selection outranks the span TAB inserted earlier.
+    check('the selection wins over the accepted mark', /fits\(accepted\) && activeRange === null \? accepted : null/.test(boardSource))
+    check('selecting text ends the accepted span', /if \(end > start && accepted !== null && \(accepted\.start !== start \|\| accepted\.end !== end\)\) setAccepted\(null\)/.test(boardSource))
+
     // The blurred double text: an overlay left over from a cleared draft painted over the placeholder.
     check('a stale overlay is not painted', /const fits = \(range\) =>[\s\S]{0,320}range\.end <= draft\.length/.test(boardSource))
     check('the mirror uses the clipped overlays', /const liveGhost = ghost !== null && fits/.test(boardSource) && /const liveAccepted = accepted !== null && fits/.test(boardSource))

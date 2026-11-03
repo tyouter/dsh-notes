@@ -1040,7 +1040,9 @@
           range.end >= range.start &&
           range.end <= draft.length
         const liveGhost = ghost !== null && fits({ start: ghost.at, end: ghost.at }) ? ghost : null
-        const liveAccepted = accepted !== null && fits(accepted) ? accepted : null
+        // The author's own selection is the thing being acted on: show it, not the span of a chunk
+        // that TAB inserted earlier. That mark is still removable with one Backspace.
+        const liveAccepted = accepted !== null && fits(accepted) && activeRange === null ? accepted : null
         const ghostNode = () =>
           liveGhost === null
             ? null
@@ -1120,15 +1122,30 @@
             },
             // Remember the selection so Format can work on just that part.
             onSelect: (event) => {
-              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 })
+              const start = event.target.selectionStart ?? 0
+              const end = event.target.selectionEnd ?? 0
+              setSelected({ start, end })
+              // A visible selection replaces the accepted mark: one highlight at a time, and the one
+              // the author just made is the one that matters.
+              if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               followCaret(event.target.selectionStart ?? 0)
             },
             onKeyUp: (event) => {
-              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 })
+              const start = event.target.selectionStart ?? 0
+              const end = event.target.selectionEnd ?? 0
+              setSelected({ start, end })
+              // A visible selection replaces the accepted mark: one highlight at a time, and the one
+              // the author just made is the one that matters.
+              if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               followCaret(event.target.selectionStart ?? 0)
             },
             onMouseUp: (event) => {
-              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 })
+              const start = event.target.selectionStart ?? 0
+              const end = event.target.selectionEnd ?? 0
+              setSelected({ start, end })
+              // A visible selection replaces the accepted mark: one highlight at a time, and the one
+              // the author just made is the one that matters.
+              if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               followCaret(event.target.selectionStart ?? 0)
             },
             onKeyDown: (event) => {
