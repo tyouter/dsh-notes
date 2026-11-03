@@ -575,21 +575,51 @@
                     'div',
                     { className: 'dshn-detail-bar' },
                     h('span', { className: 'dshn-detail-title', title: titleOf(selected, t) }, titleOf(selected, t)),
+                    h('span', { className: 'dshn-grow' }),
                     h(
-                      'button',
-                      {
-                        className: 'dshn-btn ghost',
-                        onClick: () => void action(() => post('/update', { id: selected.id, pinned: selected.pinned !== true })),
-                      },
-                      selected.pinned ? t.unpin : t.pin,
-                    ),
-                    editing
-                      ? null
-                      : h('button', { className: 'dshn-btn ghost', onClick: () => setEditing(true) }, t.edit),
-                    h(
-                      'button',
-                      { className: 'dshn-btn ghost danger', onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)) },
-                      t.delete,
+                      'div',
+                      { className: 'dshn-detail-actions' },
+                      // Pin is a state, not an action: an icon that fills in when it is on.
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn',
+                          'data-on': String(selected.pinned === true),
+                          title: selected.pinned ? t.unpin : t.pin,
+                          'aria-label': selected.pinned ? t.unpin : t.pin,
+                          'aria-pressed': String(selected.pinned === true),
+                          onClick: () => void action(() => post('/update', { id: selected.id, pinned: selected.pinned !== true })),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('path', { d: 'M9 4h6l-1 6 3 3H7l3-3-1-6z' }),
+                          h('path', { d: 'M12 13v7' }),
+                        ),
+                      ),
+                      editing
+                        ? null
+                        : h(
+                            'button',
+                            { className: 'dshn-btn primary dshn-detail-edit', onClick: () => setEditing(true) },
+                            t.edit,
+                          ),
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn dshn-danger',
+                          title: t.delete,
+                          'aria-label': t.delete,
+                          onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('path', { d: 'M4 7h16' }),
+                          h('path', { d: 'M10 7V5h4v2' }),
+                          h('path', { d: 'M6 7l1 13h10l1-13' }),
+                        ),
+                      ),
                     ),
                   ),
                   // Editing reuses the capture components: source on the left, the laid-out

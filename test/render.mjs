@@ -507,6 +507,14 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('cards clamp to two lines', /line-clamp: 2/.test(headCss) && /-webkit-line-clamp: 2/.test(headCss))
     // Completion: a 1s pause while typing, TAB takes a chunk, the chunk stays selected.
     // 极简写: spaces are checked on input, not only inside a fast-burst handler.
+    // The history detail bar: title left, a quiet action group right.
+    check('the detail actions sit on the right', /dshn-detail-actions/.test(panelSource) && /dshn-grow/.test(panelSource.slice(panelSource.indexOf('dshn-detail-bar'), panelSource.indexOf('dshn-detail-bar') + 1200)))
+    check('the bar is a flex row', /\.dshn-detail-bar \{[^}]*display: flex/.test(headCss) && /\.dshn-detail-bar \{[^}]*align-items: center/.test(headCss))
+    check('pin and delete are icon buttons with labels', /dshn-icon-btn/.test(panelSource) && /aria-label/.test(panelSource.slice(panelSource.indexOf('dshn-icon-btn') - 400, panelSource.indexOf('dshn-icon-btn') + 900)))
+    check('edit is the only primary action', /dshn-btn primary dshn-detail-edit/.test(panelSource))
+    check('the quiet style skips the primary button', /\.dshn-detail-bar \.dshn-btn:not\(\.primary\)/.test(headCss))
+    check('the delete icon only reddens on hover', /\.dshn-icon-btn\.dshn-danger:hover/.test(headCss))
+
     check('a slow double tap still makes a bullet', /autoBulletLine\(value, caret\)/.test(boardSource))
     check('the burst window tolerates a real double tap', /< 400\)/.test(boardSource))
 

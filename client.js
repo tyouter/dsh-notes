@@ -2141,16 +2141,77 @@ window.__ModuleLoader__.load({
   overflow: hidden;
   line-height: 1.5;
 }
-.dshn-detail-bar .dshn-btn {
+/* ---- history detail bar: a title, then one quiet action group on the right ---- */
+.dshn-detail-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+}
+.dshn-detail-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.dshn-detail-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.dshn-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--dshn-r-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.dshn-icon-btn:hover {
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+}
+.dshn-icon-btn:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
+.dshn-icon-btn[data-on="true"] {
+  color: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+}
+.dshn-icon-btn.dshn-danger:hover {
+  color: var(--dsw-alias-state-error-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
+}
+.dshn-detail-edit {
+  padding: 5px 14px;
+  border-radius: var(--dshn-r-sm);
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.dshn-detail-bar .dshn-detail-edit:hover { filter: brightness(1.15); }
+.dshn-detail-bar .dshn-btn:not(.primary) {
   padding: 5px 12px;
   font-size: 12.5px;
   border: 1px solid var(--dsw-alias-border-l1);
   background: var(--dsw-alias-bg-layer-1);
   border-radius: var(--dshn-r-sm);
 }
-.dshn-detail-bar .dshn-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
+.dshn-detail-bar .dshn-btn:not(.primary):hover {
+  border-color: var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+}
 .dshn-detail-bar .dshn-btn.danger { color: var(--dsw-alias-state-error-primary); }
-.dshn-detail-bar .dshn-btn.primary { padding: 5px 16px; font-weight: 600; }
+.dshn-detail-bar .dshn-btn.primary {
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--dshn-r-sm);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+.dshn-detail-bar .dshn-btn.primary:hover { filter: brightness(1.08); }
 .dshn-body { display: flex; gap: 14px; flex: 1 1 auto; min-height: 0; }
 .dshn-list {
   width: 288px;
@@ -5658,21 +5719,51 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                     'div',
                     { className: 'dshn-detail-bar' },
                     h('span', { className: 'dshn-detail-title', title: titleOf(selected, t) }, titleOf(selected, t)),
+                    h('span', { className: 'dshn-grow' }),
                     h(
-                      'button',
-                      {
-                        className: 'dshn-btn ghost',
-                        onClick: () => void action(() => post('/update', { id: selected.id, pinned: selected.pinned !== true })),
-                      },
-                      selected.pinned ? t.unpin : t.pin,
-                    ),
-                    editing
-                      ? null
-                      : h('button', { className: 'dshn-btn ghost', onClick: () => setEditing(true) }, t.edit),
-                    h(
-                      'button',
-                      { className: 'dshn-btn ghost danger', onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)) },
-                      t.delete,
+                      'div',
+                      { className: 'dshn-detail-actions' },
+                      // Pin is a state, not an action: an icon that fills in when it is on.
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn',
+                          'data-on': String(selected.pinned === true),
+                          title: selected.pinned ? t.unpin : t.pin,
+                          'aria-label': selected.pinned ? t.unpin : t.pin,
+                          'aria-pressed': String(selected.pinned === true),
+                          onClick: () => void action(() => post('/update', { id: selected.id, pinned: selected.pinned !== true })),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('path', { d: 'M9 4h6l-1 6 3 3H7l3-3-1-6z' }),
+                          h('path', { d: 'M12 13v7' }),
+                        ),
+                      ),
+                      editing
+                        ? null
+                        : h(
+                            'button',
+                            { className: 'dshn-btn primary dshn-detail-edit', onClick: () => setEditing(true) },
+                            t.edit,
+                          ),
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn dshn-danger',
+                          title: t.delete,
+                          'aria-label': t.delete,
+                          onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('path', { d: 'M4 7h16' }),
+                          h('path', { d: 'M10 7V5h4v2' }),
+                          h('path', { d: 'M6 7l1 13h10l1-13' }),
+                        ),
+                      ),
                     ),
                   ),
                   // Editing reuses the capture components: source on the left, the laid-out
