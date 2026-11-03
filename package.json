@@ -48,7 +48,7 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node tools/check-sources.mjs",
-    "test": "node tools/check-sources.mjs && node build.mjs && node test/host.mjs && node test/prompts.mjs && node test/api.mjs && node test/render.mjs && node test/markdown.mjs && node test/document.mjs && node test/layout.mjs",
+    "test": "node tools/check-sources.mjs && node build.mjs && node test/host.mjs && node test/prompts.mjs && node test/api.mjs && node test/render.mjs && node test/markdown.mjs && node test/document.mjs && node test/typing.mjs && node test/layout.mjs",
     "prepare": "node build.mjs",
     "prepack": "node build.mjs"
   },

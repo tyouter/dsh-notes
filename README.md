@@ -41,7 +41,7 @@ installed; everything under `lib/` is first-party.
 | Tab | What it is |
 | --- | --- |
 | 记录 | One box, two pages. The right page is Format, running live on every keystroke; the toolbar's「结构化」button adds an AI rewrite above it. |
-| 历史 | The grouped history with Markdown rendering, search, tags, a collapsible list drawer, and a **copilot sidebar** beside the open note. |
+| 历史 | The grouped history: two-line cards, a draggable list column, Markdown rendering, search and tags. **Edit mounts the capture box** — source on the left, the laid-out result on the right — so there is one editor, not two. |
 | 看板 | Statistics over the notebook and its usage, plus the host's **native conversation** running the `notes-board` agent preset. |
 
 
@@ -91,10 +91,8 @@ send a truncated text dump into a prompt.
 1. **Structuring** (`/notes/api/enhance/stream`) — a single streamed model call.
    No session, no tools. `start`, `delta`…, `done` with `{title, body, tags}`.
    Reasoning effort is set to `off`; measured ≈0.5 s to first token.
-2. **Copilot** (`/notes/api/copilot/stream`) — also a single streamed call, per
-   action (续写 / 润色 / 翻译 / 展开 / 摘要 / 提问) over the selection or the whole
-   note. The answer streams in; 「加到文末」「替换选中」「替换全文」 write it into
-   the editor, which stays reviewable before saving.
+2. **Completion** (`/notes/api/complete`) — the next sentence, asked for only after typing
+   stops for a second; the note's own repeated wording answers without a request.
 3. **The dashboard chat** — a **real agent session** on the `notes-board` preset,
    rendered with the host's own Conversation component. It has tools, so it
    queries instead of guessing:
@@ -135,7 +133,7 @@ the query tools disable themselves and say so; the rest of the notebook works.
 
 Every AI call appends one line to `events.jsonl` — kind, characters, elapsed time,
 time to first token, success. UI beacons (`POST /notes/api/event`) record what the
-user did: tab switches, note opens, copilot inserts, chart removals. The dashboard
+user did: tab switches, note opens, AI calls, chart removals. The dashboard
 conversation is ingested into `messages` on each poll, keyed by sequence number so
 re-reading is idempotent.
 
@@ -153,20 +151,20 @@ what lets the assistant answer "what did I ask you last week".
 | `lib/analytics.js` | Pure statistics for the dashboard. |
 | `lib/events.js` | The event log and the pinned-chart store. |
 | `lib/llm.js` | Streamed model call, reasoning-effort selection, timing. |
-| `lib/chat.js` | The copilot stream. |
-| `lib/prompt.js` | Prompts and parsers: structuring, copilot actions. |
+| `lib/chat.js` | The translate stream (whole note or numbered lines). |
+| `lib/prompt.js` | Prompts and parsers: structuring, translation. |
 | `lib/tools.js` | Tool adapters: query, analyze, chart, notes, enhance. |
 | `lib/api.js` | `/notes/api` routes, including the SSE streams. |
 | `src/head.js` | Browser prologue: i18n, api helpers, formatting, Markdown, styles. |
-| `src/board.js` | Dashboard: chart renderers, statistics view, editor copilot. |
+| `src/board.js` | Dashboard: chart renderers, statistics view, and the editor behaviours (spaces, Backspace, completion). |
 | `src/panel.js` | Panel: tabs, capture, history, session shell, mount points. |
 | `build.mjs` | Concatenates the three sources into `client.js`. |
 | `tools/check-sources.mjs` | Parses the browser sources the way `build.mjs` wraps them. |
 | `tools/fix-encoding.mjs` | Repairs a CJK string written through a byte-mangling pipeline. |
 | `test/host.mjs` | Store, prompts, event log, chart store, tool adapters. |
-| `test/prompts.mjs` | Copilot message shape and term extraction. |
+| `test/prompts.mjs` | Structuring and completion prompts, term extraction. |
 | `test/api.mjs` | The whole data plane in-process, including both SSE streams. |
-| `test/render.mjs` | Slot wiring, tabs, dashboard and copilot rendering. |
+| `test/render.mjs` | Slot wiring, tabs, dashboard, history editor and completion wiring. |
 | `test/markdown.mjs` | Markdown rendering, snippets, tags, the drawer switch. |
 
 ## Working on it
@@ -188,11 +186,12 @@ The suites, in the order they are usually run:
 | `test/host.mjs` | store, analytics, API routing |
 | `test/prompts.mjs` | structuring prompt, Markdown parsing, title rules |
 | `test/api.mjs` | routes end to end with a fake model |
-| `test/render.mjs` | component trees (Capture, History, Board, Copilot) |
+| `test/render.mjs` | component trees (Capture, History, Board) |
 | `test/markdown.mjs` | rendering, snippets, tags, outline markers |
 | `test/document.mjs` | whole documents: coverage repair, index-aligned assembly, typography gate |
+| `test/typing.mjs` | the 极简写 keyboard flows, simulated slowly: spaces, nesting, Backspace |
 | `test/layout.mjs` | dock layout contract + a preview page for the composer pinning |
-| `test/corpus.mjs` | live run against the app: 16 inputs → structure → render → translate |
+| `test/corpus.mjs` | live run against the app: 17 inputs → structure → render → translate |
 
 `client.js` is generated from `src/` by `build.mjs`. It **is** committed, because the host loads it
 as the package's `./client` export: a fresh clone therefore works without a build step, and

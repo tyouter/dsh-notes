@@ -3,6 +3,7 @@ exports/
 test/.preview-fixture/
 test/.document-fixture/
 test/.corpus-fixture/
+test/.typing-fixture/
 tmp/
 
 # Local installs / tooling.
