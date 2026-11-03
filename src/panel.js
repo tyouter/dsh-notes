@@ -637,7 +637,10 @@
                           void refresh()
                         },
                       })
-                    : h('div', { className: 'dshn-detail-body' }, renderNoteRest(selected.body ?? '')),
+                    : h(
+                        'div',
+                        { className: 'dshn-detail-scroll' },
+                        h('div', { className: 'dshn-detail-body' }, renderNoteRest(selected.body ?? '')),
                   selected.tags.length > 0
                     ? h(
                         'div',
@@ -653,6 +656,7 @@
                     h('span', null, sourceLabel(selected.source, t)),
                     h('span', { className: 'dshn-grow' }),
                   ),
+                      ),
                 ),
           ),
         ),

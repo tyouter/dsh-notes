@@ -2124,11 +2124,23 @@
   line-height: 1.5;
 }
 /* ---- history detail bar: a title, then one quiet action group on the right ---- */
+/* The pane itself: the remaining width, the full height, and the same top line as the list. */
+.dshn-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  padding: 0 2px 12px 4px;
+}
 .dshn-detail-bar {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
+  min-height: 28px;
+  width: 100%;
 }
 .dshn-detail-title {
   min-width: 0;
@@ -2137,7 +2149,14 @@
   white-space: nowrap;
   font-weight: 600;
 }
-.dshn-detail-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.dshn-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  /* Belt and braces: even without the spacer, the group sits at the right edge. */
+  margin-left: auto;
+}
 .dshn-icon-btn {
   width: 28px;
   height: 28px;
@@ -2746,8 +2765,18 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-side-log,
 .dshn-board-main,
 .dshn-quick-box,
-.dshn-detail-body,
-
+/* The read view scrolls as one column: note, tags, footer. The bar above stays put. */
+.dshn-detail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dshn-detail-body {
+  flex: 0 0 auto;
+}
 .dshn-side-dock {
   /* The containing block for the docked layers. Absolute positioning is what makes the
      height definite: no chain of wrappers can collapse it, and the composer stays at the
