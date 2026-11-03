@@ -267,89 +267,90 @@ const historyListHtml = notes
 const page = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>dsh-notes 1.1</title>
 <style>
-:root{--dsw-alias-label-primary:#1b1b1b;--dsw-alias-label-secondary:#6b6b6b;--dsw-alias-bg-base:#fff;--dsw-alias-bg-layer-1:#fff;--dsw-alias-bg-layer-2:#f2f2f2;--dsw-alias-border-l1:#e3e3e3;--dsw-alias-border-l2:#d0d0d0;--dsw-alias-brand-primary:#1f6feb;--dsw-alias-state-success-primary:#2ea043;--dsw-alias-state-error-primary:#cf222e;--dshn-heat-0:#ebedf0;--dshn-heat-1:#9be9a8;--dshn-r-sm:6px;--dshn-r-md:10px;--dshn-r-lg:14px}
-html,body{margin:0;background:var(--dsw-alias-bg-base);font:13.5px/1.7 -apple-system,"Segoe UI",system-ui,sans-serif;color:var(--dsw-alias-label-primary)}
-.stage{width:1180px;padding:14px 20px 10px;transition:opacity .18s ease}
-.tabs{display:flex;gap:14px;font-size:12.5px;color:var(--dsw-alias-label-secondary);border-bottom:1px solid var(--dsw-alias-border-l1);padding-bottom:8px;margin-bottom:10px}
-.tabs b{color:var(--dsw-alias-label-primary);font-weight:600;border-bottom:2px solid var(--dsw-alias-label-primary);padding-bottom:8px;margin-bottom:-9px}
-.sheets{display:flex;gap:26px;position:relative}
-.sheet{flex:1 1 0;min-width:0;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dshn-r-md);padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:var(--dsw-alias-bg-layer-1);height:420px}
-.sheet-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dsw-alias-label-secondary)}
-.tools{display:flex;gap:6px;align-items:center;margin-top:auto;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1);font-size:12px;color:var(--dsw-alias-label-secondary)}
-.tools .grow{flex:1 1 auto}
-.btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;border-radius:var(--dshn-r-sm);padding:4px 12px;font:inherit;font-size:12px}
-.btn.primary{background:#1b1b1b;border-color:#1b1b1b;color:#fff;font-weight:600;padding:5px 16px}
-.btn.ghost{border-color:transparent;background:transparent}
-.lang{border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dshn-r-sm);padding:4px 8px;background:#fff;font:inherit;font-size:12px}
-.caption{font-size:12px;color:var(--dsw-alias-label-secondary);margin-top:8px;min-height:18px}
-.handle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:44px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:#fff;display:grid;place-items:center;color:var(--dsw-alias-label-secondary);box-shadow:0 1px 3px rgb(0 0 0 / 8%);font-size:11px}
-.screen{display:none}
-.screen[data-on="true"]{display:block}
-.boards{display:flex;gap:16px;height:430px}
+:root{--dsw-alias-label-primary:#1b1b1b;--dsw-alias-label-secondary:#6b6b6b;--dsw-alias-bg-base:#fff;--dsw-alias-bg-layer-1:#fff;--dsw-alias-bg-layer-2:#f2f2f2;--dsw-alias-border-l1:#e3e3e3;--dsw-alias-border-l2:#d0d0d0;--dsw-alias-brand-primary:#1b1b1b;--dsw-alias-state-success-primary:#2ea043;--dsw-alias-state-error-primary:#cf222e;--dshn-heat-0:#ebedf0;--dshn-heat-1:#9be9a8;--dshn-r-sm:6px;--dshn-r-md:10px;--dshn-r-lg:14px}
+html,body{margin:0;height:100%;background:var(--dsw-alias-bg-base)}
+body{font:13.5px/1.7 -apple-system,"Segoe UI",system-ui,sans-serif;color:var(--dsw-alias-label-primary);overflow:hidden;transition:opacity .18s ease;display:flex;flex-direction:column}
+.panel{display:flex;flex-direction:column;height:100%;min-height:0}
+.screen{flex:1 1 auto;min-height:0;overflow:hidden;display:none}
+.screen[data-on="true"]{display:flex;flex-direction:column}
+.caption{position:fixed;left:20px;bottom:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.boards{display:flex;gap:16px;flex:1 1 auto;min-height:0;padding:16px 20px}
 .chartcol{flex:1 1 0;display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden}
-.chatcol{flex:0 0 380px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dshn-r-md);padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:8px}
+.chatcol{flex:0 0 360px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dshn-r-md);padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:8px}
 .q{font-size:12px;color:var(--dsw-alias-label-secondary)}
 .a{font-size:13px;line-height:1.7}
-.hist{display:flex;gap:14px;height:430px}
-.hist-list{flex:0 0 300px;border-right:1px solid var(--dsw-alias-border-l1);padding-right:12px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
-.hist-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
 </style>
 <style>${css}</style>
 </head><body>
-<div class="stage" id="stage">
-  <div class="tabs" id="tabs"><b id="tab-capture">Capture</b><span id="tab-history">History ${noteCount}</span><span id="tab-board">Board</span></div>
+<div class="panel" id="panel">
+  <div class="dshn-tabs" role="tablist">
+    <button class="dshn-tab" data-active="true" id="tab-capture">Capture</button>
+    <button class="dshn-tab" data-active="false" id="tab-history">History ${noteCount}</button>
+    <button class="dshn-tab" data-active="false" id="tab-board">Board</button>
+  </div>
 
   <section class="screen" id="screen-capture" data-on="true">
-    <div class="sheets">
-      <div class="sheet" data-role="source">
-        <div class="sheet-label">Source</div>
-        <div class="dshn-composer" style="flex:1 1 auto;min-height:0">
-          <div class="dshn-editor-area" style="flex:1 1 auto;min-height:0">
-            <div class="dshn-editor-marks" id="mirror" aria-hidden="true"></div>
-            <textarea class="dshn-textarea" id="editor" spellcheck="false" style="min-height:0;height:100%"></textarea>
+    <div class="dshn-pane dshn-capture-pane">
+      <div class="dshn-capture-box" data-layout="page" data-split="true">
+        <div class="dshn-sheets" data-order="source-first" data-mode="split">
+          <div class="dshn-sheet" data-role="source">
+            <div class="dshn-composer">
+              <div class="dshn-editor-area">
+                <div class="dshn-editor-marks" id="mirror" aria-hidden="true"></div>
+                <textarea class="dshn-textarea" id="editor" spellcheck="false"></textarea>
+              </div>
+            </div>
+            <div class="dshn-row dshn-capture-tools">
+              <span class="dshn-cap"><span id="chars">0 characters</span>　Ctrl/⌘+Enter</span>
+              <button class="dshn-switch" data-on="true" role="switch" aria-checked="true">
+                <span class="dshn-switch-track"><span class="dshn-switch-knob"></span></span>
+                <span>Auto-write</span>
+              </button>
+              <span class="dshn-grow"></span>
+              <button class="dshn-btn enhance">✦ Structure</button>
+              <button class="dshn-btn ghost">Cancel</button>
+              <button class="dshn-btn primary">Save</button>
+            </div>
           </div>
-        </div>
-        <div class="tools"><span id="chars">0 characters</span><span id="status"></span><span class="grow"></span>
-          <button class="btn" id="structure">✦ Structure</button>
-          <button class="btn ghost" id="cancel">Cancel</button>
-          <button class="btn primary" id="save">Save</button>
-        </div>
-      </div>
-      <div class="sheet" data-role="render">
-        <div class="sheet-label" id="render-label">Rendered</div>
-        <div class="dshn-page-render" id="preview" style="flex:1 1 auto;min-height:0;overflow:hidden"></div>
-        <div class="tools">
-          <span id="busy" style="display:none">${busyDefault}</span>
-          <select class="lang"><option>Auto</option><option selected>English</option><option>Deutsch</option></select>
-          <span class="grow"></span>
-          <button class="btn" id="draft-translate" style="display:none">Translate</button>
-          <button class="btn" id="draft-apply" style="display:none">Apply</button>
-          <button class="btn" id="note-translate">Translate</button>
+          <div class="dshn-sheet" data-role="render">
+            <div class="dshn-page-render" id="preview"></div>
+            <div class="dshn-row dshn-capture-tools">
+              <span id="busy" style="display:none">${busyDefault}</span>
+              <label class="dshn-lang"><select><option>Auto (Chinese → English)</option><option>Deutsch</option></select></label>
+              <span class="dshn-grow"></span>
+              <button class="dshn-btn" id="draft-apply" style="display:none">Apply</button>
+              <button class="dshn-btn" id="draft-translate" style="display:none">Translate</button>
+              <button class="dshn-btn" id="note-translate">Translate</button>
+            </div>
+          </div>
+          <button class="dshn-preview-handle" data-open="true" title="Hide preview">›</button>
         </div>
       </div>
-      <div class="handle">›</div>
     </div>
   </section>
 
-  <section class="screen" id="screen-history">
-    <div class="hist">
-      <div class="hist-list">${historyListHtml}</div>
-      <div class="hist-main" id="hist-main"></div>
+  <section class="screen" id="screen-history" data-on="false">
+    <div class="dshn-pane dshn-history">
+      <div class="dshn-row"><span class="dshn-cap">${noteCount} notes</span></div>
+      <div class="dshn-body">
+        <div class="dshn-list">${historyListHtml}</div>
+        <div class="dshn-splitter" aria-orientation="vertical"></div>
+        <div class="dshn-detail" id="hist-main"></div>
+      </div>
     </div>
   </section>
 
-  <section class="screen" id="screen-board">
+  <section class="screen" id="screen-board" data-on="false">
     <div class="boards">
       <div class="chartcol"><div class="dshn-chart-grid" style="grid-template-columns:1fr;gap:10px">${chartHtml}</div></div>
       <div class="chatcol">
         <div class="q">What have I been writing about for the last three weeks?</div>
-        <div class="a">「${topTag[0]}」 appears on ${topTag[1]} of the ${noteCount} notes — the thread you keep coming back to. ${chartCount} charts are pinned to this board.</div>
+        <div class="a">「${escapeHtml(topTag[0])}」 appears on ${topTag[1]} of the ${noteCount} notes — the thread you keep coming back to. ${charts.length} charts are pinned to this board.</div>
       </div>
     </div>
   </section>
-
-  <div class="caption" id="caption"></div>
 </div>
+<div class="caption" id="caption"></div>
 <script>
   const states = ${JSON.stringify(states)}
   const noteHtml = ${JSON.stringify(html(renderNoteBody(baseText)))}
@@ -361,8 +362,6 @@ html,body{margin:0;background:var(--dsw-alias-bg-base);font:13.5px/1.7 -apple-sy
   const preview = document.getElementById('preview')
   const busy = document.getElementById('busy')
   const chars = document.getElementById('chars')
-  const status = document.getElementById('status')
-  const label = document.getElementById('render-label')
   const caption = document.getElementById('caption')
   const draftApply = document.getElementById('draft-apply')
   const draftTranslate = document.getElementById('draft-translate')
@@ -372,6 +371,7 @@ html,body{margin:0;background:var(--dsw-alias-bg-base);font:13.5px/1.7 -apple-sy
   const copyIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>'
   const tickIcon = '<svg class="dshn-copy-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>'
 
+  // The detail pane is a column: bar, scroll, foot — no wrapper of ours.
   const historyMarkup = (edit, copied) => {
     const actions = '<div class="dshn-detail-actions">' +
       '<button class="dshn-icon-btn" title="Pin">◈</button>' +
@@ -379,38 +379,36 @@ html,body{margin:0;background:var(--dsw-alias-bg-base);font:13.5px/1.7 -apple-sy
       '<button class="dshn-btn primary dshn-detail-edit">Edit</button>' +
       '<button class="dshn-icon-btn dshn-danger" title="Move to trash">✕</button>' +
       '</div>'
-    const body = edit
-      ? '<div class="dshn-detail-scroll"><div class="dshn-detail-body"><div class="dshn-composer" style="min-height:0"><div class="dshn-editor-area" style="min-height:0"><textarea class="dshn-textarea" style="min-height:0;height:220px" spellcheck="false"></textarea></div></div></div></div>'
-      : '<div class="dshn-detail-scroll"><div class="dshn-detail-body">' + noteHtml + '</div><div class="dshn-foot"><span>Edited Today</span><span>' + ${JSON.stringify(noteCount)} + '</span></div></div>'
-    return '<div class="dshn-detail"><div class="dshn-detail-bar"><span class="dshn-detail-title">极简笔记理念</span><span class="dshn-grow"></span>' + actions + '</div>' + body + '</div>'
+    const bar = '<div class="dshn-detail-bar"><span class="dshn-detail-title">极简笔记理念</span><span class="dshn-grow"></span>' + actions + '</div>'
+    const content = edit
+      ? '<div class="dshn-detail-scroll"><div class="dshn-detail-body"><div class="dshn-composer" style="height:300px"><div class="dshn-editor-area"><textarea class="dshn-textarea" spellcheck="false"></textarea></div></div></div></div>'
+      : '<div class="dshn-detail-scroll"><div class="dshn-detail-body">' + noteHtml + '</div></div><div class="dshn-foot"><span>Edited Today</span><span>' + "0" + ' characters</span></div>'
+    return bar + content
   }
 
   window.demo = {
     seek(t) {
       const state = states[Math.min(states.length - 1, Math.max(0, Math.round(t * 10)))]
-      stage.style.opacity = String(state.fade ?? 1)
+      document.body.style.opacity = String(state.fade ?? 1)
       for (const key of Object.keys(screens)) screens[key].dataset.on = String(key === state.screen)
-      for (const key of Object.keys(tabs)) {
-        tabs[key].style.color = key === state.screen ? '#1b1b1b' : '#6b6b6b'
-        tabs[key].style.borderBottom = key === state.screen ? '2px solid #1b1b1b' : 'none'
-      }
+      for (const key of Object.keys(tabs)) tabs[key].dataset.active = String(key === state.screen)
       if (state.screen === 'capture') {
         editor.value = state.left ?? ''
         chars.textContent = (state.left ?? '').length + ' characters'
         mirror.innerHTML = state.mirror ?? ''
-        preview.innerHTML = state.right ?? ''
+        preview.innerHTML =
+          '<div class="dshn-page-render-label">' + String(state.label ?? '').toUpperCase() + '</div>' +
+          (state.right ?? '')
         busy.style.display = !state.busy ? 'none' : 'inline-flex'
         if (state.busy) {
           const node = busy.querySelector('.dshn-busy-label')
           if (node !== null) node.textContent = state.busy
         }
-        label.textContent = state.label
         draftApply.style.display = state.draftBar ? 'inline-block' : 'none'
         draftTranslate.style.display = state.draftBar ? 'inline-block' : 'none'
         noteTranslate.style.display = state.draftBar ? 'none' : 'inline-block'
       }
       if (state.screen === 'history') histMain.innerHTML = historyMarkup(state.historyEdit === true, state.copied === true)
-      status.textContent = state.status ?? ''
       caption.textContent = state.caption ?? ''
     },
   }
@@ -455,10 +453,10 @@ if (process.argv.includes('--capture')) {
     })
 
   await send('Page.enable')
-  await send('Emulation.setDeviceMetricsOverride', { width: 1212, height: 600, deviceScaleFactor: 1, mobile: false })
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 800, deviceScaleFactor: 1, mobile: false })
   await new Promise((resolve) => setTimeout(resolve, 600))
 
-  const clip = { x: 0, y: 0, width: 1212, height: 600, scale: 1 }
+  const clip = { x: 0, y: 0, width: 1440, height: 800, scale: 1 }
   const framesDir = join(outDir, 'frames')
   await mkdir(framesDir, { recursive: true })
   for (const [index, t] of frames.entries()) {
