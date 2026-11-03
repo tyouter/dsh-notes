@@ -55,7 +55,7 @@ const footer = `
 })
 `
 
-const parts = ['head.js', 'board.js', 'demo.js', 'panel.js']
+const parts = ['head.js', 'board.js', 'panel.js']
 const bodies = []
 for (const name of parts) {
   const text = await readFile(join(here, 'src', name), 'utf8')

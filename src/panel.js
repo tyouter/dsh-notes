@@ -211,8 +211,6 @@
       // Distinguishes "not loaded yet" from "nothing here": the difference between a
       // spinner and an empty notebook.
       const [loading, setLoading] = useState(true)
-      // Recording aid: the host only reports this when it was started with DSHN_DEMO=1.
-      const [demo, setDemo] = useState(false)
 
       const refresh = useCallback(async () => {
         try {
@@ -221,7 +219,6 @@
           setTags(Array.isArray(data.tags) ? data.tags : [])
           setTotal(Number(data.total ?? 0))
           setLocation(data.location ?? null)
-          setDemo(data.demo === true)
           setError('')
           setLoading(false)
           return true
@@ -254,17 +251,6 @@
           clearInterval(poll)
         }
       }, [refresh])
-
-      // The recorded walkthrough: only ever starts when the host asked for it.
-      useEffect(() => {
-        if (demo !== true) return undefined
-        let cancelled = false
-        void startNotesDemo((message) => console.info(message))
-        return () => {
-          cancelled = true
-          void cancelled
-        }
-      }, [demo])
 
       // Coming back to the plugin must show what is on disk now: a tab switch, the window
       // regaining focus, or the page becoming visible all refresh immediately instead of waiting for
