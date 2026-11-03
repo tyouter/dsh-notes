@@ -2286,7 +2286,20 @@
   color: var(--dsw-alias-brand-primary);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
 }
-.dshn-icon-btn[data-copied="true"] { color: var(--dsw-alias-state-success-primary); }
+.dshn-icon-btn[data-copied="true"] {
+  color: var(--dsw-alias-state-success-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent);
+}
+/* The tick lands rather than appears: a short pop, then the button settles. */
+.dshn-copy-check { animation: dshn-copy-pop 300ms cubic-bezier(.2, .9, .3, 1.2); transform-origin: 50% 50%; }
+@keyframes dshn-copy-pop {
+  0% { transform: scale(.55); opacity: 0; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dshn-copy-check { animation: none; }
+}
 .dshn-icon-btn.dshn-danger:hover {
   color: var(--dsw-alias-state-error-primary);
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);

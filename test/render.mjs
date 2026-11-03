@@ -527,6 +527,9 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
 
     // Copy as Markdown, beside Edit: the note goes to an agent with standard syntax.
     check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
+    check('copying shows a tick', /dshn-copy-check/.test(panelSource) && /copied\s*\n\s*\? h\(/.test(panelSource))
+    check('the tick pops, with a reduced-motion exit', /@keyframes dshn-copy-pop/.test(headCss) && /prefers-reduced-motion: reduce[\s\S]{0,120}dshn-copy-check \{ animation: none/.test(headCss))
+
     check('copying says it worked', /setCopied\(true\)/.test(panelSource) && /1000|1400/.test(panelSource) && /data-copied/.test(panelSource))
 
     check('the detail actions sit on the right', /dshn-detail-actions/.test(panelSource) && /dshn-grow/.test(panelSource.slice(panelSource.indexOf('dshn-detail-bar'), panelSource.indexOf('dshn-detail-bar') + 1200)))

@@ -2304,7 +2304,20 @@ window.__ModuleLoader__.load({
   color: var(--dsw-alias-brand-primary);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
 }
-.dshn-icon-btn[data-copied="true"] { color: var(--dsw-alias-state-success-primary); }
+.dshn-icon-btn[data-copied="true"] {
+  color: var(--dsw-alias-state-success-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent);
+}
+/* The tick lands rather than appears: a short pop, then the button settles. */
+.dshn-copy-check { animation: dshn-copy-pop 300ms cubic-bezier(.2, .9, .3, 1.2); transform-origin: 50% 50%; }
+@keyframes dshn-copy-pop {
+  0% { transform: scale(.55); opacity: 0; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dshn-copy-check { animation: none; }
+}
 .dshn-icon-btn.dshn-danger:hover {
   color: var(--dsw-alias-state-error-primary);
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
@@ -6169,12 +6182,18 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                           'data-copied': String(copied),
                           onClick: () => void copyMarkdown(),
                         },
-                        h(
-                          'svg',
-                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
-                          h('rect', { x: 9, y: 9, width: 11, height: 11, rx: 2 }),
-                          h('path', { d: 'M5 15V6a2 2 0 0 1 2-2h8' }),
-                        ),
+                        copied
+                          ? h(
+                              'svg',
+                              { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'dshn-copy-check' },
+                              h('path', { d: 'M4.5 12.5l5 5 10-11' }),
+                            )
+                          : h(
+                              'svg',
+                              { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                              h('rect', { x: 9, y: 9, width: 11, height: 11, rx: 2 }),
+                              h('path', { d: 'M5 15V6a2 2 0 0 1 2-2h8' }),
+                            ),
                       ),
                       editing
                         ? null
