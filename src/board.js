@@ -417,6 +417,14 @@
         }
       }
 
+      /** Keep the suggestion attached to the caret: a moved caret invalidates it. */
+      const followCaret = (caret) => {
+        if (ghost === null) return
+        if (ghost.at === caret) return
+        setGhost(null)
+        if (autoWrite !== false) scheduleCompletion(caret)
+      }
+
       /** Drop any suggestion and any pending request. */
       const dismissGhost = () => {
         const state = completeRef.current
@@ -1066,12 +1074,18 @@
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
             },
             // Remember the selection so Format can work on just that part.
-            onSelect: (event) =>
-              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 }),
-            onKeyUp: (event) =>
-              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 }),
-            onMouseUp: (event) =>
-              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 }),
+            onSelect: (event) => {
+              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 })
+              followCaret(event.target.selectionStart ?? 0)
+            },
+            onKeyUp: (event) => {
+              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 })
+              followCaret(event.target.selectionStart ?? 0)
+            },
+            onMouseUp: (event) => {
+              setSelected({ start: event.target.selectionStart ?? 0, end: event.target.selectionEnd ?? 0 })
+              followCaret(event.target.selectionStart ?? 0)
+            },
             onKeyDown: (event) => {
               const modifier = event.ctrlKey || event.metaKey
               if (modifier && event.key === 'Enter') {
@@ -1099,7 +1113,15 @@
                 return
               }
               if (event.key === 'Enter' && event.shiftKey === false && modifier === false) {
-                if (commitLine(continueBulletLine(draft, event.target.selectionStart))) event.preventDefault()
+                // A newline accepts whatever TAB inserted: the mark belongs to the line it was made on.
+                const caret = event.target.selectionStart ?? draft.length
+                setAccepted(null)
+                setGhost(null)
+                const next = continueBulletLine(draft, caret)
+                if (next !== null) {
+                  event.preventDefault()
+                  if (commitLine(next)) scheduleCompletion(next.caret)
+                }
                 return
               }
               // Backspace inside the marker backs out: one level up, then prose at the first level.
@@ -1108,7 +1130,7 @@
                 if (accepted !== null) {
                   const value = draftRef.current
                   const caret = event.target.selectionStart ?? 0
-                  if (caret <= accepted.end) {
+                  if (caret >= accepted.start && caret <= accepted.end) {
                     setDraft(value.slice(0, accepted.start) + value.slice(accepted.end))
                     setAccepted(null)
                     setGhost(null)

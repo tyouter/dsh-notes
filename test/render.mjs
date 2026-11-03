@@ -535,6 +535,12 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('completion waits for a pause', /1000\)/.test(boardSource) && /scheduleCompletion/.test(boardSource))
     check('completion fires wherever the caret stopped', /atSentenceBoundary/.test(boardSource) === false && /Typing is what stops/.test(boardSource))
     check('TAB takes one chunk', /acceptGhostChunk\(\)/.test(boardSource) && /event\.key === 'Tab'/.test(boardSource))
+    // Enter finishes the line: the mark goes, the caret moves, the next ask happens there.
+    check('Enter accepts the chunk and moves on', /setAccepted\(null\)\n\s*setGhost\(null\)\n\s*const next = continueBulletLine/.test(boardSource))
+    check('the next suggestion is asked at the new caret', /commitLine\(next\)\) scheduleCompletion\(next\.caret\)/.test(boardSource))
+    check('a moved caret drops a stale suggestion', /const followCaret = \(caret\) => \{/.test(boardSource) && /followCaret\(event\.target\.selectionStart/.test(boardSource))
+    check('Backspace only undoes a chunk the caret is inside', /caret >= accepted\.start && caret <= accepted\.end/.test(boardSource))
+
     check('the inserted chunk can be undone in one key', /setAccepted\(\{ start: at, end \}\)/.test(boardSource) && /accepted\.start\) \+ value\.slice\(accepted\.end\)/.test(boardSource))
     check('an accepted chunk is drawn with the plugin mark', /dshn-mark-accepted/.test(boardSource) && /\.dshn-mark-accepted \{/.test(headCss))
     check('TAB never leaves the editor', /if \(event\.key === 'Tab'\) \{\s*\n\s*\/\/ TAB belongs to completion/.test(boardSource) && /event\.preventDefault\(\)/.test(boardSource))
