@@ -29,19 +29,28 @@ npm run build          # writes client.js from src/
 Requirements: a DSH build with `node:sqlite` (Node 24 ships it). No other runtime dependency is
 installed; everything under `lib/` is first-party.
 
-## What it looks like
+## What it is for
 
-![The notebook, end to end](docs/marketing/dsh-notes-demo.gif)
+**A writing tool for people who have something to say and hate being interrupted by the tool.** The
+pain it removes: opening a notes app costs more than the thought; formatting has to be learned; and an
+"AI assistant" takes the wheel the moment you pause. The experience it gives: **one page, you write;
+type-setting, tidying and translation wait off to the side until you ask.**
 
-*Typing with spaces as structure, a suggestion after a one-second pause, TAB acceptance, and the
-structured result landing on the same page.*
+The full pitch — scenario, pain, need, feature — is in [docs/marketing/pitch.md](docs/marketing/pitch.md).
+
+![The whole workflow](docs/marketing/dsh-notes-demo.gif)
+
+*Starting to write, spaces becoming structure, the pause that gets a suggestion, structuring only a
+selected range, applying it, translating, saving — and the board at the end.*
 
 | | |
 | --- | --- |
-| ![Spaces are structure](docs/marketing/01-spaces-are-structure.png) | ![A suggestion after a pause](docs/marketing/02-suggestion.png) |
-| **Spaces are structure.** Two spaces make a bullet, indentation makes the next level, and the right page is typeset while you type. | **The pause is the trigger.** After a second of silence the note's own wording answers first; only then is the model asked. |
-| ![Accepted with one Backspace to undo](docs/marketing/03-accepted.png) | ![The structured result](docs/marketing/04-structured.png) |
-| **TAB accepts, green marks the chunk.** One Backspace takes it back; pause and the next suggestion follows the caret. | **Structure lands in place.** Title, sections and continuous numbering, with the source still editable beside it. |
+| ![Start writing](docs/marketing/01-write-now.png) | ![A suggestion after a pause](docs/marketing/02-pause-and-tab.png) |
+| **Open and write.** Two spaces make a bullet, indentation makes the next level, and the right page typesets while you type. | **The pause is the trigger.** After a second of silence the note's own wording answers first; only then is the model asked. TAB takes it, one Backspace undoes it. |
+| ![Structuring a range](docs/marketing/03-structure-range.png) | ![Apply and translate](docs/marketing/04-apply-translate.png) |
+| **Structure only the range you selected.** The draft lands on the right page; the rest of the note is untouched until Apply. | **Apply, translate, save.** The source keeps its own words, the translation can be discarded, and saving stores the page you see. |
+| ![The board](docs/marketing/05-board.png) | |
+| **One more thing: the board.** Statistics from the notes themselves, and a real agent session that queries the notebook instead of guessing. | |
 
 The assets are generated from the plugin's own renderer and stylesheet, frame by frame:
 `node tools/marketing-11.mjs --capture` then `python tools/marketing_gif.py --dir exports/marketing-11`.
