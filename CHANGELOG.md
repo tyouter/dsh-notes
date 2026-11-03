@@ -2,6 +2,64 @@
 
 <!-- Keep the newest entry on top. A version bump means: build, run every suite, then tag. -->
 
+## 1.1.0 — one editor, and typing that keeps up
+
+The release where the notebook stopped having two editors and started guessing what you were about to
+type.
+
+### One editor, not two
+
+- Editing a note in 历史 now mounts the same `CaptureBox` the 记录 tab uses: source on the left, the
+  laid-out result on the right, Structure / Cancel / Save in the toolbar. The separate editor and its
+  "copilot" sidebar — six magic actions, three insert buttons, its own route, prompt, CSS and event
+  kinds — are gone (about 1,100 lines).
+- Saving is unified: every path stores the laid-out text, and editing leaves the source showing
+  exactly what was written. Reopening a note can no longer surprise you.
+
+### 极简写: typing is structure
+
+- Two spaces at the start of a line make a bullet the moment they are typed, whatever the tap speed;
+  four spaces make it nested. A deeper indent is one level down relative to the item above.
+- Enter on a bullet continues at the same level, marker included.
+- Backspace inside the marker backs out one level; at the first level it turns the bullet back into
+  prose. A held space is just spaces again — one way to back out, not two.
+- TAB is reserved for completion and never indents.
+- The preview keeps nesting: each `<li>` carries its depth, so a child gets ◦ and a step in, a
+  grandchild ▪ and another.
+
+### Completion
+
+- After typing stops for 1s — and only after typing; focusing the box does nothing, and a keystroke
+  before the second cancels the request and aborts it in flight.
+- The note answers first: the longest run ending at the caret that already appears earlier in the
+  document is finished from there, with no request and no cost.
+- Only then the model, with a prompt that forbids invented names, dates, numbers and links, forbids
+  summarising, caps itself at three sentences, and may answer with nothing.
+- TAB takes one chunk (a sentence, or a clause when the sentence is long), leaves it selected so a
+  single Backspace removes it, and releases the selection after 1.4s so later Backspaces delete
+  characters.
+
+### History
+
+- The list column is draggable (200–520 px, remembered, double-click resets).
+- Cards clamp to two lines, so the list reads as a list.
+- Action buttons are larger, bordered and on the right, with the primary action emphasised.
+
+### Fixed
+
+- The selection highlight sits exactly under the text in every layout (one box, one set of metrics).
+- The title block takes the selection mark, so selecting the first line highlights what it displays.
+- Indented lines no longer merge into one bullet, and no longer render as plain paragraphs.
+- One busy chip instead of two, static, with elapsed seconds.
+- The board's quick note fills its dock and splits 50/50.
+
+### Engineering
+
+- A `test/typing.mjs` suite simulates the editor the way a person types — every character as input,
+  Enter before the newline exists, a slow double tap as slow — because the space bug that shipped in
+  1.0.0 was invisible to the pure-function checks. 566 assertions across eight suites, plus the
+  17-case live corpus.
+
 ## 1.0.0 — first official release
 
 The notebook as it is meant to be used: type into one box, read the typeset result beside it, and
