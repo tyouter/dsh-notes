@@ -1,6 +1,6 @@
 # dsh-notes
 
-`@tyouter/dsh-notes` 1.1.0 — a notebook inside DeepSeek Harness, in three tabs. Type into one box,
+`@tyouter/dsh-notes` 1.1.1 — a notebook inside DeepSeek Harness, in three tabs. Type into one box,
 read the typeset result beside it, and call the model only when judgement is needed. See
 [CHANGELOG.md](CHANGELOG.md) for what the first official release contains.
 

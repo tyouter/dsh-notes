@@ -2,6 +2,52 @@
 
 <!-- Keep the newest entry on top. A version bump means: build, run every suite, then tag. -->
 
+## 1.1.1 — a release that behaves like a tool
+
+Fifteen fixes and additions on top of 1.1.0, all of them things you notice while actually writing.
+
+### Completion
+
+- <kbd>TAB</kbd> is a loop: accept a chunk, pause, the next suggestion appears, accept again — the
+  editor never loses focus, and the accepted chunk is drawn with the plugin's own green mark so one
+  <kbd>Backspace</kbd> takes it back.
+- Enter accepts what TAB inserted: the mark clears, the caret moves to the new line, and the next
+  suggestion follows the caret instead of staying at the old offset.
+- A suggestion never restates the note. In a list the prompt asks for a **new** item, and a candidate
+  that duplicates an existing line (markers and punctuation ignored) is dropped before it is shown.
+- **Auto-write** switch in the toolbar, green when on. Off means no suggestion and no request at all —
+  not a timer, not a token.
+
+### The preview page
+
+- It only exists when there is something to show: an empty draft has no right-hand page.
+- A drawer handle on the seam between the two pages collapses and expands it, and Structure opens it
+  automatically when it was closed.
+- Hiding never stretches the editor: the hidden page keeps its column, so the pair keeps the geometry
+  it has when both are visible.
+
+### History
+
+- The detail pane finally has a width (it had no rule at all, so it shrank to its content) and its
+  content starts level with the first card.
+- The action bar has a hierarchy: pin is an icon that fills in when on, Edit is the only filled button,
+  delete only reddens on hover — all pinned to the right edge.
+- Collapsing the list hands the width to the editor (a rule of mine was overriding the drawer's
+  `width: 0`).
+- **Copy as Markdown**: one button beside Edit puts the note on the clipboard as standard Markdown
+  (`# ` title, `1.` numbering, `-` bullets, indentation as nesting), with a tick that pops in and
+  reverts after 1.4s.
+
+### Freshness
+
+- Opening the plugin no longer shows a cached notebook: the store reloads when `notes.json` (or
+  trash/links) changes on disk — another window, an editor, a sync — and the panel refreshes on a tab
+  switch, on window focus and on visibility change.
+
+### Engineering
+
+- 620 assertions across eight suites, plus the 17-case live corpus.
+
 ## 1.1.0 — one editor, and typing that keeps up
 
 The release where the notebook stopped having two editors and started guessing what you were about to
