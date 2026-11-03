@@ -1435,10 +1435,20 @@
                 enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
               )
 
-      const renderSheet =
-        showRender || renderTools !== null
-          ? h('div', { className: 'dshn-sheet', 'data-role': 'render' }, renderNode, renderTools)
-          : null
+      /**
+       * The right page. When it is hidden it still holds its column in the side-by-side layout, so
+       * hiding never stretches the editor — the pair keeps the geometry it has when both are shown.
+       * The stacked (compact) layout is different: there an empty half would be dead space, so the
+       * slot is dropped and the editor takes the height.
+       */
+      const renderSheet = showRender
+        ? h('div', { className: 'dshn-sheet', 'data-role': 'render' }, renderNode, renderTools)
+        : h('div', {
+            className: 'dshn-sheet',
+            'data-role': 'render',
+            'data-hidden': 'true',
+            'aria-hidden': 'true',
+          })
 
       // Only transient messages here ("saved", "applied"). The storage location used to be
       // printed permanently under the page, which read as stray text, so it is gone.
@@ -1463,7 +1473,7 @@
           },
           ...(compactLayout
             ? [showRender ? renderSheet : null, editorSheet]
-            : [editorSheet, showRender ? renderSheet : null]
+            : [editorSheet, renderSheet]
           ).filter((node) => node !== null && node !== undefined),
         ),
         statusLine,

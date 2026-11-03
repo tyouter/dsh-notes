@@ -476,6 +476,9 @@ check('the busy chip replaces the translate button', /translating\s*\?\s*busyChi
     check('an empty draft shows no preview page', /const showRender = hasContent && previewOpen/.test(boardSource))
     check('the preview can be put away by hand', /previewOpen/.test(boardSource) && /data-role': 'preview-toggle'/.test(boardSource))
     check('Structure opens the pane', /setPreviewOpen\(true\)\n\s*\/\/ Same rule as Format/.test(boardSource))
+    check('a hidden preview keeps its column', /data-hidden': 'true'/.test(boardSource) && /\[data-hidden='true'\]/.test(headCss))
+    check('hiding does not stretch the editor', /\[data-mode='single'\] \.dshn-sheet \{ flex: 1 1 auto; max-width: none/.test(headCss) === false)
+
     check('a lone sheet takes the row', /data-mode': showRender \? 'split' : 'single'/.test(boardSource) && /data-mode='single'\] \.dshn-sheet/.test(headCss))
     // Both pages end on the same line, and the preview scrolls inside its own page.
     const sheetRule = headSource.slice(headSource.indexOf("[data-layout='page'] .dshn-sheet {"))

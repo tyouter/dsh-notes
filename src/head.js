@@ -3075,8 +3075,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
-/* One page, no split: the editor takes the row instead of hugging the centre. */
-.dshn-capture-box[data-layout='page'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; max-width: none; }
+/* A hidden page keeps its column: hiding changes what you see, not the layout. */
+.dshn-sheet[data-hidden='true'] { visibility: hidden; pointer-events: none; }
+/* Stacked layout: an empty half would be dead space, so the editor takes the height there. */
 .dshn-capture-box[data-layout='compact'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; }
 /* The preview toggle: quiet until hovered, pressed-looking state when the page is open. */
 .dshn-capture-tools [data-role='preview-toggle'] { padding: 4px 10px; font-size: 11.5px; }

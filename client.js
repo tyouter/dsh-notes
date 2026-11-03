@@ -3093,8 +3093,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
-/* One page, no split: the editor takes the row instead of hugging the centre. */
-.dshn-capture-box[data-layout='page'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; max-width: none; }
+/* A hidden page keeps its column: hiding changes what you see, not the layout. */
+.dshn-sheet[data-hidden='true'] { visibility: hidden; pointer-events: none; }
+/* Stacked layout: an empty half would be dead space, so the editor takes the height there. */
 .dshn-capture-box[data-layout='compact'] .dshn-sheets[data-mode='single'] .dshn-sheet { flex: 1 1 auto; }
 /* The preview toggle: quiet until hovered, pressed-looking state when the page is open. */
 .dshn-capture-tools [data-role='preview-toggle'] { padding: 4px 10px; font-size: 11.5px; }
@@ -4973,10 +4974,20 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 enhanceError !== '' ? h('span', { className: 'dshn-cap dshn-err-inline' }, enhanceError) : null,
               )
 
-      const renderSheet =
-        showRender || renderTools !== null
-          ? h('div', { className: 'dshn-sheet', 'data-role': 'render' }, renderNode, renderTools)
-          : null
+      /**
+       * The right page. When it is hidden it still holds its column in the side-by-side layout, so
+       * hiding never stretches the editor — the pair keeps the geometry it has when both are shown.
+       * The stacked (compact) layout is different: there an empty half would be dead space, so the
+       * slot is dropped and the editor takes the height.
+       */
+      const renderSheet = showRender
+        ? h('div', { className: 'dshn-sheet', 'data-role': 'render' }, renderNode, renderTools)
+        : h('div', {
+            className: 'dshn-sheet',
+            'data-role': 'render',
+            'data-hidden': 'true',
+            'aria-hidden': 'true',
+          })
 
       // Only transient messages here ("saved", "applied"). The storage location used to be
       // printed permanently under the page, which read as stray text, so it is gone.
@@ -5001,7 +5012,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           },
           ...(compactLayout
             ? [showRender ? renderSheet : null, editorSheet]
-            : [editorSheet, showRender ? renderSheet : null]
+            : [editorSheet, renderSheet]
           ).filter((node) => node !== null && node !== undefined),
         ),
         statusLine,
