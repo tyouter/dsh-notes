@@ -236,6 +236,12 @@ publish. `exports/` holds generated previews and is ignored.
 
 MIT — see [LICENSE](LICENSE).
 
+## Built with
+
+Built with [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). The plugin was written in a
+conversation with it — design, code, tests, the recorded clips and this README — and the same harness runs
+its suites. Commits carry `Co-Authored-By: DeepSeek Harness <noreply@deepseek.com>` as the record.
+
 ## Notes for maintainers
 
 - Edit `src/`, then `node build.mjs`. `node --check src/panel.js` fails by design
