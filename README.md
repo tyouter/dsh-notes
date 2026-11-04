@@ -31,29 +31,32 @@ installed; everything under `lib/` is first-party.
 
 ## What it is for
 
-献给：喜欢思考，享受纯净文字美感的思想者。当你打开工具后，已经忘记了要写什么；当你在 AI 对话框里忍受着痛苦的打字体验时；当你用复杂的笔记软件被工具栏干扰时；当你的思路有一些卡壳时；当你的笔记成为一个被遗忘的角落。我们只做三件事：给你一张纸，只需要用空格和换行，手不离开键盘；AI 随时相伴，你的笔记 AI 替你管理；让文字回到它本来的样子，干净、直接、不被打断。
+献给：喜欢思考，享受纯净文字美感的思想者。当你打开工具后，已经忘记了要写什么；当你在 AI 对话框里忍受着痛苦的打字体验时；当你用复杂的笔记软件被工具栏干扰时；当你的思路有一些卡壳时；当你的笔记成为一个被遗忘的角落。我们只做三件事：
 
-- **Capture** — one box and one live page. Two spaces make a bullet, four the next level; Enter continues,
-  Backspace backs out. A pause brings a suggestion (the note's own wording first), TAB takes a chunk, one
-  Backspace gives it back. `Auto-write` turns suggestions — and their cost — off.
-- **Structure and Translate** — rewrite the whole note or only the selection into a draft on the right
-  page; the note changes only on **Apply**. Translate it into any language from the picker.
-- **History** — search and tag-filter, a resizable list, and **Edit** that mounts the same two pages.
-  **Copy** puts the note on the clipboard as standard Markdown (`#` title, `1.` numbering, `-` bullets).
-- **Board** — a real agent session over the notebook: it answers with `notes_query` / `notes_analyze` and
-  pins what it builds with `dashboard_chart`. The numbers come from the notes, not from the model.
+- **A sheet of paper** — spaces and line breaks are the only formatting there is: two spaces make a bullet, four the next level, and your hands never leave the keyboard.
+- **AI alongside** — suggestions, structure and translation wait at the edge of the page and answer when you ask. Your notes are managed by the AI, not by toolbars.
+- **Writing as it should be** — clean, direct, uninterrupted. The page is already set while you type.
 
-### Three clips
+| |
+| :---: |
+| ![Capture](docs/marketing/demo-a-write.gif) |
+| **Capture** |
 
-| Capture | History | Board |
-| --- | --- | --- |
-| <img src="docs/marketing/demo-a-write.gif" width="330"> | <img src="docs/marketing/demo-b-history.gif" width="330"> | <img src="docs/marketing/demo-c-board.gif" width="330"> |
+| |
+| :---: |
+| ![History](docs/marketing/demo-b-history.gif) |
+| **History** |
 
-### Three stills
+| |
+| :---: |
+| ![Board](docs/marketing/demo-c-board.gif) |
+| **Board** |
 
-| Capture | History | Board |
-| --- | --- | --- |
-| <img src="docs/marketing/shot-01-writing.png" width="330"> | <img src="docs/marketing/shot-05-history-edit.png" width="330"> | <img src="docs/marketing/shot-07-board-chart.png" width="330"> |
+| | | |
+| :---: | :---: | :---: |
+| ![Capture](docs/marketing/shot-01-writing.png) | ![History](docs/marketing/shot-05-history-edit.png) | ![Board](docs/marketing/shot-07-board-chart.png) |
+| **Capture** | **History** | **Board** |
+
 
 ## What it stores, and what leaves the machine
 
