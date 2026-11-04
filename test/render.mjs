@@ -589,7 +589,7 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('pausing after an accept asks again', /setGhost\(null\)\n\s*scheduleCompletion\(end\)/.test(boardSource))
     check('the ghost is styled as a suggestion', /\.dshn-ghost \{/.test(headCss))
 
-    check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 6px 14px/.test(headCss))
+    check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 3px 10px; font-size: 12px/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 
     check('all four save paths remain', saveSites.length === 4, String(saveSites.length))
   }

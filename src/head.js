@@ -2110,6 +2110,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-wrap: nowrap;
   padding: 10px 20px 0;
   border-bottom: 1px solid var(--dsw-alias-border-l1);
 }
@@ -2336,10 +2337,14 @@
 .dshn-detail-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 28px;
   width: 100%;
+  /* Narrow panes must not push Pin / Copy / Edit onto a second row. */
+  flex-wrap: nowrap;
+  min-width: 0;
 }
+.dshn-detail-bar .dshn-detail-actions .dshn-btn { padding: 3px 10px; font-size: 12px; }
 .dshn-detail-title {
   min-width: 0;
   overflow: hidden;
@@ -3264,7 +3269,27 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 /* The toolbar stays inside the source sheet, so the left page keeps the exact layout it
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
-.dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools { flex-wrap: wrap; row-gap: 6px; }
+.dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools {
+  /* One line, always: a wrapped Save button read as a second row of controls. */
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+.dshn-capture-tools .dshn-btn,
+.dshn-capture-tools .dshn-switch { flex: 0 0 auto; white-space: nowrap; }
+/* The counter and the key hint yield first, then the hint goes away entirely. */
+.dshn-capture-tools .dshn-chars { flex: 0 0 auto; white-space: nowrap; }
+.dshn-capture-tools .dshn-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dshn-capture-pane { container-type: inline-size; }
+@container (max-width: 620px) {
+  .dshn-capture-tools .dshn-hint { display: none; }
+}
 /* ---- preview drawer handle: a tab on the seam between the pages ---- */
 .dshn-sheets { position: relative; }
 .dshn-preview-handle {
@@ -3337,8 +3362,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-switch[data-on="true"] .dshn-switch-track { background: var(--dsw-alias-state-success-primary); }
 .dshn-switch[data-on="true"] .dshn-switch-knob { transform: translateX(13px); }
 .dshn-switch[data-on="true"] { color: var(--dsw-alias-label-primary); }
-.dshn-capture-tools .dshn-btn { padding: 6px 14px; font-size: 13px; font-weight: 500; }
-.dshn-capture-tools .dshn-btn.primary { padding: 6px 18px; font-weight: 600; }
+/* Small enough that four controls and two labels fit one line on a narrow pane. */
+.dshn-capture-tools .dshn-btn { padding: 3px 10px; font-size: 12px; font-weight: 500; }
+.dshn-capture-tools .dshn-btn.primary { padding: 4px 13px; font-size: 12px; font-weight: 600; }
 .dshn-capture-tools {
   /* Both pages carry a footer strip on the same line, so the two toolbars sit at the
      same height and the pages stay symmetrical. */

@@ -118,5 +118,15 @@ check('the textarea has no padding of its own', /padding:\s*0/.test(blockOf('.ds
 const boardSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
 check('a collapsed wrapper is repaired at runtime', /function repairChain\(/.test(boardSource) && /repairChain\(node\)/.test(boardSource), 'repairChain is missing or not called')
 
+// Toolbars: small, one line, and the labels yield before the controls do.
+check('the footer never wraps', /flex-wrap: nowrap;\s*\n\s*min-width: 0;\s*\n\s*overflow: hidden/.test(css), 'footer wrap rule missing')
+check('the footer buttons are small', /\.dshn-capture-tools \.dshn-btn \{ padding: 3px 10px; font-size: 12px/.test(css), 'footer buttons are not small')
+check('the key hint truncates', /\.dshn-capture-tools \.dshn-hint \{[\s\S]{0,200}text-overflow: ellipsis/.test(css), 'hint does not truncate')
+check('the key hint disappears on a narrow pane', /@container \(max-width: 620px\)[\s\S]{0,120}dshn-hint \{ display: none/.test(css), 'no container query for the hint')
+check('the history bar does not wrap', /\.dshn-detail-bar \{[\s\S]{0,300}flex-wrap: nowrap/.test(css), 'detail bar can wrap')
+check('the tab row does not wrap', /\.dshn-tabs \{[\s\S]{0,140}flex-wrap: nowrap/.test(css), 'tabs can wrap')
+check('the hint is its own element', /className: 'dshn-cap dshn-hint'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'hint is not addressable')
+
+
 console.log(failures === 0 ? '\nlayout contract holds' : `\n${failures} violation(s)`)
 process.exitCode = failures === 0 ? 0 : 1

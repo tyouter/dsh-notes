@@ -1200,7 +1200,9 @@
         h(
           'div',
           { className: 'dshn-row dshn-capture-tools' },
-          h('span', { className: 'dshn-cap' }, t.chars(draft.length) + '　Ctrl/⌘+Enter'),
+          h('span', { className: 'dshn-cap dshn-chars' }, t.chars(draft.length)),
+          // Part of the footer that is allowed to vanish: the pane can be narrow.
+          h('span', { className: 'dshn-cap dshn-hint' }, 'Ctrl/⌘+Enter'),
           h(
             'button',
             {
