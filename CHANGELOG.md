@@ -1,3 +1,40 @@
+## Unreleased
+
+Everything here was found by using the plugin, mostly while recording a walkthrough.
+
+### The board's conversation
+
+- The composer sits at the bottom of the board column. It had been given a measured pixel height inside
+  an absolutely positioned box, with the host's wrapper chain stretched and repaired at runtime; the
+  host then stuck its composer to a shorter scroller and the answer continued underneath it. The dock now
+  uses the documented pattern — one flex child with `flex: 1`, the native conversation inside — which is
+  what the other plugins on this machine do.
+
+### Typing and suggestions
+
+- A suggestion that starts with a list marker keeps the marker on its own line instead of gluing it to the
+  end of a sentence; on an empty bullet the duplicate marker is dropped.
+- One highlight at a time: a selection you make outranks the span the last TAB inserted, and making a
+  selection ends that span.
+- A suggestion can no longer outlive the text it was drawn against: after saving, an empty editor has no
+  ghost painted over its placeholder, and an overlay whose offsets fall outside the draft draws nothing.
+- Selecting text dismisses the suggestion, so a range never has ghost text drawn inside it.
+- Structuring a selection keeps its item count: both structure requests now say `scope`, and the prompt
+  forbids adding points the selection did not have.
+
+### Layout
+
+- Footer buttons are smaller (`3px 10px`, 12px) and the footer never wraps; the `Ctrl/⌘+Enter` hint
+  truncates first and disappears below 620px of pane width. The history bar and the tab row refuse to
+  wrap too.
+
+### Engineering
+
+- The mark layer behind the textarea is a pure function (`mirrorSegments`) with one invariant — its plain
+  text equals the textarea's text exactly once — pinned by `test/mirror.mjs`: 22 cases plus a 500-state
+  random sweep.
+- 667 assertions across nine suites.
+
 # Changelog
 
 <!-- Keep the newest entry on top. A version bump means: build, run every suite, then tag. -->
