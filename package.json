@@ -1,6 +1,6 @@
 {
   "name": "@tyouter/dsh-notes",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": false,
   "type": "module",
   "description": "A notebook inside DeepSeek Harness: type into one box, read the typeset result beside it, then structure or translate it with AI.",

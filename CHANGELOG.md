@@ -1,43 +1,47 @@
 # Changelog
 
-## Unreleased
+## 1.1.2 — what the notebook does
 
-Everything here was found by using the plugin, mostly while recording a walkthrough.
+### One page, typeset as you write
 
-### The board's conversation
+- One editor, one live page: spaces make structure (two for a bullet, four for the next level), Enter
+  continues the level, Backspace backs out of it, and the right page is set as you type.
+- Saving stores the page you see; opening a note shows the same text back.
 
-- The composer sits at the bottom of the board column. It had been given a measured pixel height inside
-  an absolutely positioned box, with the host's wrapper chain stretched and repaired at runtime; the
-  host then stuck its composer to a shorter scroller and the answer continued underneath it. The dock now
-  uses the documented pattern — one flex child with `flex: 1`, the native conversation inside — which is
-  what the other plugins on this machine do.
+### Suggestions
 
-### Typing and suggestions
+- A one-second pause brings a continuation. The note's own wording is tried first, with no model call;
+  when that finds nothing the model is asked, under rules that forbid invented names, dates, numbers and
+  links and cap the answer at three sentences.
+- TAB accepts one chunk, the accepted span is marked, and one Backspace removes it. A suggestion that
+  starts with a list marker starts its own line; a suggestion is never drawn through existing text.
+- **Auto-write** turns all of this off: no suggestions and no requests.
 
-- A suggestion that starts with a list marker keeps the marker on its own line instead of gluing it to the
-  end of a sentence; on an empty bullet the duplicate marker is dropped.
-- One highlight at a time: a selection you make outranks the span the last TAB inserted, and making a
-  selection ends that span.
-- A suggestion can no longer outlive the text it was drawn against: after saving, an empty editor has no
-  ghost painted over its placeholder, and an overlay whose offsets fall outside the draft draws nothing.
-- Selecting text dismisses the suggestion, so a range never has ghost text drawn inside it.
-- Structuring a selection keeps its item count: both structure requests now say `scope`, and the prompt
-  forbids adding points the selection did not have.
+### Structure and translate
 
-### Layout
+- **Structure** rewrites the whole note, or only the selection, into a draft on the right page. The note
+  itself changes only on Apply. A selection draft keeps the selection's item count.
+- **Translate** takes the draft (or the note, from the live preview) into the chosen language; discarding
+  is one click.
 
-- Footer buttons are smaller (`3px 10px`, 12px) and the footer never wraps; the `Ctrl/⌘+Enter` hint
-  truncates first and disappears below 620px of pane width. The history bar and the tab row refuse to
-  wrap too.
+### History
 
-### Engineering
+- The list is searchable and filterable by tag, resizable by dragging the seam, collapsible to a drawer.
+- The detail pane edits in place with the same two pages, pins with one icon, and **Copy** writes standard
+  Markdown to the clipboard with a tick to confirm it.
 
-- The mark layer behind the textarea is a pure function (`mirrorSegments`) with one invariant — its plain
-  text equals the textarea's text exactly once — pinned by `test/mirror.mjs`: 22 cases plus a 500-state
-  random sweep.
-- 667 assertions across nine suites.
+### The board
 
-<!-- Keep the newest entry on top. A version bump means: build, run every suite, then tag. -->
+- Statistics and pinned charts from the notebook itself, plus a native agent session that answers
+  questions with `notes_query` / `notes_analyze` and pins what it builds with `dashboard_chart`.
+- The session's composer stays at the bottom of the column; the quick-note pane covers it when open.
+
+### Details
+
+- The data lives in plain JSON under `notes-vault/`; deleting the SQLite projection loses nothing, and a
+  change made on disk by another window is picked up on the next read.
+- Copy-as-Markdown, translated labels, and the board's session all follow the host's own locale and theme.
+- 667 assertions across nine suites, including a 500-state sweep of the mark layer.
 
 ## 1.1.1 — a release that behaves like a tool
 

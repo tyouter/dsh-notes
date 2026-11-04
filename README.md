@@ -1,6 +1,6 @@
 # dsh-notes
 
-`@tyouter/dsh-notes` 1.1.1 — a notebook inside DeepSeek Harness, in three tabs. Type into one box,
+`@tyouter/dsh-notes` 1.1.2 — a notebook inside DeepSeek Harness, in three tabs. Type into one box,
 read the typeset result beside it, and call the model only when judgement is needed. See
 [CHANGELOG.md](CHANGELOG.md) for what the first official release contains.
 
@@ -40,16 +40,34 @@ The full pitch — scenario, pain, need, feature — is in [docs/marketing/pitch
 
 ![Writing and structure](docs/marketing/demo-a-write.gif)
 
-*Recorded from the running app: spaces become structure, the right page typesets as you type, a pause
-gets a suggestion that TAB accepts, then Structure rewrites the note and Translate turns it into English.*
+*Spaces become structure, the right page typesets as you type, a pause gets a suggestion that TAB
+accepts, then Structure rewrites the note and Translate turns it into English. Recorded from the app.*
 
 | | |
 | --- | --- |
-| ![History and copy](docs/marketing/demo-b-history.gif) | ![The board](docs/marketing/demo-c-board.gif) |
-| **History is the same editor.** Open a note, edit it in place, save — and copy the whole note as Markdown in one click. | **One more thing: the board.** Ask it a question and it queries the notebook, then pins the chart it built. |
+| ![Writing](docs/marketing/shot-01-writing.png) | ![A suggestion](docs/marketing/shot-02-suggestion.png) |
+| **The page typesets while you type.** Two spaces make a bullet, indentation makes the next level, and the right page is already set. | **A pause brings a suggestion.** The note's own wording answers first; the pause, TAB and Backspace are the whole interface. |
+| ![Structure](docs/marketing/shot-03-structured.png) | ![Translated](docs/marketing/shot-04-translated.png) |
+| **Structure, or structure a selection.** The draft is the right page; nothing in the note changes until Apply. | **Translate the whole note** with the language picker, then Apply and Save. Saving stores exactly the page on the right. |
 
-The assets are generated from the plugin's own renderer and stylesheet, frame by frame:
-`node tools/marketing-11.mjs --capture` then `python tools/marketing_gif.py --dir exports/marketing-11`.
+![History and copy](docs/marketing/demo-b-history.gif)
+
+*History is the same editor: open a note, edit it in place, save, and copy the whole note as Markdown.*
+
+| | |
+| --- | --- |
+| ![History edit](docs/marketing/shot-05-history-edit.png) | ![Copied](docs/marketing/shot-06-copied.png) |
+| **Edit opens the two pages you already know**, not a second editor. | **Copy writes standard Markdown** — `#` title, `1.` numbering, `-` bullets, indentation as nesting. |
+
+![The board](docs/marketing/demo-c-board.gif)
+
+*Ask the board a question; it queries the notebook with its own tools and pins the chart it built.*
+
+![The board](docs/marketing/shot-07-board-chart.png)
+
+**The board is a real agent session**, limited to the notebook's read-only query tools, `notes_analyze`
+and `dashboard_chart`. Charts it pins stay on the board; the numbers on them come from the notebook, not
+from the model.
 
 ## What it stores, and what leaves the machine
 
