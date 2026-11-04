@@ -1573,8 +1573,12 @@
       if (target <= 0) return
       let node = column.firstElementChild
       for (let depth = 0; depth < 10 && node !== null; node = node.firstElementChild, depth += 1) {
-        // Within 24px of the column is fine: margins and borders explain the rest.
-        if (node.clientHeight >= target - 24) continue
+        // A collapsed wrapper is the only thing worth repairing. Writing a height onto a node that is
+        // *part* of a working layout (a scroller, a composer block) pushes content out of the column:
+        // the measured chain showed 515 inside 643 because of exactly that.
+        const collapsed = node.clientHeight < Math.max(24, target * 0.4)
+        const wrapper = node.children.length === 1
+        if (!collapsed || !wrapper) continue
         node.style.height = target + 'px'
         node.style.minHeight = '0'
         node.style.display = 'flex'
@@ -1599,50 +1603,25 @@
       // inserts a wrapper, so the height is written down explicitly instead.
       const dockRef = useRef(null)
       const [dockHeight, setDockHeight] = useState(0)
-      // Temporary: what the layout actually measures, so a screenshot can be read as data.
-      const [dockDebug, setDockDebug] = useState('')
+
       useEffect(() => {
         const node = dockRef.current
         if (node === null || node === undefined) return undefined
         const measure = () => {
           const height = node.clientHeight
           if (height > 0) setDockHeight(height)
-          const chat = node.querySelector('.dshn-side-chat')
-          const levels = []
-          let probe = chat === null ? null : chat.firstElementChild
-          for (let depth = 0; depth < 6 && probe !== null; probe = probe.firstElementChild, depth += 1) {
-            levels.push(probe.clientHeight)
-          }
-          setDockDebug(
-            'dock ' + height + ' · chat ' + (chat === null ? '-' : chat.clientHeight) + ' · chain ' + levels.join('/'),
-          )
           // Fix a collapsed wrapper in the host's conversation tree, if there is one. The host renders
           // its conversation after we mount, so this has to run again whenever that tree changes —
           // a single call at mount walks an empty chain and the composer never reaches the bottom.
           repairChain(node)
         }
         measure()
-        // The host tree arrives asynchronously; repair on every change, batched into one frame.
-        let scheduled = 0
-        const schedule = () => {
-          if (scheduled !== 0) return
-          scheduled = typeof requestAnimationFrame === 'function'
-            ? requestAnimationFrame(() => {
-                scheduled = 0
-                measure()
-              })
-            : 0
-          if (scheduled === 0) measure()
-        }
-        const mutations = typeof MutationObserver === 'undefined' ? null : new MutationObserver(schedule)
-        if (mutations !== null) mutations.observe(node, { childList: true, subtree: true })
-        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
-        if (observer !== null) observer.observe(node)
-        return () => {
-          if (mutations !== null) mutations.disconnect()
-          if (observer !== null) observer.disconnect()
-          if (scheduled !== 0 && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(scheduled)
-        }
+        // Re-measure when the dock itself changes size. Deliberately not on every DOM mutation: the
+        // host re-renders its conversation constantly, and repairing a live tree moves the composer.
+        if (typeof ResizeObserver === 'undefined') return undefined
+        const observer = new ResizeObserver(measure)
+        observer.observe(node)
+        return () => observer.disconnect()
       }, [quickNote])
       const [quickText, setQuickText] = useState('')
       const [quickTags, setQuickTags] = useState('')
@@ -1899,8 +1878,6 @@
             'div',
             { className: 'dshn-side-head' },
             h('span', { className: 'dshn-side-title' }, t.boardChatTitle),
-            // Temporary diagnostic line.
-            dockDebug === '' ? null : h('span', { className: 'dshn-cap', 'data-role': 'dock-debug', style: { fontSize: 10 } }, dockDebug),
             h('span', { className: 'dshn-grow' }),
             h(
               'button',

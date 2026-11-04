@@ -131,7 +131,8 @@ check('the hint is its own element', /className: 'dshn-cap dshn-hint'/.test(awai
 // The board composer drifted up the column when the chat was given a stale pixel height.
 check('the board chat cannot spill below its box', /\.dshn-side-chat \{[\s\S]{0,360}overflow: hidden/.test(css), 'chat is not clipped')
     check('the board chat keeps a definite height for the host root', /height: dockHeight > 0 \? dockHeight \+ 'px'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the host root has no definite box to resolve height:100% against')
-    check('the dock repairs the host chain as it appears', /new MutationObserver\(schedule\)/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) && /mutations\.observe\(node, \{ childList: true, subtree: true \}\)/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the repair runs once at mount, before the host tree exists')
+    check('the dock never repairs a working layout', /const collapsed = node\.clientHeight < Math\.max\(24, target \* 0\.4\)/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) && /const wrapper = node\.children\.length === 1/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the repair can write a height onto a scroller or a composer block')
+    check('the dock does not repair on every host render', /MutationObserver/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) === false, 'the mutation observer is back; it repaired a live tree and moved the composer')
 
 
 console.log(failures === 0 ? '\nlayout contract holds' : `\n${failures} violation(s)`)
