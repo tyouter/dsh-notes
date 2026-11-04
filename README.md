@@ -31,12 +31,7 @@ installed; everything under `lib/` is first-party.
 
 ## What it is for
 
-**A writing tool for people who have something to say and hate being interrupted by the tool.** Opening
-a notes app costs more than the thought, formatting has to be learned, and an assistant takes the wheel
-the moment you pause. This notebook removes all three: **one page, you write; the typing, tidying and
-translation wait off to the side until you ask.** The full argument is in
-[docs/marketing/pitch.md](docs/marketing/pitch.md).
-
+献给：喜欢思考，享受纯净文字美感的思想者。当你打开工具后，已经忘记了要写什么；当你在 AI 对话框里忍受着痛苦的打字体验时；当你用复杂的笔记软件被工具栏干扰时；当你的思路有一些卡壳时；当你的笔记成为一个被遗忘的角落。我们只做三件事：给你一张纸，只需要用空格和换行，手不离开键盘；AI 随时相伴，你的笔记 AI 替你管理；让文字回到它本来的样子，干净、直接、不被打断。
 - **Capture** — one box and one live page. Two spaces make a bullet, four the next level; Enter continues,
   Backspace backs out. A pause brings a suggestion (the note's own wording first), TAB takes a chunk, one
   Backspace gives it back. `Auto-write` turns suggestions — and their cost — off.
@@ -73,7 +68,6 @@ translation wait off to the side until you ask.** The full argument is in
 | Capture | One box, two pages. The right page is Format, running live on every keystroke; the toolbar's **Structure** button adds an AI rewrite beside it. |
 | History | The grouped history: two-line cards, a draggable list column, Markdown rendering, search and tags. **Edit mounts the capture box** — source on the left, the laid-out result on the right — so there is one editor, not two. |
 | Board | Statistics over the notebook and its usage, plus the host's **native conversation** running the `notes-board` agent preset. |
-
 
 ### The four actions
 
