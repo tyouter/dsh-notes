@@ -6,8 +6,9 @@ read the typeset result beside it, and call the model only when judgement is nee
 
 ## Install
 
-The package is a DSH **bundle**: it carries the host half, the web panel and the agent presets it
-needs, so one install is complete.
+The package is on npm: [@tyouter/dsh-notes](https://www.npmjs.com/package/@tyouter/dsh-notes) — a DSH
+**bundle** that carries the host half, the web panel and the agent presets it needs, so one install is
+complete.
 
 ```powershell
 dsh plugin --profile <name> add @tyouter/dsh-notes
