@@ -1599,12 +1599,23 @@
       // inserts a wrapper, so the height is written down explicitly instead.
       const dockRef = useRef(null)
       const [dockHeight, setDockHeight] = useState(0)
+      // Temporary: what the layout actually measures, so a screenshot can be read as data.
+      const [dockDebug, setDockDebug] = useState('')
       useEffect(() => {
         const node = dockRef.current
         if (node === null || node === undefined) return undefined
         const measure = () => {
           const height = node.clientHeight
           if (height > 0) setDockHeight(height)
+          const chat = node.querySelector('.dshn-side-chat')
+          const levels = []
+          let probe = chat === null ? null : chat.firstElementChild
+          for (let depth = 0; depth < 6 && probe !== null; probe = probe.firstElementChild, depth += 1) {
+            levels.push(probe.clientHeight)
+          }
+          setDockDebug(
+            'dock ' + height + ' · chat ' + (chat === null ? '-' : chat.clientHeight) + ' · chain ' + levels.join('/'),
+          )
           // Fix a collapsed wrapper in the host's conversation tree, if there is one. The host renders
           // its conversation after we mount, so this has to run again whenever that tree changes —
           // a single call at mount walks an empty chain and the composer never reaches the bottom.
@@ -1888,6 +1899,8 @@
             'div',
             { className: 'dshn-side-head' },
             h('span', { className: 'dshn-side-title' }, t.boardChatTitle),
+            // Temporary diagnostic line.
+            dockDebug === '' ? null : h('span', { className: 'dshn-cap', 'data-role': 'dock-debug', style: { fontSize: 10 } }, dockDebug),
             h('span', { className: 'dshn-grow' }),
             h(
               'button',
