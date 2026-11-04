@@ -1632,6 +1632,16 @@
           // a single call at mount walks an empty chain and the composer never reaches the bottom.
           repairChain(node)
           snapDockToBottom(node)
+          // The host lays its conversation out for the window it knew when it mounted. In this dock it
+          // is shorter, and the items it rendered for the taller box stay in the tree and paint below
+          // the composer. A resize event is the only signal that makes it measure again.
+          if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(new Event('resize'))
+            setTimeout(() => {
+              window.dispatchEvent(new Event('resize'))
+              snapDockToBottom(node)
+            }, 260)
+          }
         }
         measure()
         // Re-measure when the dock itself changes size. Deliberately not on every DOM mutation: the
