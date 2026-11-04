@@ -31,10 +31,20 @@ installed; everything under `lib/` is first-party.
 
 ## What it is for
 
-献给：喜欢思考，享受纯净文字美感的思想者。当你打开工具后，已经忘记了要写什么；当你在 AI 对话框里忍受着痛苦的打字体验时；当你用复杂的笔记软件被工具栏干扰时；当你的思路有一些卡壳时；当你的笔记成为一个被遗忘的角落。我们只做三件事：
+Dedicated to: thinkers who love to think and enjoy the pure beauty of words.
+
+A minimal writing plugin I built for myself, because:
+
+- when you open the tool, you have already forgotten what you meant to write
+- when you put up with the painful typing experience of an AI chat box
+- when a complicated notes app keeps interrupting you with its toolbars
+- when your train of thought stalls
+- when your notes become a forgotten corner
+
+All we do is three things:
 
 - **A sheet of paper** — spaces and line breaks are the only formatting there is: two spaces make a bullet, four the next level, and your hands never leave the keyboard.
-- **AI alongside** — suggestions, structure and translation wait at the edge of the page and answer when you ask. Your notes are managed by the AI, not by toolbars.
+- **AI alongside** — suggestions, structure and translation wait at the edge of the page and answer when you ask. Your notes are looked after by the AI, not by toolbars.
 - **Writing as it should be** — clean, direct, uninterrupted. The page is already set while you type.
 
 ![Capture](docs/marketing/demo-a-write.gif)
