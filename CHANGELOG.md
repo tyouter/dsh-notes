@@ -1,3 +1,5 @@
+# Changelog
+
 ## Unreleased
 
 Everything here was found by using the plugin, mostly while recording a walkthrough.
@@ -34,8 +36,6 @@ Everything here was found by using the plugin, mostly while recording a walkthro
   text equals the textarea's text exactly once — pinned by `test/mirror.mjs`: 22 cases plus a 500-state
   random sweep.
 - 667 assertions across nine suites.
-
-# Changelog
 
 <!-- Keep the newest entry on top. A version bump means: build, run every suite, then tag. -->
 
