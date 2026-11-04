@@ -1603,15 +1603,35 @@
         const node = dockRef.current
         if (node === null || node === undefined) return undefined
         const measure = () => {
-          setDockHeight(node.clientHeight)
-          // Fix a collapsed wrapper in the host's conversation tree, if there is one.
+          const height = node.clientHeight
+          if (height > 0) setDockHeight(height)
+          // Fix a collapsed wrapper in the host's conversation tree, if there is one. The host renders
+          // its conversation after we mount, so this has to run again whenever that tree changes —
+          // a single call at mount walks an empty chain and the composer never reaches the bottom.
           repairChain(node)
         }
         measure()
-        if (typeof ResizeObserver === 'undefined') return undefined
-        const observer = new ResizeObserver(measure)
-        observer.observe(node)
-        return () => observer.disconnect()
+        // The host tree arrives asynchronously; repair on every change, batched into one frame.
+        let scheduled = 0
+        const schedule = () => {
+          if (scheduled !== 0) return
+          scheduled = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame(() => {
+                scheduled = 0
+                measure()
+              })
+            : 0
+          if (scheduled === 0) measure()
+        }
+        const mutations = typeof MutationObserver === 'undefined' ? null : new MutationObserver(schedule)
+        if (mutations !== null) mutations.observe(node, { childList: true, subtree: true })
+        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+        if (observer !== null) observer.observe(node)
+        return () => {
+          if (mutations !== null) mutations.disconnect()
+          if (observer !== null) observer.disconnect()
+          if (scheduled !== 0 && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(scheduled)
+        }
       }, [quickNote])
       const [quickText, setQuickText] = useState('')
       const [quickTags, setQuickTags] = useState('')
@@ -1782,9 +1802,10 @@
                     {
                       className: 'dshn-side-chat',
                       style: {
-                        // Flex sizes it: the dock is the definite box (flex:1 in a column with a
-                        // known height). A measured pixel height went stale whenever the dock grew,
-                        // and the conversation then painted below the composer.
+                        // A number, not a percentage: the host conversation root is height:100%, so
+                        // the box it resolves against must be definite. The number is re-measured
+                        // whenever the dock or the host tree changes (see the effect above).
+                        height: dockHeight > 0 ? dockHeight + 'px' : '100%',
                         flex: '1 1 auto',
                         minHeight: 0,
                         minWidth: 0,
