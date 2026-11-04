@@ -1565,6 +1565,23 @@
      * down and write the measured height onto whatever collapsed — this needs no knowledge of the
      * host markup, which is exactly what the CSS-only versions kept getting wrong.
      */
+    /**
+     * Put every scroller inside the dock at its bottom.
+     *
+     * The host renders its composer as a sticky element inside the message scroller. Embedded at a
+     * different height than the main chat, that scroller can start scrolled up, and a sticky composer
+     * then sits wherever the offset left it — mid-column, with the answer continuing below.
+     */
+    function snapDockToBottom(dock) {
+      if (dock === null || dock === undefined || typeof dock.querySelectorAll !== 'function') return
+      const nodes = [dock, ...dock.querySelectorAll('*')]
+      for (const node of nodes) {
+        if (node === null || typeof node.scrollHeight !== 'number') continue
+        if (node.scrollHeight <= node.clientHeight + 4) continue
+        node.scrollTop = node.scrollHeight
+      }
+    }
+
     function repairChain(dock) {
       if (dock === null || dock === undefined || typeof dock.querySelector !== 'function') return
       const column = dock.querySelector('.dshn-side-chat')
