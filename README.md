@@ -31,43 +31,33 @@ installed; everything under `lib/` is first-party.
 
 ## What it is for
 
-**A writing tool for people who have something to say and hate being interrupted by the tool.** The
-pain it removes: opening a notes app costs more than the thought; formatting has to be learned; and an
-"AI assistant" takes the wheel the moment you pause. The experience it gives: **one page, you write;
-type-setting, tidying and translation wait off to the side until you ask.**
+**A writing tool for people who have something to say and hate being interrupted by the tool.** Opening
+a notes app costs more than the thought, formatting has to be learned, and an assistant takes the wheel
+the moment you pause. This notebook removes all three: **one page, you write; the typing, tidying and
+translation wait off to the side until you ask.** The full argument is in
+[docs/marketing/pitch.md](docs/marketing/pitch.md).
 
-The full pitch — scenario, pain, need, feature — is in [docs/marketing/pitch.md](docs/marketing/pitch.md).
+- **Capture** — one box and one live page. Two spaces make a bullet, four the next level; Enter continues,
+  Backspace backs out. A pause brings a suggestion (the note's own wording first), TAB takes a chunk, one
+  Backspace gives it back. `Auto-write` turns suggestions — and their cost — off.
+- **Structure and Translate** — rewrite the whole note or only the selection into a draft on the right
+  page; the note changes only on **Apply**. Translate it into any language from the picker.
+- **History** — search and tag-filter, a resizable list, and **Edit** that mounts the same two pages.
+  **Copy** puts the note on the clipboard as standard Markdown (`#` title, `1.` numbering, `-` bullets).
+- **Board** — a real agent session over the notebook: it answers with `notes_query` / `notes_analyze` and
+  pins what it builds with `dashboard_chart`. The numbers come from the notes, not from the model.
 
-![Writing and structure](docs/marketing/demo-a-write.gif)
+### Three clips
 
-*Spaces become structure, the right page typesets as you type, a pause gets a suggestion that TAB
-accepts, then Structure rewrites the note and Translate turns it into English. Recorded from the app.*
+| Capture | History | Board |
+| --- | --- | --- |
+| <img src="docs/marketing/demo-a-write.gif" width="330"> | <img src="docs/marketing/demo-b-history.gif" width="330"> | <img src="docs/marketing/demo-c-board.gif" width="330"> |
 
-| | |
-| --- | --- |
-| ![Writing](docs/marketing/shot-01-writing.png) | ![A suggestion](docs/marketing/shot-02-suggestion.png) |
-| **The page typesets while you type.** Two spaces make a bullet, indentation makes the next level, and the right page is already set. | **A pause brings a suggestion.** The note's own wording answers first; the pause, TAB and Backspace are the whole interface. |
-| ![Structure](docs/marketing/shot-03-structured.png) | ![Translated](docs/marketing/shot-04-translated.png) |
-| **Structure, or structure a selection.** The draft is the right page; nothing in the note changes until Apply. | **Translate the whole note** with the language picker, then Apply and Save. Saving stores exactly the page on the right. |
+### Three stills
 
-![History and copy](docs/marketing/demo-b-history.gif)
-
-*History is the same editor: open a note, edit it in place, save, and copy the whole note as Markdown.*
-
-| | |
-| --- | --- |
-| ![History edit](docs/marketing/shot-05-history-edit.png) | ![Copied](docs/marketing/shot-06-copied.png) |
-| **Edit opens the two pages you already know**, not a second editor. | **Copy writes standard Markdown** — `#` title, `1.` numbering, `-` bullets, indentation as nesting. |
-
-![The board](docs/marketing/demo-c-board.gif)
-
-*Ask the board a question; it queries the notebook with its own tools and pins the chart it built.*
-
-![The board](docs/marketing/shot-07-board-chart.png)
-
-**The board is a real agent session**, limited to the notebook's read-only query tools, `notes_analyze`
-and `dashboard_chart`. Charts it pins stay on the board; the numbers on them come from the notebook, not
-from the model.
+| Capture | History | Board |
+| --- | --- | --- |
+| <img src="docs/marketing/shot-01-writing.png" width="330"> | <img src="docs/marketing/shot-05-history-edit.png" width="330"> | <img src="docs/marketing/shot-07-board-chart.png" width="330"> |
 
 ## What it stores, and what leaves the machine
 
@@ -80,9 +70,9 @@ from the model.
 
 | Tab | What it is |
 | --- | --- |
-| 记录 | One box, two pages. The right page is Format, running live on every keystroke; the toolbar's「结构化」button adds an AI rewrite above it. |
-| 历史 | The grouped history: two-line cards, a draggable list column, Markdown rendering, search and tags. **Edit mounts the capture box** — source on the left, the laid-out result on the right — so there is one editor, not two. |
-| 看板 | Statistics over the notebook and its usage, plus the host's **native conversation** running the `notes-board` agent preset. |
+| Capture | One box, two pages. The right page is Format, running live on every keystroke; the toolbar's **Structure** button adds an AI rewrite beside it. |
+| History | The grouped history: two-line cards, a draggable list column, Markdown rendering, search and tags. **Edit mounts the capture box** — source on the left, the laid-out result on the right — so there is one editor, not two. |
+| Board | Statistics over the notebook and its usage, plus the host's **native conversation** running the `notes-board` agent preset. |
 
 
 ### The four actions
