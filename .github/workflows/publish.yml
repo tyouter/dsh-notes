@@ -20,6 +20,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       # The suites come first: a tag that cannot pass them is not published.
       - run: npm test
+      # A token that cannot authenticate (401) is a different problem from a policy refusal (403);
+      # printing the identity makes the two distinguishable in the log.
+      - run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
