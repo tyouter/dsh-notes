@@ -1,0 +1,25 @@
+name: publish
+
+# Publishing from CI is the path that works when the account requires a granular token with 2FA
+# bypass: the token lives in the repository secret NPM_TOKEN and is never on a laptop.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      # The suites come first: a tag that cannot pass them is not published.
+      - run: npm test
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
