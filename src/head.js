@@ -2995,9 +2995,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   flex: 0 0 auto;
 }
 .dshn-side-dock {
-  /* The containing block for the docked layers. Absolute positioning is what makes the
-     height definite: no chain of wrappers can collapse it, and the composer stays at the
-     bottom however the host conversation is nested. */
+  /* The quick-note layer covers this box, so it stays a containing block. */
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
@@ -3007,7 +3005,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   flex-direction: column;
 }
 /* Both layers cover the dock exactly, so switching between them never moves the composer. */
-.dshn-chat-box,
 .dshn-quick-box {
   position: absolute;
   inset: 0;
@@ -3015,6 +3012,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+}
+.dshn-chat-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 /* The host conversation root is height:100%, so every wrapper between this box and
    that root has to hand down a real height. Stretching three levels with flex covers
@@ -3026,22 +3030,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   min-width: 0;
   overflow: hidden;
 }
-.dshn-chat-box > *,
-.dshn-chat-box > * > *,
-.dshn-chat-box > * > * > *,
-.dshn-chat-box > * > * > * > *,
-.dshn-chat-box > * > * > * > * > *,
-.dshn-chat-box > * > * > * > * > * > * {
-  display: flex;
-  flex-direction: column;
+/* One flex child, nothing else: the host lays out its own conversation inside it. */
+.dshn-chat-box > * {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
-}
-/* The host's composer and the row under it must keep their own height: they are not wrappers. */
-.dshn-chat-box > * > * > * > *:last-child,
-.dshn-chat-box > * > * > * > * > *:last-child {
-  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 /* The host composer's "add files or commands" button is host UI: the only way to
    drop it inside this dock is by its accessible name, in each locale. Scoped to
@@ -3621,17 +3616,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    native shell measures itself against 100% of its parent. */
 .dshn-side-chat {
   width: 100%;
-  height: 100%;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  /* Nothing inside can spill past the composer. */
-  overflow: hidden;
-  /* The containing block for the host conversation: whatever wrapper the host puts first gets a
-     definite box, so its own height:100% resolves no matter how deep the nesting goes. */
-  position: relative;
 }
 .dshn-side-chat > :first-child {
   position: absolute;

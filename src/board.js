@@ -1565,44 +1565,7 @@
      * down and write the measured height onto whatever collapsed — this needs no knowledge of the
      * host markup, which is exactly what the CSS-only versions kept getting wrong.
      */
-    /**
-     * Put every scroller inside the dock at its bottom.
-     *
-     * The host renders its composer as a sticky element inside the message scroller. Embedded at a
-     * different height than the main chat, that scroller can start scrolled up, and a sticky composer
-     * then sits wherever the offset left it — mid-column, with the answer continuing below.
-     */
-    function snapDockToBottom(dock) {
-      if (dock === null || dock === undefined || typeof dock.querySelectorAll !== 'function') return
-      const nodes = [dock, ...dock.querySelectorAll('*')]
-      for (const node of nodes) {
-        if (node === null || typeof node.scrollHeight !== 'number') continue
-        if (node.scrollHeight <= node.clientHeight + 4) continue
-        node.scrollTop = node.scrollHeight
-      }
-    }
 
-    function repairChain(dock) {
-      if (dock === null || dock === undefined || typeof dock.querySelector !== 'function') return
-      const column = dock.querySelector('.dshn-side-chat')
-      if (column === null) return
-      const target = column.clientHeight
-      if (target <= 0) return
-      let node = column.firstElementChild
-      for (let depth = 0; depth < 10 && node !== null; node = node.firstElementChild, depth += 1) {
-        // A collapsed wrapper is the only thing worth repairing. Writing a height onto a node that is
-        // *part* of a working layout (a scroller, a composer block) pushes content out of the column:
-        // the measured chain showed 515 inside 643 because of exactly that.
-        const collapsed = node.clientHeight < Math.max(24, target * 0.4)
-        const wrapper = node.children.length === 1
-        if (!collapsed || !wrapper) continue
-        node.style.height = target + 'px'
-        node.style.minHeight = '0'
-        node.style.display = 'flex'
-        node.style.flexDirection = 'column'
-        node.style.flex = '1 1 auto'
-      }
-    }
 
     function DashboardTab(props) {
       const t = props.t
@@ -1618,39 +1581,8 @@
       const [quickNote, setQuickNote] = useState(false)
       // The dock's measured height. Percentage chains break as soon as the host conversation
       // inserts a wrapper, so the height is written down explicitly instead.
-      const dockRef = useRef(null)
-      const [dockHeight, setDockHeight] = useState(0)
 
-      useEffect(() => {
-        const node = dockRef.current
-        if (node === null || node === undefined) return undefined
-        const measure = () => {
-          const height = node.clientHeight
-          if (height > 0) setDockHeight(height)
-          // Fix a collapsed wrapper in the host's conversation tree, if there is one. The host renders
-          // its conversation after we mount, so this has to run again whenever that tree changes —
-          // a single call at mount walks an empty chain and the composer never reaches the bottom.
-          repairChain(node)
-          snapDockToBottom(node)
-          // The host lays its conversation out for the window it knew when it mounted. In this dock it
-          // is shorter, and the items it rendered for the taller box stay in the tree and paint below
-          // the composer. A resize event is the only signal that makes it measure again.
-          if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-            window.dispatchEvent(new Event('resize'))
-            setTimeout(() => {
-              window.dispatchEvent(new Event('resize'))
-              snapDockToBottom(node)
-            }, 260)
-          }
-        }
-        measure()
-        // Re-measure when the dock itself changes size. Deliberately not on every DOM mutation: the
-        // host re-renders its conversation constantly, and repairing a live tree moves the composer.
-        if (typeof ResizeObserver === 'undefined') return undefined
-        const observer = new ResizeObserver(measure)
-        observer.observe(node)
-        return () => observer.disconnect()
-      }, [quickNote])
+
       const [quickText, setQuickText] = useState('')
       const [quickTags, setQuickTags] = useState('')
       const [quickStatus, setQuickStatus] = useState('')
@@ -1819,17 +1751,10 @@
                     'div',
                     {
                       className: 'dshn-side-chat',
-                      style: {
-                        // A number, not a percentage: the host conversation root is height:100%, so
-                        // the box it resolves against must be definite. The number is re-measured
-                        // whenever the dock or the host tree changes (see the effect above).
-                        height: dockHeight > 0 ? dockHeight + 'px' : '100%',
-                        flex: '1 1 auto',
-                        minHeight: 0,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                      },
+                      // The documented pattern (as in the wuche plugin): one plain flex child holds
+                      // the native conversation. The host sizes its own message list and composer; a
+                      // measured height made the composer stick to a shorter scroller.
+                      style: { flex: 1, minHeight: 0, display: 'flex' },
                     },
                     slotContent,
                   ),
@@ -1922,7 +1847,7 @@
           ),
           h(
             'div',
-            { className: 'dshn-side-dock', ref: dockRef },
+            { className: 'dshn-side-dock' },
             quickNote
               ? h(
                   'div',

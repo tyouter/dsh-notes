@@ -35,13 +35,15 @@ check('the dock still takes the free height', /flex:\s*1 1 auto/.test(dock) && /
 check('the dock is not a grid anymore', /display:\s*grid/.test(dock) === false, dock.slice(0, 200))
 
 const boxes = css.slice(css.indexOf('.dshn-chat-box,'), css.indexOf('.dshn-chat-box,' + 400))
-check('the docked layers cover the dock', /position:\s*absolute/.test(boxes) && /inset:\s*0/.test(boxes), boxes.slice(0, 220))
+// The quick-note layer covers the dock; the chat itself is a plain flex child (the wuche pattern).
+check('the quick layer covers the dock', /\.dshn-quick-box \{[\s\S]{0,120}position: absolute/.test(css), 'the quick layer is not an overlay')
+check('the chat box is a flex child, not an overlay', /\.dshn-chat-box \{[\s\S]{0,160}flex: 1 1 auto/.test(css) && !/\.dshn-chat-box \{[\s\S]{0,80}position: absolute/.test(css), 'the chat box is absolutely positioned again')
 
 const chatBox = blockOf('.dshn-chat-box')
 const sideChat = blockOf('.dshn-side-chat')
 const firstChildStart = css.indexOf('.dshn-side-chat > :first-child')
 const firstChild = firstChildStart < 0 ? '' : css.slice(firstChildStart, css.indexOf('}', firstChildStart) + 1)
-check('the chat column cuts the height chain', /position:\s*relative/.test(sideChat) && /position:\s*absolute/.test(firstChild) && /inset:\s*0/.test(firstChild), (sideChat + ' | ' + firstChild).slice(0, 260))
+check('the chat column hands the height down', /\.dshn-side-chat \{[\s\S]{0,220}flex: 1 1 auto/.test(css) && !/\.dshn-side-chat \{[\s\S]{0,220}height: 100%/.test(css), 'the chat column still fixes its own height')
 
 check('the chat box keeps a definite column', /display:\s*flex/.test(chatBox) && /flex-direction:\s*column/.test(chatBox), chatBox.slice(0, 200))
 
@@ -116,7 +118,7 @@ check('one set of metrics drives both layers', /\.dshn-composer \{[\s\S]{0,220}f
 check('the textarea has no padding of its own', /padding:\s*0/.test(blockOf('.dshn-textarea')), blockOf('.dshn-textarea').slice(0, 200))
 
 const boardSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
-check('a collapsed wrapper is repaired at runtime', /function repairChain\(/.test(boardSource) && /repairChain\(node\)/.test(boardSource), 'repairChain is missing or not called')
+check('no runtime repair is needed', /repairChain|snapDockToBottom/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) === false, 'a runtime repair is back')
 
 // Toolbars: small, one line, and the labels yield before the controls do.
 check('the footer never wraps', /flex-wrap: nowrap;\s*\n\s*min-width: 0;\s*\n\s*overflow: hidden/.test(css), 'footer wrap rule missing')
@@ -129,9 +131,7 @@ check('the hint is its own element', /className: 'dshn-cap dshn-hint'/.test(awai
 
 
 // The board composer drifted up the column when the chat was given a stale pixel height.
-check('the board chat cannot spill below its box', /\.dshn-side-chat \{[\s\S]{0,360}overflow: hidden/.test(css), 'chat is not clipped')
-    check('the board chat keeps a definite height for the host root', /height: dockHeight > 0 \? dockHeight \+ 'px'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the host root has no definite box to resolve height:100% against')
-    check('the dock never repairs a working layout', /const collapsed = node\.clientHeight < Math\.max\(24, target \* 0\.4\)/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) && /const wrapper = node\.children\.length === 1/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the repair can write a height onto a scroller or a composer block')
+check('the board chat is one plain flex child', /className: 'dshn-side-chat'[\s\S]{0,420}style: \{ flex: 1, minHeight: 0, display: 'flex' \}/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the side chat still carries a measured height')
     check('the dock does not repair on every host render', /MutationObserver/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) === false, 'the mutation observer is back; it repaired a live tree and moved the composer')
 
 
