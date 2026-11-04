@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env python3
-"""Extract the stills used by the README from the recorded clips.
+"""Extract the three stills the README shows, one per tab, from the recorded clips.
 
 A still is a frame of a real recording, resized to 900px so the documentation stays light.
 
@@ -15,13 +15,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECORDINGS = os.path.join(os.path.dirname(ROOT), "recordings")
 OUT = os.path.join(ROOT, "docs", "marketing")
 
+# (clip, frame index inside the clip's frames dir, output name)
 SHOTS = [
     ("rec-20261104-113436", 62, "shot-01-writing.png"),
-    ("rec-20261104-113436", 76, "shot-02-suggestion.png"),
-    ("rec-20261104-113436", 120, "shot-03-structured.png"),
-    ("rec-20261104-113436", 146, "shot-04-translated.png"),
     ("rec-20261104-115008", 32, "shot-05-history-edit.png"),
-    ("rec-20261104-115008", 56, "shot-06-copied.png"),
     ("rec-20261104-140544", 72, "shot-07-board-chart.png"),
 ]
 
