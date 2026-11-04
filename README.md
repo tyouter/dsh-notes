@@ -32,6 +32,7 @@ installed; everything under `lib/` is first-party.
 ## What it is for
 
 献给：喜欢思考，享受纯净文字美感的思想者。当你打开工具后，已经忘记了要写什么；当你在 AI 对话框里忍受着痛苦的打字体验时；当你用复杂的笔记软件被工具栏干扰时；当你的思路有一些卡壳时；当你的笔记成为一个被遗忘的角落。我们只做三件事：给你一张纸，只需要用空格和换行，手不离开键盘；AI 随时相伴，你的笔记 AI 替你管理；让文字回到它本来的样子，干净、直接、不被打断。
+
 - **Capture** — one box and one live page. Two spaces make a bullet, four the next level; Enter continues,
   Backspace backs out. A pause brings a suggestion (the note's own wording first), TAB takes a chunk, one
   Backspace gives it back. `Auto-write` turns suggestions — and their cost — off.
