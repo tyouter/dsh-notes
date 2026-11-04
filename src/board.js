@@ -1614,6 +1614,7 @@
           // its conversation after we mount, so this has to run again whenever that tree changes —
           // a single call at mount walks an empty chain and the composer never reaches the bottom.
           repairChain(node)
+          snapDockToBottom(node)
         }
         measure()
         // Re-measure when the dock itself changes size. Deliberately not on every DOM mutation: the
