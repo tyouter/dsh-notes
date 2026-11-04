@@ -128,5 +128,10 @@ check('the tab row does not wrap', /\.dshn-tabs \{[\s\S]{0,140}flex-wrap: nowrap
 check('the hint is its own element', /className: 'dshn-cap dshn-hint'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'hint is not addressable')
 
 
+// The board composer drifted up the column when the chat was given a stale pixel height.
+check('the board chat cannot spill below its box', /\.dshn-side-chat \{[\s\S]{0,360}overflow: hidden/.test(css), 'chat is not clipped')
+check('the board chat is sized by flex, not by a measurement', /dshn-side-chat[\s\S]{0,400}flex: '1 1 auto'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) && !/height: dockHeight > 0/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'stale pixel height is back')
+
+
 console.log(failures === 0 ? '\nlayout contract holds' : `\n${failures} violation(s)`)
 process.exitCode = failures === 0 ? 0 : 1

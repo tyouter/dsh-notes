@@ -3637,6 +3637,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* Whatever the host conversation does inside, it cannot spill below its box: the composer is the
+     last thing in the column, and nothing scrolls past it. */
+  overflow: hidden;
   overflow: hidden;
   /* The containing block for the host conversation: whatever wrapper the host puts first gets a
      definite box, so its own height:100% resolves no matter how deep the nesting goes. */
@@ -5565,10 +5568,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                     {
                       className: 'dshn-side-chat',
                       style: {
-                        // A number, not a percentage: definite regardless of ancestors.
-                        height: dockHeight > 0 ? dockHeight + 'px' : '100%',
-                        flex: 1,
+                        // Flex sizes it: the dock is the definite box (flex:1 in a column with a
+                        // known height). A measured pixel height went stale whenever the dock grew,
+                        // and the conversation then painted below the composer.
+                        flex: '1 1 auto',
                         minHeight: 0,
+                        minWidth: 0,
                         display: 'flex',
                         flexDirection: 'column',
                       },

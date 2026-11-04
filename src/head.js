@@ -3619,6 +3619,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* Whatever the host conversation does inside, it cannot spill below its box: the composer is the
+     last thing in the column, and nothing scrolls past it. */
+  overflow: hidden;
   overflow: hidden;
   /* The containing block for the host conversation: whatever wrapper the host puts first gets a
      definite box, so its own height:100% resolves no matter how deep the nesting goes. */

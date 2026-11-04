@@ -1782,10 +1782,12 @@
                     {
                       className: 'dshn-side-chat',
                       style: {
-                        // A number, not a percentage: definite regardless of ancestors.
-                        height: dockHeight > 0 ? dockHeight + 'px' : '100%',
-                        flex: 1,
+                        // Flex sizes it: the dock is the definite box (flex:1 in a column with a
+                        // known height). A measured pixel height went stale whenever the dock grew,
+                        // and the conversation then painted below the composer.
+                        flex: '1 1 auto',
                         minHeight: 0,
+                        minWidth: 0,
                         display: 'flex',
                         flexDirection: 'column',
                       },
