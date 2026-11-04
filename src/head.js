@@ -3028,12 +3028,20 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 .dshn-chat-box > *,
 .dshn-chat-box > * > *,
-.dshn-chat-box > * > * > * {
+.dshn-chat-box > * > * > *,
+.dshn-chat-box > * > * > * > *,
+.dshn-chat-box > * > * > * > * > *,
+.dshn-chat-box > * > * > * > * > * > * {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
+}
+/* The host's composer and the row under it must keep their own height: they are not wrappers. */
+.dshn-chat-box > * > * > * > *:last-child,
+.dshn-chat-box > * > * > * > * > *:last-child {
+  flex: 0 0 auto;
 }
 /* The host composer's "add files or commands" button is host UI: the only way to
    drop it inside this dock is by its accessible name, in each locale. Scoped to
