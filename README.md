@@ -38,23 +38,15 @@ type-setting, tidying and translation wait off to the side until you ask.**
 
 The full pitch — scenario, pain, need, feature — is in [docs/marketing/pitch.md](docs/marketing/pitch.md).
 
-![The whole workflow](docs/marketing/dsh-notes-demo.gif)
+![Writing and structure](docs/marketing/demo-a-write.gif)
 
-*The whole workflow, in the real UI and in English: write → it typesets → a pause gets a suggestion →
-select a range and structure only that range → apply → translate the note → save → edit in History →
-copy as Markdown → the board.*
-
-The stills use a real note and the two real charts from this notebook; the UI labels are the ones the
-panel shows in an English locale.
+*Recorded from the running app: spaces become structure, the right page typesets as you type, a pause
+gets a suggestion that TAB accepts, then Structure rewrites the note and Translate turns it into English.*
 
 | | |
 | --- | --- |
-| ![Start writing](docs/marketing/01-write-now.png) | ![A suggestion after a pause](docs/marketing/02-suggestion.png) |
-| **Open and write.** Two spaces make a bullet, indentation makes the next level, and the right page typesets while you type. | **The pause is the trigger.** After a second of silence the note's own wording answers first; only then is the model asked. TAB takes it, one Backspace undoes it. |
-| ![Structuring a range](docs/marketing/03-structure-range.png) | ![Apply and translate](docs/marketing/04-apply-translate.png) |
-| **Structure only the range you selected.** The draft is the right page; the rest of the note is untouched until Apply. | **Apply, then translate.** Apply rewrites just the selection; Translate works on the note from the live preview. Saving stores the page you see. |
-| ![History and copy](docs/marketing/05-history-copy.png) | ![The board](docs/marketing/06-board.png) |
-| **History is the same editor.** Edit reuses the two pages, Save keeps the note, and Copy turns it into standard Markdown with one click. | **One more thing: the board.** The charts are the ones pinned from earlier sessions, and the answer counts a real tag across the notes. |
+| ![History and copy](docs/marketing/demo-b-history.gif) | ![The board](docs/marketing/demo-c-board.gif) |
+| **History is the same editor.** Open a note, edit it in place, save — and copy the whole note as Markdown in one click. | **One more thing: the board.** Ask it a question and it queries the notebook, then pins the chart it built. |
 
 The assets are generated from the plugin's own renderer and stylesheet, frame by frame:
 `node tools/marketing-11.mjs --capture` then `python tools/marketing_gif.py --dir exports/marketing-11`.
