@@ -37,26 +37,22 @@ installed; everything under `lib/` is first-party.
 - **AI alongside** — suggestions, structure and translation wait at the edge of the page and answer when you ask. Your notes are managed by the AI, not by toolbars.
 - **Writing as it should be** — clean, direct, uninterrupted. The page is already set while you type.
 
-| |
-| :---: |
-| ![Capture](docs/marketing/demo-a-write.gif) |
-| **Capture** |
+![Capture](docs/marketing/demo-a-write.gif)
 
-| |
-| :---: |
-| ![History](docs/marketing/demo-b-history.gif) |
-| **History** |
+*Capture*
 
-| |
-| :---: |
-| ![Board](docs/marketing/demo-c-board.gif) |
-| **Board** |
+![History](docs/marketing/demo-b-history.gif)
+
+*History*
+
+![Board](docs/marketing/demo-c-board.gif)
+
+*Board*
 
 | | | |
 | :---: | :---: | :---: |
 | ![Capture](docs/marketing/shot-01-writing.png) | ![History](docs/marketing/shot-05-history-edit.png) | ![Board](docs/marketing/shot-07-board-chart.png) |
 | **Capture** | **History** | **Board** |
-
 
 ## What it stores, and what leaves the machine
 
