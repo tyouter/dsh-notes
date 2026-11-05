@@ -589,6 +589,13 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('pausing after an accept asks again', /setGhost\(null\)\n\s*scheduleCompletion\(end\)/.test(boardSource))
     check('the ghost is styled as a suggestion', /\.dshn-ghost \{/.test(headCss))
 
+    // A point colour reaches the inline style of the bar, the pie arc and the stat number.
+    check('the bar fill takes the point colour', /background: chartColor\(row, ''\)/.test(boardSource))
+    check('the pie arc takes the point colour', /stroke: chartColor\(row,/.test(boardSource))
+    check('the line takes the first point colour', /stroke: chartColor\(rows\[0\],/.test(boardSource))
+    check('the stat number takes the point colour', /color: chartColor\(first, ''\)/.test(boardSource))
+    check('the colour resolver only accepts safe shapes', /function chartColor\(point, fallback\)/.test(headSource) && /rgba\|hsl\|hsla/.test(headSource))
+
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 3px 10px; font-size: 12px/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 
     check('all four save paths remain', saveSites.length === 4, String(saveSites.length))

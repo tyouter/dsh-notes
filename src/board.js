@@ -28,7 +28,10 @@
               { className: 'dshn-bar-track' },
               h('span', {
                 className: 'dshn-bar-fill',
-                style: { width: `${Math.max(2, Math.round((Number(row.value) / max) * 100))}%` },
+                style: {
+                  width: `${Math.max(2, Math.round((Number(row.value) / max) * 100))}%`,
+                  ...(row.color === undefined ? null : { background: chartColor(row, '') }),
+                },
               }),
             ),
             h('span', { className: 'dshn-bar-value' }, String(row.value)),
@@ -60,7 +63,7 @@
         h('polyline', {
           points: points.join(' '),
           fill: 'none',
-          stroke: 'var(--dsw-alias-brand-primary)',
+          stroke: chartColor(rows[0], 'var(--dsw-alias-brand-primary)'),
           strokeWidth: 1.4,
           vectorEffect: 'non-scaling-stroke',
           strokeLinejoin: 'round',
@@ -91,7 +94,7 @@
               cy: 50,
               r: radius,
               fill: 'none',
-              stroke: `var(--dshn-series-${index % 6})`,
+              stroke: chartColor(row, `var(--dshn-series-${index % 6})`),
               strokeWidth: 13,
               strokeDasharray: `${dash} ${circumference - dash}`,
               strokeDashoffset: -offset,
@@ -108,7 +111,10 @@
             h(
               'span',
               { key: `${row.label}-${index}`, className: 'dshn-legend-item' },
-              h('span', { className: 'dshn-legend-dot', style: { background: `var(--dshn-series-${index % 6})` } }),
+              h('span', {
+                className: 'dshn-legend-dot',
+                style: { background: chartColor(row, `var(--dshn-series-${index % 6})`) },
+              }),
               `${row.label} ${row.value}`,
             ),
           ),
@@ -227,7 +233,14 @@
       return h(
         'div',
         { className: 'dshn-stat' },
-        h('span', { className: 'dshn-stat-value' }, value),
+        h(
+          'span',
+          {
+            className: 'dshn-stat-value',
+            style: first?.color === undefined ? null : { color: chartColor(first, '') },
+          },
+          value,
+        ),
         h('span', { className: 'dshn-stat-label' }, first?.label ?? ''),
       )
     }

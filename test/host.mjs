@@ -295,5 +295,35 @@ await rm(tokenVault, { recursive: true, force: true })
   await rm(root, { recursive: true, force: true })
 }
 
+// ---- chart colours ----
+// Charts are written by the model, so a colour reaches an inline style: the shape is checked, and an
+// unusable value is dropped instead of passed through.
+{
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-chart-colour-'))
+  const store = new NoteStore({ config: { notesPath: root } })
+  const tools = []
+  const dispose = registerNotesTools(
+    { get: (name) => (name === 'tools' ? { register: (definition) => (tools.push(definition), () => {}) } : undefined) },
+    store,
+    console,
+  )
+  const chartTool = tools.find((entry) => entry.name === 'dashboard_chart')
+  const saved = await chartTool.execute({
+    title: 'colours',
+    type: 'bar',
+    data: [
+      { label: '绿色', value: 1, color: '#2ea043' },
+      { label: '默认', value: 2 },
+      { label: '注入', value: 3, color: 'url(https://example.com/x)' },
+    ],
+  })
+  const points = saved?.saved?.data ?? []
+  check('a chart keeps a point colour', points[0]?.color === '#2ea043', JSON.stringify(points[0]))
+  check('a point without a colour stays clean', points[1]?.color === undefined, JSON.stringify(points[1]))
+  check('an unsafe colour is dropped', points[2]?.color === undefined, JSON.stringify(points[2]))
+  if (typeof dispose === 'function') dispose()
+  await rm(root, { recursive: true, force: true })
+}
+
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exitCode = failures === 0 ? 0 : 1

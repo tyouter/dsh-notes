@@ -1100,6 +1100,22 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * The colour a chart point should be drawn in.
+     *
+     * The value comes from a chart file, which the model writes and a person can edit, so it is checked
+     * here too: hex, rgb()/hsl() or a theme variable, nothing else. An unusable value falls back to the
+     * colour the renderer would have used anyway.
+     */
+    function chartColor(point, fallback) {
+      const value = String(point?.color ?? '').trim()
+      const safe =
+        /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value) ||
+        /^(?:rgb|rgba|hsl|hsla)\([0-9.,%\s/+-]{3,40}\)$/i.test(value) ||
+        /^var\(--[a-z0-9-]{1,60}\)$/i.test(value)
+      return safe ? value : fallback
+    }
+
     /** A comparison key: markers, punctuation and spacing removed, Latin lowercased. */
     function compareKey(value) {
       return String(value ?? '')
@@ -3809,7 +3825,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               { className: 'dshn-bar-track' },
               h('span', {
                 className: 'dshn-bar-fill',
-                style: { width: `${Math.max(2, Math.round((Number(row.value) / max) * 100))}%` },
+                style: {
+                  width: `${Math.max(2, Math.round((Number(row.value) / max) * 100))}%`,
+                  ...(row.color === undefined ? null : { background: chartColor(row, '') }),
+                },
               }),
             ),
             h('span', { className: 'dshn-bar-value' }, String(row.value)),
@@ -3841,7 +3860,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         h('polyline', {
           points: points.join(' '),
           fill: 'none',
-          stroke: 'var(--dsw-alias-brand-primary)',
+          stroke: chartColor(rows[0], 'var(--dsw-alias-brand-primary)'),
           strokeWidth: 1.4,
           vectorEffect: 'non-scaling-stroke',
           strokeLinejoin: 'round',
@@ -3872,7 +3891,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               cy: 50,
               r: radius,
               fill: 'none',
-              stroke: `var(--dshn-series-${index % 6})`,
+              stroke: chartColor(row, `var(--dshn-series-${index % 6})`),
               strokeWidth: 13,
               strokeDasharray: `${dash} ${circumference - dash}`,
               strokeDashoffset: -offset,
@@ -3889,7 +3908,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             h(
               'span',
               { key: `${row.label}-${index}`, className: 'dshn-legend-item' },
-              h('span', { className: 'dshn-legend-dot', style: { background: `var(--dshn-series-${index % 6})` } }),
+              h('span', {
+                className: 'dshn-legend-dot',
+                style: { background: chartColor(row, `var(--dshn-series-${index % 6})`) },
+              }),
               `${row.label} ${row.value}`,
             ),
           ),
@@ -4008,7 +4030,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       return h(
         'div',
         { className: 'dshn-stat' },
-        h('span', { className: 'dshn-stat-value' }, value),
+        h(
+          'span',
+          {
+            className: 'dshn-stat-value',
+            style: first?.color === undefined ? null : { color: chartColor(first, '') },
+          },
+          value,
+        ),
         h('span', { className: 'dshn-stat-label' }, first?.label ?? ''),
       )
     }
@@ -6410,7 +6439,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, chartColor, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

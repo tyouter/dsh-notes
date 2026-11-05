@@ -1082,6 +1082,22 @@
       }
     }
 
+    /**
+     * The colour a chart point should be drawn in.
+     *
+     * The value comes from a chart file, which the model writes and a person can edit, so it is checked
+     * here too: hex, rgb()/hsl() or a theme variable, nothing else. An unusable value falls back to the
+     * colour the renderer would have used anyway.
+     */
+    function chartColor(point, fallback) {
+      const value = String(point?.color ?? '').trim()
+      const safe =
+        /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value) ||
+        /^(?:rgb|rgba|hsl|hsla)\([0-9.,%\s/+-]{3,40}\)$/i.test(value) ||
+        /^var\(--[a-z0-9-]{1,60}\)$/i.test(value)
+      return safe ? value : fallback
+    }
+
     /** A comparison key: markers, punctuation and spacing removed, Latin lowercased. */
     function compareKey(value) {
       return String(value ?? '')
