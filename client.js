@@ -122,6 +122,9 @@ window.__ModuleLoader__.load({
         resizeList: '拖动调整列表宽度',
     copyMarkdown: '复制 Markdown',
     copied: '已复制',
+    immersive: '沉浸模式',
+    immersiveExit: '退出沉浸',
+    immersiveFailed: '浏览器拒绝了全屏',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -275,6 +278,9 @@ window.__ModuleLoader__.load({
         resizeList: 'Drag to resize the note list',
     copyMarkdown: 'Copy Markdown',
     copied: 'Copied',
+    immersive: 'Immersive',
+    immersiveExit: 'Leave immersive',
+    immersiveFailed: 'Fullscreen was refused',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -3184,6 +3190,23 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   padding: 28px 24px;
   overflow-y: auto;
 }
+/* ---- immersive: this page alone, on the whole screen ---- */
+.dshn-capture-pane:fullscreen {
+  background: var(--dsw-alias-bg-base);
+  padding: 32px 48px 24px;
+  overflow-y: auto;
+}
+.dshn-capture-pane:fullscreen .dshn-sheets {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dshn-capture-pane:fullscreen .dshn-capture-box[data-layout='page'] .dshn-sheet {
+  height: auto;
+  flex: 1 1 0;
+}
+.dshn-capture-pane:fullscreen .dshn-capture-tools {
+  padding-top: 12px;
+}
 .dshn-capture-box[data-layout='page'] {
   margin: 0 auto;
   display: flex;
@@ -4154,6 +4177,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // source stays the single place you edit.
       // A translation made from the preview: the note itself is only replaced on Apply.
       const [preview, setPreview] = useState(null)
+      // Immersive: the capture page alone on the screen. The browser owns the transition; this only
+      // mirrors it so the button can say which way it goes.
+      const [immersive, setImmersive] = useState(false)
       // Which call is running ("structure" / "translate"), and a counter that changes whenever a
       // result lands — the counter is the wipe animation's key.
       const [busy, setBusy] = useState('')
@@ -4183,9 +4209,46 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         }
       }
 
+      // Esc leaves fullscreen without telling us; the event is the only reliable signal.
+      useEffect(() => {
+        if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined
+        const onChange = () => setImmersive(document.fullscreenElement !== null && document.fullscreenElement !== undefined)
+        document.addEventListener('fullscreenchange', onChange)
+        return () => document.removeEventListener('fullscreenchange', onChange)
+      }, [])
+
       const flash = (label) => {
         setStatus(label)
         setTimeout(() => setStatus(''), 1600)
+      }
+
+      /**
+       * Enter or leave immersive mode.
+       *
+       * The element that goes fullscreen is the capture pane, not the panel: that is what hides the
+       * sidebar and the tab strip, and (in the desktop app) the Windows taskbar. The browser handles
+       * Esc itself; a refusal (an embedded webview that disallows it) is reported instead of silently
+       * doing nothing.
+       */
+      const toggleImmersive = async () => {
+        if (typeof document === 'undefined') return
+        const active = document.fullscreenElement !== null && document.fullscreenElement !== undefined
+        try {
+          if (active) {
+            await document.exitFullscreen()
+            return
+          }
+          const area = areaRef.current
+          const pane = area === null || area === undefined ? null : area.closest('.dshn-capture-pane')
+          const target = pane ?? document.documentElement
+          if (typeof target.requestFullscreen !== 'function') {
+            flash(t.immersiveFailed)
+            return
+          }
+          await target.requestFullscreen()
+        } catch {
+          flash(t.immersiveFailed)
+        }
       }
 
       const saveDraft = async () => {
@@ -5067,6 +5130,37 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 t.cancel,
               ),
           h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
+          compactLayout
+            ? null
+            : h(
+                'button',
+                {
+                  key: 'immersive',
+                  className: 'dshn-icon-btn',
+                  type: 'button',
+                  'aria-label': immersive ? t.immersiveExit : t.immersive,
+                  title: immersive ? t.immersiveExit : t.immersive,
+                  'data-on': String(immersive),
+                  onClick: () => void toggleImmersive(),
+                },
+                immersive
+                  ? h(
+                      'svg',
+                      { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                      h('path', { d: 'M9 4v5H4' }),
+                      h('path', { d: 'M15 20v-5h5' }),
+                      h('path', { d: 'M20 9h-5V4' }),
+                      h('path', { d: 'M4 15h5v5' }),
+                    )
+                  : h(
+                      'svg',
+                      { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                      h('path', { d: 'M4 9V4h5' }),
+                      h('path', { d: 'M20 9V4h-5' }),
+                      h('path', { d: 'M4 15v5h5' }),
+                      h('path', { d: 'M20 15v5h-5' }),
+                    ),
+              ),
         ),
       )
 

@@ -104,6 +104,9 @@
         resizeList: '拖动调整列表宽度',
     copyMarkdown: '复制 Markdown',
     copied: '已复制',
+    immersive: '沉浸模式',
+    immersiveExit: '退出沉浸',
+    immersiveFailed: '浏览器拒绝了全屏',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -257,6 +260,9 @@
         resizeList: 'Drag to resize the note list',
     copyMarkdown: 'Copy Markdown',
     copied: 'Copied',
+    immersive: 'Immersive',
+    immersiveExit: 'Leave immersive',
+    immersiveFailed: 'Fullscreen was refused',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -3165,6 +3171,23 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   align-items: center;
   padding: 28px 24px;
   overflow-y: auto;
+}
+/* ---- immersive: this page alone, on the whole screen ---- */
+.dshn-capture-pane:fullscreen {
+  background: var(--dsw-alias-bg-base);
+  padding: 32px 48px 24px;
+  overflow-y: auto;
+}
+.dshn-capture-pane:fullscreen .dshn-sheets {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dshn-capture-pane:fullscreen .dshn-capture-box[data-layout='page'] .dshn-sheet {
+  height: auto;
+  flex: 1 1 0;
+}
+.dshn-capture-pane:fullscreen .dshn-capture-tools {
+  padding-top: 12px;
 }
 .dshn-capture-box[data-layout='page'] {
   margin: 0 auto;

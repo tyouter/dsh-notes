@@ -483,8 +483,8 @@ check('the busy chip replaces the translate button', /translating\s*\?\s*busyChi
 
     check('a lone sheet takes the row', /data-mode': showRender \? 'split' : 'single'/.test(boardSource) && /data-mode='single'\] \.dshn-sheet/.test(headCss))
     // Both pages end on the same line, and the preview scrolls inside its own page.
-    const sheetRule = headSource.slice(headSource.indexOf("[data-layout='page'] .dshn-sheet {"))
-    check('a page has a definite height', /height: min\(78vh, 980px\)/.test(sheetRule.slice(0, 400)))
+    // The page rule has a definite height; the immersive variant overrides it deliberately.
+    check('a page has a definite height', /\.dshn-capture-box\[data-layout='page'\] \.dshn-sheet \{[^}]*height: min\(78vh, 980px\)/.test(headSource), 'the base page rule lost its definite height')
     check('the preview page scrolls', /\[data-role='render'\] \.dshn-page-render \{[^}]*overflow-y: auto/s.test(headSource))
     check('the preview fills its page', /\[data-role='render'\] \.dshn-page-render \{[^}]*flex: 1 1 auto/s.test(headSource))
     // The old inline-mirror rule capped the preview at 42vh; the page layout must reset it.
@@ -595,6 +595,15 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the line takes the first point colour', /stroke: chartColor\(rows\[0\],/.test(boardSource))
     check('the stat number takes the point colour', /color: chartColor\(first, ''\)/.test(boardSource))
     check('the colour resolver only accepts safe shapes', /function chartColor\(point, fallback\)/.test(headSource) && /rgba\|hsl\|hsla/.test(headSource))
+
+    // Immersive mode: the capture pane goes fullscreen (that is what hides the shell), and the
+    // browser's own Esc is mirrored back onto the button.
+    check('immersive mode asks the pane for fullscreen', /closest\('\.dshn-capture-pane'\)/.test(boardSource) && /requestFullscreen\(\)/.test(boardSource))
+    check('immersive mode leaves with exitFullscreen', /document\.exitFullscreen\(\)/.test(boardSource))
+    check('the browser Esc is mirrored back', /addEventListener\('fullscreenchange'/.test(boardSource) && /setImmersive\(document\.fullscreenElement/.test(boardSource))
+    check('the immersive button lives in the footer', /key: 'immersive'/.test(boardSource) && /aria-label': immersive \? t\.immersiveExit : t\.immersive/.test(boardSource))
+    check('a refusal is reported, not swallowed', /flash\(t\.immersiveFailed\)/.test(boardSource))
+    check('fullscreen brings its own background and height', /\.dshn-capture-pane:fullscreen \{[\s\S]{0,200}background: var\(--dsw-alias-bg-base\)/.test(headCss) && /\.dshn-capture-pane:fullscreen [^{]*\.dshn-sheet \{[\s\S]{0,80}height: auto/.test(headCss))
 
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 3px 10px; font-size: 12px/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 
