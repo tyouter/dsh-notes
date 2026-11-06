@@ -2224,10 +2224,16 @@ window.__ModuleLoader__.load({
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   border-radius: var(--dshn-r-sm);
-  padding: 3px 10px;
+  /* One height for every control in a toolbar row: padding alone made the buttons 28px, the icon
+     buttons 24px and the switch 17px, which is why the footer read as three uneven rows. */
+  height: 28px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font: inherit;
   font-size: 12px;
-  line-height: 20px;
+  line-height: 1;
   cursor: pointer;
   transition: background .12s ease, border-color .12s ease;
   white-space: nowrap;
@@ -2621,8 +2627,8 @@ window.__ModuleLoader__.load({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: 1px solid transparent;
   border-radius: var(--dshn-r-sm);
   background: transparent;
@@ -3343,19 +3349,18 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   min-width: 0;
   overflow: hidden;
 }
+.dshn-capture-tools .dshn-btn { height: 28px; padding: 0 12px; font-size: 12px; }
 .dshn-capture-tools .dshn-btn,
 .dshn-capture-tools .dshn-switch { flex: 0 0 auto; white-space: nowrap; }
 /* The counter and the key hint yield first, then the hint goes away entirely. */
 .dshn-capture-tools .dshn-chars { flex: 0 0 auto; white-space: nowrap; }
 .dshn-capture-tools .dshn-hint {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Whole or gone: "Ctrl/⌘..." reads as a broken control rather than a shortened hint. */
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .dshn-capture-pane { container-type: inline-size; }
-@container (max-width: 620px) {
+@container (max-width: 760px) {
   .dshn-capture-tools .dshn-hint { display: none; }
 }
 /* ---- preview drawer handle: a tab on the seam between the pages ---- */
@@ -3398,14 +3403,19 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* The same 28px box as the buttons beside it. */
+  height: 28px;
+  padding: 0 6px;
   border: none;
+  border-radius: var(--dshn-r-sm);
   background: transparent;
-  padding: 2px;
   cursor: pointer;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
+  transition: background .12s ease, color .12s ease;
 }
+.dshn-switch:hover { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
 .dshn-switch:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 999px; }
 .dshn-switch-track {
   position: relative;
@@ -3440,6 +3450,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   padding-top: 10px;
   border-top: 1px solid var(--dsw-alias-border-l1);
   flex: none;
+  align-items: center;
+  gap: 8px;
 }
 /* An inline error must not push the footer buttons around. */
 .dshn-err-inline {

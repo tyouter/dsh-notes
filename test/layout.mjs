@@ -122,9 +122,11 @@ check('no runtime repair is needed', /repairChain|snapDockToBottom/.test(await r
 
 // Toolbars: small, one line, and the labels yield before the controls do.
 check('the footer never wraps', /flex-wrap: nowrap;\s*\n\s*min-width: 0;\s*\n\s*overflow: hidden/.test(css), 'footer wrap rule missing')
-check('the footer buttons are small', /\.dshn-capture-tools \.dshn-btn \{ padding: 3px 10px; font-size: 12px/.test(css), 'footer buttons are not small')
-check('the key hint truncates', /\.dshn-capture-tools \.dshn-hint \{[\s\S]{0,200}text-overflow: ellipsis/.test(css), 'hint does not truncate')
-check('the key hint disappears on a narrow pane', /@container \(max-width: 620px\)[\s\S]{0,120}dshn-hint \{ display: none/.test(css), 'no container query for the hint')
+check('every footer control is the same height', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(css), 'footer buttons do not share the control height')
+  check('the icon button agrees with it', /\.dshn-icon-btn \{[\s\S]{0,120}width: 28px;\s*\n\s*height: 28px/.test(css), 'the icon button has its own height')
+  check('the switch agrees with it', /\.dshn-switch \{[\s\S]{0,200}height: 28px/.test(css), 'the switch has its own height')
+check('the key hint is whole or gone', /\.dshn-capture-tools \.dshn-hint \{[\s\S]{0,160}flex: 0 0 auto/.test(css) && /@container \(max-width: 760px\) \{\s*\n\s*\.dshn-capture-tools \.dshn-hint \{ display: none; \}/.test(css), 'the hint still ellipsizes')
+check('the key hint disappears on a narrow pane', /@container \(max-width: 760px\)[\s\S]{0,120}dshn-hint \{ display: none/.test(css), 'no container query for the hint')
 check('the history bar does not wrap', /\.dshn-detail-bar \{[\s\S]{0,300}flex-wrap: nowrap/.test(css), 'detail bar can wrap')
 check('the tab row does not wrap', /\.dshn-tabs \{[\s\S]{0,140}flex-wrap: nowrap/.test(css), 'tabs can wrap')
 check('the hint is its own element', /className: 'dshn-cap dshn-hint'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'hint is not addressable')

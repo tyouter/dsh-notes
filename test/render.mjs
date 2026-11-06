@@ -608,7 +608,7 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('a refusal is reported, not swallowed', /flash\(t\.immersiveFailed\)/.test(boardSource))
     check('fullscreen brings its own background and height', /\.dshn-capture-pane:fullscreen \{[\s\S]{0,200}background: var\(--dsw-alias-bg-base\)/.test(headCss) && /\.dshn-capture-pane:fullscreen [^{]*\.dshn-sheet \{[\s\S]{0,80}height: auto/.test(headCss))
 
-    check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ padding: 3px 10px; font-size: 12px/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
+    check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 
     check('all four save paths remain', saveSites.length === 4, String(saveSites.length))
   }
