@@ -484,7 +484,10 @@ check('the busy chip replaces the translate button', /translating\s*\?\s*busyChi
     check('a lone sheet takes the row', /data-mode': showRender \? 'split' : 'single'/.test(boardSource) && /data-mode='single'\] \.dshn-sheet/.test(headCss))
     // Both pages end on the same line, and the preview scrolls inside its own page.
     // The page rule has a definite height; the immersive variant overrides it deliberately.
-    check('a page has a definite height', /\.dshn-capture-box\[data-layout='page'\] \.dshn-sheet \{[^}]*height: min\(78vh, 980px\)/.test(headSource), 'the base page rule lost its definite height')
+    // The page fills the pane instead of capping at 78vh: the toolbar belongs at the bottom of the
+    // window, not halfway up it.
+    check('a page fills the pane', /\.dshn-capture-box\[data-layout='page'\] \.dshn-sheet \{[^}]*flex: 1 1 0/.test(headSource) && /height: min\(78vh, 980px\)/.test(headSource) === false, 'the page still caps its height')
+    check('the pane hands its height down', /\.dshn-capture-box\[data-layout='page'\] > \.dshn-sheets \{[^}]*flex: 1 1 auto/.test(headSource))
     check('the preview page scrolls', /\[data-role='render'\] \.dshn-page-render \{[^}]*overflow-y: auto/s.test(headSource))
     check('the preview fills its page', /\[data-role='render'\] \.dshn-page-render \{[^}]*flex: 1 1 auto/s.test(headSource))
     // The old inline-mirror rule capped the preview at 42vh; the page layout must reset it.

@@ -3214,6 +3214,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   gap: 14px;
   width: 100%;
   min-width: 0;
+  /* Fills the pane, so the paper can take the whole height. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dshn-capture-box[data-layout='page'] > .dshn-sheets {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 /* ---- sheets ---- */
 /* A sheet is one page: its own frame, its own A4-ish height. Two of them sit side by
@@ -3231,9 +3238,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
      sheet winning. */
   flex: 0 1 820px;
   min-width: 0;
-  /* A definite height, not a minimum: both pages end on the same line, and content that
-     does not fit scrolls inside its own page. */
-  height: min(78vh, 980px);
+  /* The pane hands down its height, so the page grows with the window. A fixed 78vh cap left the
+     toolbar halfway up the screen and a field of empty space under it. */
+  height: auto;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
