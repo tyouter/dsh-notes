@@ -121,7 +121,9 @@ const boardSource = await readFile(join(packageDir, 'src', 'board.js'), 'utf8')
 check('no runtime repair is needed', /repairChain|snapDockToBottom/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) === false, 'a runtime repair is back')
 
 // Toolbars: small, one line, and the labels yield before the controls do.
-check('the footer never wraps', /flex-wrap: nowrap;\s*\n\s*min-width: 0;\s*\n\s*overflow: hidden/.test(css), 'footer wrap rule missing')
+check('the footer wraps in groups instead of clipping', /flex-wrap: wrap;\s*\n\s*row-gap: 8px;\s*\n\s*min-width: 0;\s*\n\s*overflow: visible/.test(css), 'footer still clips its overflow')
+  check('the footer has a meta group and an actions group', /\.dshn-tool-meta \{[\s\S]{0,200}\}/.test(css) && /\.dshn-tool-actions \{[\s\S]{0,220}margin-left: auto/.test(css), 'no group wrappers')
+  check('a narrow pane moves the actions to their own line', /@container \(max-width: 560px\)[\s\S]{0,160}justify-content: flex-end/.test(css), 'actions do not take a line of their own')
 check('every footer control is the same height', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(css), 'footer buttons do not share the control height')
   check('the icon button agrees with it', /\.dshn-icon-btn \{[\s\S]{0,120}width: 28px;\s*\n\s*height: 28px/.test(css), 'the icon button has its own height')
   check('the switch agrees with it', /\.dshn-switch \{[\s\S]{0,200}height: 28px/.test(css), 'the switch has its own height')

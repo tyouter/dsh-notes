@@ -3326,12 +3326,32 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools {
-  /* One line, always: a wrapped Save button read as a second row of controls. */
-  flex-wrap: nowrap;
+  /* Two groups, so a narrow page wraps the actions onto their own line instead of clipping the
+     button that happens to be last. Nothing may be hidden: every control stays reachable. */
+  flex-wrap: wrap;
+  row-gap: 8px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .dshn-capture-tools .dshn-btn { height: 28px; padding: 0 12px; font-size: 12px; }
+/* The footer in two halves: what you are writing (left) and what you can do to it (right). */
+.dshn-tool-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.dshn-tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  /* Replaces the old spacer: the actions own their alignment, so wrapping keeps them right-aligned. */
+  margin-left: auto;
+}
 .dshn-capture-tools .dshn-btn,
 .dshn-capture-tools .dshn-switch { flex: 0 0 auto; white-space: nowrap; }
 /* The counter and the key hint yield first, then the hint goes away entirely. */
@@ -3344,6 +3364,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-capture-pane { container-type: inline-size; }
 @container (max-width: 760px) {
   .dshn-capture-tools .dshn-hint { display: none; }
+}
+/* Narrower than a comfortable row: the actions move to their own line rather than shrink. */
+@container (max-width: 560px) {
+  .dshn-tool-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 /* ---- preview drawer handle: a tab on the seam between the pages ---- */
 .dshn-sheets { position: relative; }
@@ -3460,7 +3488,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   border-top: none;
 }
 /* Narrow windows keep the single column: two canvases need room to be worth it. */
-@media (max-width: 1180px) {
+@container (max-width: 1180px) {
   /* Not enough room for two pages: stack them, each full width of the pane. */
   .dshn-sheets {
     flex-direction: column;

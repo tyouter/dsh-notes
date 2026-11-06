@@ -1253,10 +1253,13 @@
         h(
           'div',
           { className: 'dshn-row dshn-capture-tools' },
-          h('span', { className: 'dshn-cap dshn-chars' }, t.chars(draft.length)),
-          // Part of the footer that is allowed to vanish: the pane can be narrow.
-          h('span', { className: 'dshn-cap dshn-hint' }, 'Ctrl/⌘+Enter'),
           h(
+            'span',
+            { className: 'dshn-tool-meta' },
+            h('span', { className: 'dshn-cap dshn-chars' }, t.chars(draft.length)),
+              // Part of the footer that is allowed to vanish: the pane can be narrow.
+          h('span', { className: 'dshn-cap dshn-hint' }, 'Ctrl/⌘+Enter'),
+              h(
             'button',
             {
               className: 'dshn-switch',
@@ -1280,8 +1283,11 @@
             h('span', { className: 'dshn-switch-track' }, h('span', { className: 'dshn-switch-knob' })),
             h('span', null, t.autoWrite),
           ),
-          h('span', { className: 'dshn-grow' }),
+          ),
           h(
+            'span',
+            { className: 'dshn-tool-actions' },
+            h(
             'button',
             {
               className: 'dshn-btn enhance',
@@ -1295,7 +1301,7 @@
                 : t.enhancing
               : '✦ ' + (selected.end > selected.start ? t.structureSelection : t.enhance),
           ),
-          enhancing
+              enhancing
             ? h('button', { className: 'dshn-btn ghost', onClick: stopStructured }, t.enhanceStop)
             : h(
                 'button',
@@ -1309,8 +1315,8 @@
                 },
                 t.cancel,
               ),
-          h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
-          compactLayout
+              h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
+              compactLayout
             ? null
             : h(
                 'button',
@@ -1341,6 +1347,7 @@
                       h('path', { d: 'M20 15v5h-5' }),
                     ),
               ),
+          ),
         ),
       )
 

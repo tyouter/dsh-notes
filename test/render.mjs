@@ -433,7 +433,8 @@ const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
     check('the sheets sit side by side', /\.dshn-sheets \{[^}]*flex-direction: row/s.test(headSource))
     check('both sheets share one basis', headSource.includes('flex: 0 1 820px'))
     check('the source sheet carries the toolbar', headSource.includes("[data-role='source'] .dshn-capture-tools"))
-    check('narrow windows stack the sheets', /\.dshn-sheets \{[^}]*flex-direction: column/s.test(headSource.split('@media (max-width: 1180px)')[1] ?? ''))
+    // Stacking is keyed to the pane's width, not the window's: the panel can be narrow in a wide window.
+  check('a narrow pane stacks the sheets', /\.dshn-sheets \{[^}]*flex-direction: column/s.test(headSource.split('@container (max-width: 1180px)')[1] ?? ''))
     check('a sheet is emitted for the source', boardSource.includes("'data-role': 'source'"))
     check('a sheet is emitted for the preview', boardSource.includes("'data-role': 'render'"))
     // Structure reuses the preview page: rendered result, toolbar in the same footer.

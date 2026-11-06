@@ -3344,12 +3344,32 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
    had before a preview existed. */
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='source'] .dshn-capture-tools,
 .dshn-capture-box[data-layout='page'] .dshn-sheet[data-role='render'] .dshn-capture-tools {
-  /* One line, always: a wrapped Save button read as a second row of controls. */
-  flex-wrap: nowrap;
+  /* Two groups, so a narrow page wraps the actions onto their own line instead of clipping the
+     button that happens to be last. Nothing may be hidden: every control stays reachable. */
+  flex-wrap: wrap;
+  row-gap: 8px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .dshn-capture-tools .dshn-btn { height: 28px; padding: 0 12px; font-size: 12px; }
+/* The footer in two halves: what you are writing (left) and what you can do to it (right). */
+.dshn-tool-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.dshn-tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  /* Replaces the old spacer: the actions own their alignment, so wrapping keeps them right-aligned. */
+  margin-left: auto;
+}
 .dshn-capture-tools .dshn-btn,
 .dshn-capture-tools .dshn-switch { flex: 0 0 auto; white-space: nowrap; }
 /* The counter and the key hint yield first, then the hint goes away entirely. */
@@ -3362,6 +3382,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-capture-pane { container-type: inline-size; }
 @container (max-width: 760px) {
   .dshn-capture-tools .dshn-hint { display: none; }
+}
+/* Narrower than a comfortable row: the actions move to their own line rather than shrink. */
+@container (max-width: 560px) {
+  .dshn-tool-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 /* ---- preview drawer handle: a tab on the seam between the pages ---- */
 .dshn-sheets { position: relative; }
@@ -3478,7 +3506,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   border-top: none;
 }
 /* Narrow windows keep the single column: two canvases need room to be worth it. */
-@media (max-width: 1180px) {
+@container (max-width: 1180px) {
   /* Not enough room for two pages: stack them, each full width of the pane. */
   .dshn-sheets {
     flex-direction: column;
@@ -5093,10 +5121,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         h(
           'div',
           { className: 'dshn-row dshn-capture-tools' },
-          h('span', { className: 'dshn-cap dshn-chars' }, t.chars(draft.length)),
-          // Part of the footer that is allowed to vanish: the pane can be narrow.
-          h('span', { className: 'dshn-cap dshn-hint' }, 'Ctrl/⌘+Enter'),
           h(
+            'span',
+            { className: 'dshn-tool-meta' },
+            h('span', { className: 'dshn-cap dshn-chars' }, t.chars(draft.length)),
+              // Part of the footer that is allowed to vanish: the pane can be narrow.
+          h('span', { className: 'dshn-cap dshn-hint' }, 'Ctrl/⌘+Enter'),
+              h(
             'button',
             {
               className: 'dshn-switch',
@@ -5120,8 +5151,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             h('span', { className: 'dshn-switch-track' }, h('span', { className: 'dshn-switch-knob' })),
             h('span', null, t.autoWrite),
           ),
-          h('span', { className: 'dshn-grow' }),
+          ),
           h(
+            'span',
+            { className: 'dshn-tool-actions' },
+            h(
             'button',
             {
               className: 'dshn-btn enhance',
@@ -5135,7 +5169,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 : t.enhancing
               : '✦ ' + (selected.end > selected.start ? t.structureSelection : t.enhance),
           ),
-          enhancing
+              enhancing
             ? h('button', { className: 'dshn-btn ghost', onClick: stopStructured }, t.enhanceStop)
             : h(
                 'button',
@@ -5149,8 +5183,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 },
                 t.cancel,
               ),
-          h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
-          compactLayout
+              h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
+              compactLayout
             ? null
             : h(
                 'button',
@@ -5181,6 +5215,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                       h('path', { d: 'M20 15v5h-5' }),
                     ),
               ),
+          ),
         ),
       )
 
