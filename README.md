@@ -60,10 +60,9 @@ All we do is three things:
 
 *Board*
 
-| | | |
-| :---: | :---: | :---: |
-| ![Capture](docs/marketing/shot-01-writing.png) | ![History](docs/marketing/shot-05-history-edit.png) | ![Board](docs/marketing/shot-07-board-chart.png) |
-| **Capture** | **History** | **Board** |
+![Immersive](docs/marketing/shot-02-immersive.png)
+
+*Immersive — the page alone, on the whole screen*
 
 ## What it stores, and what leaves the machine
 
