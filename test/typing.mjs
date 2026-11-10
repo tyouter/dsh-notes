@@ -139,6 +139,36 @@ const repeated = repetitionSuggestion('产品上线会议 定在周五。\n产�
 check('repetition still answers from the document', repeated?.source === 'document', JSON.stringify(repeated))
 check('a suggestion stays chunked', suggestionChunks('先做压测，再定上线时间。然后同步。').length === 2)
 
+// ---------------------------------------------------------------- the reported nesting flows ---
+// A new item between two items of the same level: Enter, then two spaces, and it belongs to the level
+// below. The caret has to end up after the new marker.
+{
+  // The empty item sits between two items of the same level; the caret is on it, not at the end of the
+  // document. Two spaces then promote it one level, and the caret lands after the new marker.
+  const text = '- 甲\n- \n- 乙'
+  const caret = '- 甲\n- '.length
+  const withSpaces = text.slice(0, caret) + '  ' + text.slice(caret)
+  const promoted = autoBulletLine(withSpaces, caret + 2)
+  check('a new item between two items indents with two spaces', promoted?.text === '- 甲\n  - \n- 乙', JSON.stringify(promoted))
+  check('the promoted marker keeps its neighbours', promoted !== null && promoted.text.indexOf('  - \n- 乙') > 0, JSON.stringify(promoted?.text))
+}
+{
+  const deep = editor('甲\n- a\n    - b').backspaceAtMarker()
+  check('Backspace raises a third level to the second', deep.text === '甲\n- a\n  - b', JSON.stringify(deep.text))
+  const second = deep.backspaceAtMarker()
+  check('Backspace raises the second level to the first', second.text === '甲\n- a\n- b', JSON.stringify(second.text))
+  const prose = second.backspaceAtMarker()
+  check('the last Backspace returns prose', prose.text === '甲\n- a\nb', JSON.stringify(prose.text))
+}
+{
+  // The caret must land after the marker, or the next Backspace deletes a character of it instead of
+  // stepping up again — the "错乱" report.
+  const text = '甲\n    - b'
+  const start = text.lastIndexOf('\n') + 1
+  const next = backspaceLine(text, start + 6)
+  check('stepping up puts the caret after the new marker', next !== null && next.caret === start + 4, JSON.stringify(next))
+}
+
 await rm(fixtures, { recursive: true, force: true })
 
 if (failures === 0) console.log('\nall typing flows passed')

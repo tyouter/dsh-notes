@@ -341,6 +341,8 @@
       const marksRef = useRef(null)
       // The editor itself, so a keystroke can rewrite a line and put the caret back.
       const areaRef = useRef(null)
+      // The box element: immersive mode's target when the box is not inside a capture pane (History).
+      const boxRef = useRef(null)
       // Completion: the ghost is a chunk list plus the index already accepted, and its position.
       const [ghost, setGhost] = useState(null)
       // The span the last TAB inserted. It is drawn with the plugin's own mark and removed in one
@@ -419,8 +421,10 @@
             return
           }
           const area = areaRef.current
+          // History mounts the editor without a capture pane; there the box itself is the surface that
+          // should take the screen. Falling back to the document would show the whole app instead.
           const pane = area === null || area === undefined ? null : area.closest('.dshn-capture-pane')
-          const target = pane ?? document.documentElement
+          const target = pane ?? boxRef.current ?? document.documentElement
           if (typeof target.requestFullscreen !== 'function') {
             flash(t.immersiveFailed)
             return
@@ -458,16 +462,26 @@
       }
 
       /** Write a rewritten line back and restore the caret where the transform put it. */
+      /**
+       * Write a structural edit to the editor.
+       *
+       * The value and the caret go in together, in this tick: a fast typist can hit the next key before a
+       * `setTimeout(0)` would have moved the caret, and then the next character lands in the wrong place.
+       * Setting `area.value` first means React's re-render with the same string is a no-op, so the caret we
+       * just set survives.
+       */
+      const applyEdit = (value, caret) => {
+        const area = areaRef.current
+        setDraft(value)
+        if (area === null) return
+        area.value = value
+        area.focus()
+        area.setSelectionRange(caret, caret)
+      }
+
       const commitLine = (next) => {
         if (next === null || next === undefined) return false
-        setDraft(next.text)
-        const caret = next.caret
-        setTimeout(() => {
-          const area = areaRef.current
-          if (area === null) return
-          area.focus()
-          area.setSelectionRange(caret, caret)
-        }, 0)
+        applyEdit(next.text, next.caret)
         return true
       }
 
@@ -487,8 +501,12 @@
         else state.burst = 1
         state.lastAt = now
         if (state.burst >= 2) {
-          // The caret sits after the first space; the second one is being consumed.
-          if (commitLine(spaceBurstLine(draft, event.target.selectionStart + 1))) {
+          // The live value: the controlled draft can be one render behind while typing. The caret sits
+          // where the second space is about to go, so the space is put in before the rule reads the line.
+          const caret = event.target.selectionStart ?? (event.target.value ?? '').length
+          const live = String(event.target.value ?? '')
+          const withSpace = live.slice(0, caret) + ' ' + live.slice(caret)
+          if (commitLine(spaceBurstLine(withSpace, caret + 1))) {
             event.preventDefault()
             state.burst = 0
           }
@@ -501,6 +519,12 @@
         if (ghost.at === caret) return
         setGhost(null)
         if (autoWrite !== false) scheduleCompletion(caret)
+      }
+
+      /** The accepted chunk survives while the caret is inside it; stepping out of it ends the undo. */
+      const keepAcceptedMark = (caret) => {
+        if (accepted === null) return
+        if (caret < accepted.start || caret > accepted.end) setAccepted(null)
       }
 
       /** Drop any suggestion and any pending request. */
@@ -567,6 +591,9 @@
         setGhost(null)
         // With auto-write off, nothing appears until TAB asks.
         if (autoWrite === false) return
+        // A suggestion continues the text. Anywhere but the end it would be painted over live characters,
+        // which is exactly the double image people reported.
+        if (caret !== String(draftRef.current ?? '').length) return
         state.idle = setTimeout(() => {
           state.idle = 0
           void requestCompletion(caret)
@@ -590,15 +617,9 @@
         // line. insertChunkAt decides where it really goes.
         const placed = insertChunkAt(value, at, chunk)
         const end = placed.end
-        setDraft(placed.value)
         setAccepted({ start: placed.start, end })
         // Caret right after the chunk, no browser selection: the mark is ours to keep.
-        setTimeout(() => {
-          const area = areaRef.current
-          if (area === null) return
-          area.focus()
-          area.setSelectionRange(end, end)
-        }, 0)
+        applyEdit(placed.value, end)
         if (ghost.index + 1 < ghost.chunks.length) {
           setGhost({ ...ghost, at: end, index: ghost.index + 1 })
         } else {
@@ -1156,7 +1177,8 @@
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               // The suggestion is a continuation at the caret. With a range selected it is not a
               // continuation of anything, and drawing it would put ghost text inside the text.
-              if (end > start) dismissGhost()
+              if (end > start || (event.target.selectionStart ?? 0) !== String(draftRef.current ?? '').length) dismissGhost()
+              keepAcceptedMark(event.target.selectionStart ?? 0)
               followCaret(event.target.selectionStart ?? 0)
             },
             onKeyUp: (event) => {
@@ -1168,7 +1190,8 @@
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               // The suggestion is a continuation at the caret. With a range selected it is not a
               // continuation of anything, and drawing it would put ghost text inside the text.
-              if (end > start) dismissGhost()
+              if (end > start || (event.target.selectionStart ?? 0) !== String(draftRef.current ?? '').length) dismissGhost()
+              keepAcceptedMark(event.target.selectionStart ?? 0)
               followCaret(event.target.selectionStart ?? 0)
             },
             onMouseUp: (event) => {
@@ -1180,7 +1203,8 @@
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               // The suggestion is a continuation at the caret. With a range selected it is not a
               // continuation of anything, and drawing it would put ghost text inside the text.
-              if (end > start) dismissGhost()
+              if (end > start || (event.target.selectionStart ?? 0) !== String(draftRef.current ?? '').length) dismissGhost()
+              keepAcceptedMark(event.target.selectionStart ?? 0)
               followCaret(event.target.selectionStart ?? 0)
             },
             onKeyDown: (event) => {
@@ -1227,17 +1251,13 @@
                 if (accepted !== null) {
                   const value = draftRef.current
                   const caret = event.target.selectionStart ?? 0
+                  // Anywhere inside the chunk: one press takes it back. Moving inside it with the arrow
+                  // keys is not a decision, so it does not cancel the undo.
                   if (caret >= accepted.start && caret <= accepted.end) {
-                    setDraft(value.slice(0, accepted.start) + value.slice(accepted.end))
+                    const shortened = value.slice(0, accepted.start) + value.slice(accepted.end)
                     setAccepted(null)
                     setGhost(null)
-                    const target = accepted.start
-                    setTimeout(() => {
-                      const area = areaRef.current
-                      if (area === null) return
-                      area.focus()
-                      area.setSelectionRange(target, target)
-                    }, 0)
+                    applyEdit(shortened, accepted.start)
                     event.preventDefault()
                     return
                   }
@@ -1578,6 +1598,7 @@
       return h(
         'div',
         {
+          ref: boxRef,
           className: 'dshn-capture-box',
           'data-layout': compactLayout ? 'compact' : 'page',
           'data-split': showRender ? 'true' : 'false',

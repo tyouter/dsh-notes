@@ -534,7 +534,7 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
     // The blurred/duplicated text under a line: a ghost drawn inside a range. A range is not a
     // continuation, so the suggestion goes away when one exists.
-    check('a range ends the suggestion', (boardSource.match(/if \(end > start\) dismissGhost\(\)/g) ?? []).length === 3)
+    check('a range ends the suggestion', (boardSource.match(/if \(end > start \|\| \(event\.target\.selectionStart \?\? 0\) !== String\(draftRef\.current \?\? ''\)\.length\) dismissGhost\(\)/g) ?? []).length === 3)
     check('structuring clears the suggestion', /const runEnhance = async \(\) => \{[\s\S]{0,260}dismissGhost\(\)/.test(boardSource))
 
     // One highlight at a time: the author's selection outranks the span TAB inserted earlier.
@@ -608,6 +608,16 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the immersive button lives in the footer', /key: 'immersive'/.test(boardSource) && /aria-label': immersive \? t\.immersiveExit : t\.immersive/.test(boardSource))
     check('a refusal is reported, not swallowed', /flash\(t\.immersiveFailed\)/.test(boardSource))
     check('fullscreen brings its own background and height', /\.dshn-capture-pane:fullscreen \{[\s\S]{0,200}background: var\(--dsw-alias-bg-base\)/.test(headCss) && /\.dshn-capture-pane:fullscreen [^{]*\.dshn-sheet \{[\s\S]{0,80}height: auto/.test(headCss))
+
+    // ---- the four reported defects ----
+    // 1. a suggestion mid-line would paint over live text
+    check('a suggestion only appears at the end', /caret !== String\(draftRef\.current/.test(boardSource) && /caret < accepted\.start \|\| caret > accepted\.end/.test(boardSource))
+    // 2. a TAB chunk is undone from anywhere inside it
+    check('the chunk is undone from anywhere inside it', /caret >= accepted\.start && caret <= accepted\.end/.test(boardSource) && /const applyEdit = /.test(boardSource))
+    // 3. structural edits write the value and the caret in one tick
+    check('a structural edit does not wait for a timeout', /\.value = value/.test(boardSource) && /area\.setSelectionRange\(caret, caret\)/.test(boardSource))
+    // 4. History has no capture pane, so the box itself goes fullscreen
+    check('immersive falls back to the box', /boxRef\.current \?\? document\.documentElement/.test(boardSource) && /ref: boxRef/.test(boardSource) && /\.dshn-capture-box:fullscreen \{/.test(headCss))
 
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 

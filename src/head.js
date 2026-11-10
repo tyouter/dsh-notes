@@ -3195,6 +3195,23 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-capture-pane:fullscreen .dshn-capture-tools {
   padding-top: 12px;
 }
+/* History mounts the editor without a capture pane, so there the box is the fullscreen element. */
+.dshn-capture-box:fullscreen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px 40px 20px;
+  background: var(--dsw-alias-bg-base);
+  overflow-y: auto;
+}
+.dshn-capture-box:fullscreen .dshn-sheets {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dshn-capture-box:fullscreen .dshn-sheet {
+  height: auto;
+  flex: 1 1 0;
+}
 .dshn-capture-box[data-layout='page'] {
   margin: 0 auto;
   display: flex;
