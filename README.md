@@ -1,8 +1,8 @@
 # dsh-notes
 
-`@tyouter/dsh-notes` 1.1.2 — a notebook inside DeepSeek Harness, in three tabs. Type into one box,
-read the typeset result beside it, and call the model only when judgement is needed. See
-[CHANGELOG.md](CHANGELOG.md) for what the first official release contains.
+`@tyouter/dsh-notes` 1.1.3 — a quiet page for thinking, inside DeepSeek Harness. Typeset as you type,
+AI completion and immersive writing, a searchable history, and an AI board that answers from your own
+notes. See [CHANGELOG.md](CHANGELOG.md) for what this release contains.
 
 ## Install
 

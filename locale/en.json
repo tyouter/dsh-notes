@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Notebook",
-    "description": "Capture in one box, structure in one click, and let the notebook assistant read, organize and rewrite the same notes.",
+    "description": "A quiet page for thinking, inside DeepSeek Harness: typeset as you type, AI completion, immersive writing, history and an AI board.",
     "panel": {
       "tabCapture": "Capture",
       "tabHistory": "History",

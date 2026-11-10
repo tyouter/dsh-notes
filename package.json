@@ -3,7 +3,7 @@
   "version": "1.1.3",
   "private": false,
   "type": "module",
-  "description": "A notebook inside DeepSeek Harness: type into one box, read the typeset result beside it, then structure or translate it with AI.",
+  "description": "A quiet page for thinking, inside DeepSeek Harness: typeset as you type, AI completion, immersive writing, history and an AI board.",
   "license": "MIT",
   "author": "tyouter <tyouter@126.com>",
   "repository": {
