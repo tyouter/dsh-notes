@@ -3379,15 +3379,17 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 /* ---- persona: the listener bar, its manager, and the quoted line it writes ---- */
 .dshn-voice-dock {
+  /* Inside the footer, hanging off its top edge: the same width, exactly above the border, and out of the
+     sheet's layout, so it cannot push the text around when it appears. */
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 52px;
+  bottom: calc(100% - 2px);
   z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 0 var(--dshn-sheet-pad, 0px);
+  padding-bottom: 8px;
   pointer-events: none;
 }
 .dshn-voice-dock > * { pointer-events: auto; }
@@ -3468,6 +3470,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 
 /* ---- dictation strip: what the microphone just heard, above the footer ---- */
+/* Nothing to say means no strip at all: an empty state used to render "undefined". */
+.dshn-voice-strip:empty { display: none; }
 .dshn-voice-strip {
   display: flex;
   align-items: center;
@@ -3799,6 +3803,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-capture-tools {
   /* Both pages carry a footer strip on the same line, so the two toolbars sit at the
      same height and the pages stay symmetrical. */
+  position: relative;
   margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--dsw-alias-border-l1);
@@ -4562,7 +4567,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
       // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
-      const [voice, setVoice] = useState({ available: false, recording: false, busy: false, phase: '' })
+      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', phase: '' })
       const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
       // The listener: a persona the author chose, its remark history (so it does not repeat itself), and the
       // manager sheet.
@@ -5893,9 +5898,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           }),
             ),
           ),
+        h(
+          'div',
+          { className: 'dshn-row dshn-capture-tools' },
         // The voice UI floats above the footer instead of taking part in the sheet's layout: a row that
         // appears while you speak must not move the text you are reading.
-        voice.listening || voice.busy || voice.heard !== ''
+        voice.listening || voice.busy || String(voice.heard ?? '') !== ''
           ? h(
               'div',
               { className: 'dshn-voice-dock' },
@@ -5955,14 +5963,15 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 h(
                   'span',
                   { className: 'dshn-voice-text' },
-                  voice.busy ? t.voiceBusy : voice.heard !== '' ? `${t.voiceHeard}：${voice.heard}` : t.voiceListening,
+                  voice.busy
+                  ? t.voiceBusy
+                  : String(voice.heard ?? '') !== ''
+                    ? `${t.voiceHeard}：${voice.heard}`
+                    : t.voiceListening,
                 ),
               ),
             )
           : null,
-        h(
-          'div',
-          { className: 'dshn-row dshn-capture-tools' },
           h(
             'span',
             { className: 'dshn-tool-meta' },

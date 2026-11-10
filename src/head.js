@@ -3361,15 +3361,17 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 /* ---- persona: the listener bar, its manager, and the quoted line it writes ---- */
 .dshn-voice-dock {
+  /* Inside the footer, hanging off its top edge: the same width, exactly above the border, and out of the
+     sheet's layout, so it cannot push the text around when it appears. */
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 52px;
+  bottom: calc(100% - 2px);
   z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 0 var(--dshn-sheet-pad, 0px);
+  padding-bottom: 8px;
   pointer-events: none;
 }
 .dshn-voice-dock > * { pointer-events: auto; }
@@ -3450,6 +3452,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 }
 
 /* ---- dictation strip: what the microphone just heard, above the footer ---- */
+/* Nothing to say means no strip at all: an empty state used to render "undefined". */
+.dshn-voice-strip:empty { display: none; }
 .dshn-voice-strip {
   display: flex;
   align-items: center;
@@ -3781,6 +3785,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-capture-tools {
   /* Both pages carry a footer strip on the same line, so the two toolbars sit at the
      same height and the pages stay symmetrical. */
+  position: relative;
   margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--dsw-alias-border-l1);

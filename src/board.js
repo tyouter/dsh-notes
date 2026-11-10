@@ -369,7 +369,7 @@
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
       // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
-      const [voice, setVoice] = useState({ available: false, recording: false, busy: false, phase: '' })
+      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', phase: '' })
       const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
       // The listener: a persona the author chose, its remark history (so it does not repeat itself), and the
       // manager sheet.
@@ -1700,9 +1700,12 @@
           }),
             ),
           ),
+        h(
+          'div',
+          { className: 'dshn-row dshn-capture-tools' },
         // The voice UI floats above the footer instead of taking part in the sheet's layout: a row that
         // appears while you speak must not move the text you are reading.
-        voice.listening || voice.busy || voice.heard !== ''
+        voice.listening || voice.busy || String(voice.heard ?? '') !== ''
           ? h(
               'div',
               { className: 'dshn-voice-dock' },
@@ -1762,14 +1765,15 @@
                 h(
                   'span',
                   { className: 'dshn-voice-text' },
-                  voice.busy ? t.voiceBusy : voice.heard !== '' ? `${t.voiceHeard}：${voice.heard}` : t.voiceListening,
+                  voice.busy
+                  ? t.voiceBusy
+                  : String(voice.heard ?? '') !== ''
+                    ? `${t.voiceHeard}：${voice.heard}`
+                    : t.voiceListening,
                 ),
               ),
             )
           : null,
-        h(
-          'div',
-          { className: 'dshn-row dshn-capture-tools' },
           h(
             'span',
             { className: 'dshn-tool-meta' },
