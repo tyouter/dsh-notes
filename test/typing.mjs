@@ -169,6 +169,22 @@ check('a suggestion stays chunked', suggestionChunks('先做压测，再定上�
   check('stepping up puts the caret after the new marker', next !== null && next.caret === start + 4, JSON.stringify(next))
 }
 
+// ---------------------------------------------------------------- voice: only the encoding is ours ---
+// The recognizer belongs to the Host; the notebook's job is to hand it the shape it accepts.
+{
+  const { encodeWave, resampleMono } = internals
+  const wav = encodeWave(new Float32Array([0, 0.5, -0.5, 1]), 16000)
+  const view = new DataView(wav.buffer)
+  const text = (at) => String.fromCharCode(wav[at], wav[at + 1], wav[at + 2], wav[at + 3])
+  check('the wav is 16 kHz mono pcm16', text(0) === 'RIFF' && text(8) === 'WAVE' && view.getUint16(22, true) === 1 && view.getUint32(24, true) === 16000 && view.getUint16(34, true) === 16)
+  check('the wav header counts its data', view.getUint32(40, true) === 8 && wav.length === 52, String(wav.length))
+  check('samples survive as pcm', view.getInt16(44 + 2, true) === Math.floor(0.5 * 0x7fff) || view.getInt16(44 + 2, true) === Math.floor(0.5 * 0x8000))
+
+  const halved = resampleMono(new Float32Array([0, 1, 0, 1, 0, 1, 0, 1]), 32000, 16000)
+  check('resampling halves the sample count', halved.length === 4, String(halved.length))
+  check('a 16 kHz input is left alone', resampleMono(new Float32Array([1, 2, 3]), 16000, 16000).length === 3)
+}
+
 await rm(fixtures, { recursive: true, force: true })
 
 if (failures === 0) console.log('\nall typing flows passed')

@@ -125,6 +125,12 @@ window.__ModuleLoader__.load({
     immersive: '沉浸模式',
     immersiveExit: '退出沉浸',
     immersiveFailed: '浏览器拒绝了全屏',
+    voice: '语音输入',
+    voiceStop: '停止录音',
+    voiceBusy: '识别中…',
+    voicePrepare: '准备识别模型…',
+    voiceFailed: '语音识别失败',
+    voiceEmpty: '没有识别出文字',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -281,6 +287,12 @@ window.__ModuleLoader__.load({
     immersive: 'Immersive',
     immersiveExit: 'Leave immersive',
     immersiveFailed: 'Fullscreen was refused',
+    voice: 'Voice input',
+    voiceStop: 'Stop recording',
+    voiceBusy: 'Transcribing…',
+    voicePrepare: 'Preparing the recognizer…',
+    voiceFailed: 'Speech recognition failed',
+    voiceEmpty: 'Nothing was recognised',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -1149,7 +1161,59 @@ window.__ModuleLoader__.load({
       return compareKey(draft).includes(key)
     }
 
-    /** Enter on a bullet continues at the same level, marker included. */
+    /**
+     * PCM16 WAV from mono samples, which is the one shape every Host recognizer accepts.
+     *
+     * The built-in voice input encodes the same header; keeping to it means the notebook records, not
+     * recognises — the recognizer and its language stay whatever the user configured in DSH.
+     */
+    function encodeWave(samples, sampleRate = 16000) {
+      const pcm = new Int16Array(samples.length)
+      for (let i = 0; i < samples.length; i += 1) {
+        const clamped = Math.max(-1, Math.min(1, Number(samples[i]) || 0))
+        pcm[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff
+      }
+      const bytes = new Uint8Array(44 + pcm.length * 2)
+      const view = new DataView(bytes.buffer)
+      const text = (at, value) => {
+        for (let i = 0; i < value.length; i += 1) bytes[at + i] = value.charCodeAt(i)
+      }
+      text(0, 'RIFF')
+      view.setUint32(4, bytes.length - 8, true)
+      text(8, 'WAVE')
+      text(12, 'fmt ')
+      view.setUint32(16, 16, true)
+      view.setUint16(20, 1, true)
+      view.setUint16(22, 1, true)
+      view.setUint32(24, sampleRate, true)
+      view.setUint32(28, sampleRate * 2, true)
+      view.setUint16(32, 2, true)
+      view.setUint16(34, 16, true)
+      text(36, 'data')
+      view.setUint32(40, pcm.length * 2, true)
+      for (let i = 0; i < pcm.length; i += 1) view.setInt16(44 + i * 2, pcm[i], true)
+      return bytes
+    }
+
+    /** Linear resampling to 16 kHz mono: enough for speech, and no dependency to load. */
+    function resampleMono(channel, fromRate, toRate = 16000) {
+      const input = channel ?? new Float32Array(0)
+      const sourceRate = Number(fromRate) > 0 ? Number(fromRate) : toRate
+      if (sourceRate === toRate || input.length === 0) return input
+      const ratio = sourceRate / toRate
+      const length = Math.max(1, Math.round(input.length / ratio))
+      const output = new Float32Array(length)
+      for (let i = 0; i < length; i += 1) {
+        const at = i * ratio
+        const left = Math.floor(at)
+        const right = Math.min(input.length - 1, left + 1)
+        const weight = at - left
+        output[i] = input[left] * (1 - weight) + input[right] * weight
+      }
+      return output
+    }
+
+        /** Enter on a bullet continues at the same level, marker included. */
     function continueBulletLine(text, index) {
       const source = String(text ?? '')
       const { start, end } = lineBounds(source, index)
@@ -4247,6 +4311,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // Immersive: the capture page alone on the screen. The browser owns the transition; this only
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
+      // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
+      const [voice, setVoice] = useState({ available: false, recording: false, busy: false, phase: '' })
+      const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
       // Which call is running ("structure" / "translate"), and a counter that changes whenever a
       // result lands — the counter is the wipe animation's key.
       const [busy, setBusy] = useState('')
@@ -4276,6 +4343,35 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         }
       }
 
+      /**
+       * Ask the Host whether speech is available.
+       *
+       * The answer is the whole feature gate: with the voice bundle disabled there is no `speechToText`
+       * service, the notebook gets `available: false`, and the footer draws no microphone. Enabling voice
+       * input in DSH is what makes it appear here, with no notebook-side switch to keep in sync.
+       */
+      useEffect(() => {
+        let cancelled = false
+        const read = async () => {
+          try {
+            const data = await api('/speech/state')
+            if (cancelled) return
+            setVoice((current) => ({
+              ...current,
+              available: data?.available === true,
+              providers: Array.isArray(data?.providers) ? data.providers : [],
+              selection: data?.selection ?? null,
+            }))
+          } catch {
+            if (!cancelled) setVoice((current) => ({ ...current, available: false }))
+          }
+        }
+        void read()
+        return () => {
+          cancelled = true
+        }
+      }, [])
+
       // Esc leaves fullscreen without telling us; the event is the only reliable signal.
       useEffect(() => {
         if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined
@@ -4287,6 +4383,118 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const flash = (label) => {
         setStatus(label)
         setTimeout(() => setStatus(''), 1600)
+      }
+
+      /** base64 for a byte array, in chunks so a long recording cannot overflow the argument list. */
+      const toBase64 = (bytes) => {
+        let binary = ''
+        const step = 0x8000
+        for (let i = 0; i < bytes.length; i += step) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step))
+        }
+        return typeof btoa === 'function' ? btoa(binary) : ''
+      }
+
+      /** Stop the microphone and release it. */
+      const stopVoice = () => {
+        const held = voiceRef.current
+        try {
+          if (held.recorder !== null && held.recorder.state !== 'inactive') held.recorder.stop()
+        } catch {
+          /* already stopped */
+        }
+        for (const track of held.stream?.getTracks?.() ?? []) track.stop()
+        held.stream = null
+      }
+
+      /**
+       * Record one utterance and insert what was said.
+       *
+       * The notebook recognises nothing: it encodes the recording as the 16 kHz mono WAV the Host
+       * recognizers accept and asks the Host to transcribe it. The recognizer and the language are the ones
+       * the user picked for DSH voice input.
+       */
+      const toggleVoice = async () => {
+        if (voice.busy) return
+        if (voice.recording) {
+          stopVoice()
+          setVoice((current) => ({ ...current, recording: false, phase: t.voiceBusy }))
+          return
+        }
+        if (!voice.available) return
+        if (typeof navigator === 'undefined' || navigator.mediaDevices === undefined) {
+          flash(t.voiceFailed)
+          return
+        }
+        try {
+          // Start the recognizer warming while the microphone is being granted; a failure here is not
+          // fatal (the model may already be loaded), so it is deliberately not awaited.
+          void post('/speech/prepare', {}).catch(() => undefined)
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+          })
+          const recorder = new MediaRecorder(stream)
+          const chunks = []
+          voiceRef.current = { recorder, chunks, stream }
+          recorder.ondataavailable = (event) => {
+            if (event.data !== undefined && event.data.size > 0) chunks.push(event.data)
+          }
+          recorder.onstop = () => {
+            void (async () => {
+              try {
+                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+                const bytes = new Uint8Array(await blob.arrayBuffer())
+                const audio = await decodeToMono(bytes)
+                const wav = encodeWave(audio.samples, audio.sampleRate)
+                const text = await transcribeWave(wav)
+                insertDictation(text)
+              } catch (error) {
+                const label = String(error?.message ?? '') === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed
+                flash(label)
+              } finally {
+                setVoice((current) => ({ ...current, recording: false, busy: false, phase: '' }))
+              }
+            })()
+          }
+          recorder.start()
+          setVoice((current) => ({ ...current, recording: true, busy: false, phase: '' }))
+        } catch {
+          flash(t.voiceFailed)
+          setVoice((current) => ({ ...current, recording: false, busy: false }))
+        }
+      }
+
+      /** Decode whatever MediaRecorder produced into 16 kHz mono samples. */
+      const decodeToMono = async (bytes) => {
+        const Ctor = typeof AudioContext === 'undefined' ? globalThis.webkitAudioContext : AudioContext
+        if (Ctor === undefined) throw new Error('no audio context')
+        const context = new Ctor()
+        try {
+          const buffer = await context.decodeAudioData(bytes.buffer.slice(0))
+          const mono = buffer.getChannelData(0)
+          return { samples: resampleMono(mono, buffer.sampleRate), sampleRate: 16000 }
+        } finally {
+          await context.close?.()
+        }
+      }
+
+      /** One Host call: base64 in, text out. */
+      const transcribeWave = async (wav) => {
+        const data = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
+        const text = String(data?.text ?? '').trim()
+        if (text === '') throw new Error(t.voiceEmpty)
+        return text
+      }
+
+      /** Insert at the caret, through the same edit path the keyboard uses. */
+      const insertDictation = (text) => {
+        const area = areaRef.current
+        const value = String(draftRef.current ?? '')
+        const caret = area === null ? value.length : (area.selectionStart ?? value.length)
+        const next = value.slice(0, caret) + text + value.slice(caret)
+        setAccepted(null)
+        setGhost(null)
+        applyEdit(next, caret + text.length)
       }
 
       /**
@@ -5195,6 +5403,28 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           h(
             'span',
             { className: 'dshn-tool-actions' },
+            voice.available || voice.recording
+              ? h(
+                  'button',
+                  {
+                    key: 'voice',
+                    className: 'dshn-icon-btn',
+                    type: 'button',
+                    'data-on': String(voice.recording),
+                    'aria-label': voice.recording ? t.voiceStop : t.voice,
+                    title: voice.recording ? t.voiceStop : t.voice,
+                    disabled: voice.busy,
+                    onClick: () => void toggleVoice(),
+                  },
+                  h(
+                    'svg',
+                    { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                    h('rect', { x: 9, y: 3, width: 6, height: 11, rx: 3 }),
+                    h('path', { d: 'M5 11a7 7 0 0 0 14 0' }),
+                    h('path', { d: 'M12 18v3' }),
+                  ),
+                )
+              : null,
             h(
             'button',
             {
@@ -6629,7 +6859,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, chartColor, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, chartColor, encodeWave, resampleMono, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

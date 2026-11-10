@@ -10,6 +10,7 @@
 
 import { registerNotesApi } from './lib/api.js'
 import { registerNotesCommands } from './lib/commands.js'
+import { SpeechBridge } from './lib/speech.js'
 import { NoteStore } from './lib/store.js'
 import { registerNotesTools } from './lib/tools.js'
 
@@ -46,10 +47,14 @@ export function apply(ctx, rawConfig) {
   // from either side is immediately visible to the other.
   ctx.effect(() => ctx.provide('notes', store), 'notes.service')
 
+  // Speech is optional: this bridge is here whether or not the voice bundle is enabled, and reports
+  // `available: false` when it is not.
+  const speech = new SpeechBridge(ctx)
+
   const disposers = [
     registerNotesTools(ctx, store, logger),
     registerNotesCommands(ctx, store, logger),
-    registerNotesApi(ctx, store, { config, logger }),
+    registerNotesApi(ctx, store, { config, logger, speech }),
   ]
 
   ctx.effect(

@@ -429,6 +429,9 @@ check('the preview label distinguishes changed layout', boardSource.includes('t.
     // The preview lives beside the source, so both are visible at once.
     const headString = () => headCss
 const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
+const apiSource = await readFile(join(packageDir, 'lib', 'api.js'), 'utf8')
+const indexSource = await readFile(join(packageDir, 'index.js'), 'utf8')
+const speechSource = await readFile(join(packageDir, 'lib', 'speech.js'), 'utf8')
     check('the page flags a split layout', boardSource.includes("'data-split': showRender ? 'true' : 'false'"))
     check('the sheets sit side by side', /\.dshn-sheets \{[^}]*flex-direction: row/s.test(headSource))
     check('both sheets share one basis', headSource.includes('flex: 0 1 820px'))
@@ -620,6 +623,14 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('a structural edit does not wait for a timeout', /\.value = value/.test(boardSource) && /area\.setSelectionRange\(caret, caret\)/.test(boardSource))
     // 4. History has no capture pane, so the box itself goes fullscreen
     check('immersive falls back to the box', /boxRef\.current \?\? document\.documentElement/.test(boardSource) && /ref: boxRef/.test(boardSource) && /\.dshn-capture-box:fullscreen \{/.test(headCss))
+
+    // ---- voice input ----
+    // Gated by the Host's answer, recorded by the browser, recognised by the Host.
+    check('the microphone appears only when the host has speech', /api\('\/speech\/state'\)/.test(boardSource) && /voice\.available \|\| voice\.recording/.test(boardSource))
+    check('a recording is sent to the host', /post\('\/speech\/transcribe'/.test(boardSource) && /audioBase64: toBase64\(wav\)/.test(boardSource))
+    check('the browser records and the notebook only encodes', /new MediaRecorder\(stream\)/.test(boardSource) && /encodeWave\(audio\.samples/.test(boardSource) && /resampleMono\(mono, buffer\.sampleRate\)/.test(boardSource))
+    check('dictation lands at the caret', /const next = value\.slice\(0, caret\) \+ text \+ value\.slice\(caret\)/.test(boardSource) && /applyEdit\(next, caret \+ text\.length\)/.test(boardSource))
+    check('the host routes exist', /route === 'speech\/state'/.test(apiSource) && /route === 'speech\/transcribe'/.test(apiSource) && /SpeechBridge/.test(indexSource))
 
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 

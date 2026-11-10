@@ -107,6 +107,12 @@
     immersive: '沉浸模式',
     immersiveExit: '退出沉浸',
     immersiveFailed: '浏览器拒绝了全屏',
+    voice: '语音输入',
+    voiceStop: '停止录音',
+    voiceBusy: '识别中…',
+    voicePrepare: '准备识别模型…',
+    voiceFailed: '语音识别失败',
+    voiceEmpty: '没有识别出文字',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -263,6 +269,12 @@
     immersive: 'Immersive',
     immersiveExit: 'Leave immersive',
     immersiveFailed: 'Fullscreen was refused',
+    voice: 'Voice input',
+    voiceStop: 'Stop recording',
+    voiceBusy: 'Transcribing…',
+    voicePrepare: 'Preparing the recognizer…',
+    voiceFailed: 'Speech recognition failed',
+    voiceEmpty: 'Nothing was recognised',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -1131,7 +1143,59 @@
       return compareKey(draft).includes(key)
     }
 
-    /** Enter on a bullet continues at the same level, marker included. */
+    /**
+     * PCM16 WAV from mono samples, which is the one shape every Host recognizer accepts.
+     *
+     * The built-in voice input encodes the same header; keeping to it means the notebook records, not
+     * recognises — the recognizer and its language stay whatever the user configured in DSH.
+     */
+    function encodeWave(samples, sampleRate = 16000) {
+      const pcm = new Int16Array(samples.length)
+      for (let i = 0; i < samples.length; i += 1) {
+        const clamped = Math.max(-1, Math.min(1, Number(samples[i]) || 0))
+        pcm[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff
+      }
+      const bytes = new Uint8Array(44 + pcm.length * 2)
+      const view = new DataView(bytes.buffer)
+      const text = (at, value) => {
+        for (let i = 0; i < value.length; i += 1) bytes[at + i] = value.charCodeAt(i)
+      }
+      text(0, 'RIFF')
+      view.setUint32(4, bytes.length - 8, true)
+      text(8, 'WAVE')
+      text(12, 'fmt ')
+      view.setUint32(16, 16, true)
+      view.setUint16(20, 1, true)
+      view.setUint16(22, 1, true)
+      view.setUint32(24, sampleRate, true)
+      view.setUint32(28, sampleRate * 2, true)
+      view.setUint16(32, 2, true)
+      view.setUint16(34, 16, true)
+      text(36, 'data')
+      view.setUint32(40, pcm.length * 2, true)
+      for (let i = 0; i < pcm.length; i += 1) view.setInt16(44 + i * 2, pcm[i], true)
+      return bytes
+    }
+
+    /** Linear resampling to 16 kHz mono: enough for speech, and no dependency to load. */
+    function resampleMono(channel, fromRate, toRate = 16000) {
+      const input = channel ?? new Float32Array(0)
+      const sourceRate = Number(fromRate) > 0 ? Number(fromRate) : toRate
+      if (sourceRate === toRate || input.length === 0) return input
+      const ratio = sourceRate / toRate
+      const length = Math.max(1, Math.round(input.length / ratio))
+      const output = new Float32Array(length)
+      for (let i = 0; i < length; i += 1) {
+        const at = i * ratio
+        const left = Math.floor(at)
+        const right = Math.min(input.length - 1, left + 1)
+        const weight = at - left
+        output[i] = input[left] * (1 - weight) + input[right] * weight
+      }
+      return output
+    }
+
+        /** Enter on a bullet continues at the same level, marker included. */
     function continueBulletLine(text, index) {
       const source = String(text ?? '')
       const { start, end } = lineBounds(source, index)

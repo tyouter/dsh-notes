@@ -15,6 +15,7 @@ import { NotesDatabase } from '../lib/db.js'
 import { registerNotesTools } from '../lib/tools.js'
 import { streamText } from '../lib/llm.js'
 import { analyzeNotes } from '../lib/tools.js'
+import { SpeechBridge, decodeBase64, readWavHeader, SPEECH_SAMPLE_RATE } from '../lib/speech.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const vault = join(here, '.host-vault')
@@ -323,6 +324,78 @@ await rm(tokenVault, { recursive: true, force: true })
   check('an unsafe colour is dropped', points[2]?.color === undefined, JSON.stringify(points[2]))
   if (typeof dispose === 'function') dispose()
   await rm(root, { recursive: true, force: true })
+}
+
+// ---- speech ----
+// The notebook owns no recognizer: it reports what `speechToText` offers, and refuses audio that is not the
+// shape the Host accepts.
+{
+  const wav = (seconds = 0.1, rate = SPEECH_SAMPLE_RATE) => {
+    const samples = Math.round(seconds * rate)
+    const bytes = new Uint8Array(44 + samples * 2)
+    const view = new DataView(bytes.buffer)
+    const text = (at, value) => {
+      for (let i = 0; i < value.length; i += 1) bytes[at + i] = value.charCodeAt(i)
+    }
+    text(0, 'RIFF')
+    view.setUint32(4, bytes.length - 8, true)
+    text(8, 'WAVE')
+    text(12, 'fmt ')
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, 1, true)
+    view.setUint32(24, rate, true)
+    view.setUint32(28, rate * 2, true)
+    view.setUint16(32, 2, true)
+    view.setUint16(34, 16, true)
+    text(36, 'data')
+    view.setUint32(40, samples * 2, true)
+    return bytes
+  }
+
+  const header = readWavHeader(wav())
+  check('a 16 kHz mono wav is accepted', header.ok === true && Math.abs(header.seconds - 0.1) < 0.01, JSON.stringify(header))
+  check('a stereo wav is refused', readWavHeader(wav(0.1, 44100)).ok === false)
+
+  const silent = new SpeechBridge({ get: () => undefined })
+  check('no speech service means no microphone', silent.state().available === false && silent.state().reason === 'no-service', JSON.stringify(silent.state()))
+
+  const calls = []
+  const fake = {
+    snapshot: () => ({ providers: [{ id: 'sensevoice-local', name: 'SenseVoice', languages: ['zh', 'en'], preparation: { phase: 'ready' } }], selection: { providerId: 'sensevoice-local', language: 'zh' } }),
+    prepare: (id) => calls.push(['prepare', id]),
+    resolve: (request) => ({ ...request, provider: 'sensevoice-local' }),
+    transcribe: async (spec) => {
+      calls.push(['transcribe', spec.audio.length])
+      return { text: '  今天写完了  ', audioSeconds: 0.1, inferenceSeconds: 0.2 }
+    },
+  }
+  const bridge = new SpeechBridge({ get: () => fake })
+  const state = bridge.state()
+  check('a speech bridge reports availability', state.available === true && state.providers[0].id === 'sensevoice-local', JSON.stringify(state))
+  check('prepare warm the selected recognizer', bridge.prepare().available === true && calls[0]?.[1] === 'sensevoice-local', JSON.stringify(calls))
+
+  const base64 = Buffer.from(wav()).toString('base64')
+  const result = await bridge.transcribe({ audioBase64: base64 })
+  check('transcribe returns the trimmed text', result.text === '今天写完了', JSON.stringify(result))
+  check('transcribe hands the audio to the host', calls.some(([kind, size]) => kind === 'transcribe' && size > 44), JSON.stringify(calls))
+
+  let badAudio = null
+  try {
+    await bridge.transcribe({ audioBase64: Buffer.from('not a wav').toString('base64') })
+  } catch (error) {
+    badAudio = error
+  }
+  check('audio that is not a wav is refused', badAudio?.code === 'SPEECH_BAD_AUDIO', String(badAudio?.code))
+
+  let missing = null
+  try {
+    await silent.transcribe({ audioBase64: base64 })
+  } catch (error) {
+    missing = error
+  }
+  check('transcribing without a service says so', missing?.code === 'SPEECH_UNAVAILABLE', String(missing?.code))
+  check('base64 decodes back to the same bytes', decodeBase64(base64).length === wav().length)
 }
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)

@@ -362,6 +362,9 @@
       // Immersive: the capture page alone on the screen. The browser owns the transition; this only
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
+      // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
+      const [voice, setVoice] = useState({ available: false, recording: false, busy: false, phase: '' })
+      const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
       // Which call is running ("structure" / "translate"), and a counter that changes whenever a
       // result lands — the counter is the wipe animation's key.
       const [busy, setBusy] = useState('')
@@ -391,6 +394,35 @@
         }
       }
 
+      /**
+       * Ask the Host whether speech is available.
+       *
+       * The answer is the whole feature gate: with the voice bundle disabled there is no `speechToText`
+       * service, the notebook gets `available: false`, and the footer draws no microphone. Enabling voice
+       * input in DSH is what makes it appear here, with no notebook-side switch to keep in sync.
+       */
+      useEffect(() => {
+        let cancelled = false
+        const read = async () => {
+          try {
+            const data = await api('/speech/state')
+            if (cancelled) return
+            setVoice((current) => ({
+              ...current,
+              available: data?.available === true,
+              providers: Array.isArray(data?.providers) ? data.providers : [],
+              selection: data?.selection ?? null,
+            }))
+          } catch {
+            if (!cancelled) setVoice((current) => ({ ...current, available: false }))
+          }
+        }
+        void read()
+        return () => {
+          cancelled = true
+        }
+      }, [])
+
       // Esc leaves fullscreen without telling us; the event is the only reliable signal.
       useEffect(() => {
         if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined
@@ -402,6 +434,118 @@
       const flash = (label) => {
         setStatus(label)
         setTimeout(() => setStatus(''), 1600)
+      }
+
+      /** base64 for a byte array, in chunks so a long recording cannot overflow the argument list. */
+      const toBase64 = (bytes) => {
+        let binary = ''
+        const step = 0x8000
+        for (let i = 0; i < bytes.length; i += step) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step))
+        }
+        return typeof btoa === 'function' ? btoa(binary) : ''
+      }
+
+      /** Stop the microphone and release it. */
+      const stopVoice = () => {
+        const held = voiceRef.current
+        try {
+          if (held.recorder !== null && held.recorder.state !== 'inactive') held.recorder.stop()
+        } catch {
+          /* already stopped */
+        }
+        for (const track of held.stream?.getTracks?.() ?? []) track.stop()
+        held.stream = null
+      }
+
+      /**
+       * Record one utterance and insert what was said.
+       *
+       * The notebook recognises nothing: it encodes the recording as the 16 kHz mono WAV the Host
+       * recognizers accept and asks the Host to transcribe it. The recognizer and the language are the ones
+       * the user picked for DSH voice input.
+       */
+      const toggleVoice = async () => {
+        if (voice.busy) return
+        if (voice.recording) {
+          stopVoice()
+          setVoice((current) => ({ ...current, recording: false, phase: t.voiceBusy }))
+          return
+        }
+        if (!voice.available) return
+        if (typeof navigator === 'undefined' || navigator.mediaDevices === undefined) {
+          flash(t.voiceFailed)
+          return
+        }
+        try {
+          // Start the recognizer warming while the microphone is being granted; a failure here is not
+          // fatal (the model may already be loaded), so it is deliberately not awaited.
+          void post('/speech/prepare', {}).catch(() => undefined)
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+          })
+          const recorder = new MediaRecorder(stream)
+          const chunks = []
+          voiceRef.current = { recorder, chunks, stream }
+          recorder.ondataavailable = (event) => {
+            if (event.data !== undefined && event.data.size > 0) chunks.push(event.data)
+          }
+          recorder.onstop = () => {
+            void (async () => {
+              try {
+                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+                const bytes = new Uint8Array(await blob.arrayBuffer())
+                const audio = await decodeToMono(bytes)
+                const wav = encodeWave(audio.samples, audio.sampleRate)
+                const text = await transcribeWave(wav)
+                insertDictation(text)
+              } catch (error) {
+                const label = String(error?.message ?? '') === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed
+                flash(label)
+              } finally {
+                setVoice((current) => ({ ...current, recording: false, busy: false, phase: '' }))
+              }
+            })()
+          }
+          recorder.start()
+          setVoice((current) => ({ ...current, recording: true, busy: false, phase: '' }))
+        } catch {
+          flash(t.voiceFailed)
+          setVoice((current) => ({ ...current, recording: false, busy: false }))
+        }
+      }
+
+      /** Decode whatever MediaRecorder produced into 16 kHz mono samples. */
+      const decodeToMono = async (bytes) => {
+        const Ctor = typeof AudioContext === 'undefined' ? globalThis.webkitAudioContext : AudioContext
+        if (Ctor === undefined) throw new Error('no audio context')
+        const context = new Ctor()
+        try {
+          const buffer = await context.decodeAudioData(bytes.buffer.slice(0))
+          const mono = buffer.getChannelData(0)
+          return { samples: resampleMono(mono, buffer.sampleRate), sampleRate: 16000 }
+        } finally {
+          await context.close?.()
+        }
+      }
+
+      /** One Host call: base64 in, text out. */
+      const transcribeWave = async (wav) => {
+        const data = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
+        const text = String(data?.text ?? '').trim()
+        if (text === '') throw new Error(t.voiceEmpty)
+        return text
+      }
+
+      /** Insert at the caret, through the same edit path the keyboard uses. */
+      const insertDictation = (text) => {
+        const area = areaRef.current
+        const value = String(draftRef.current ?? '')
+        const caret = area === null ? value.length : (area.selectionStart ?? value.length)
+        const next = value.slice(0, caret) + text + value.slice(caret)
+        setAccepted(null)
+        setGhost(null)
+        applyEdit(next, caret + text.length)
       }
 
       /**
@@ -1310,6 +1454,28 @@
           h(
             'span',
             { className: 'dshn-tool-actions' },
+            voice.available || voice.recording
+              ? h(
+                  'button',
+                  {
+                    key: 'voice',
+                    className: 'dshn-icon-btn',
+                    type: 'button',
+                    'data-on': String(voice.recording),
+                    'aria-label': voice.recording ? t.voiceStop : t.voice,
+                    title: voice.recording ? t.voiceStop : t.voice,
+                    disabled: voice.busy,
+                    onClick: () => void toggleVoice(),
+                  },
+                  h(
+                    'svg',
+                    { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                    h('rect', { x: 9, y: 3, width: 6, height: 11, rx: 3 }),
+                    h('path', { d: 'M5 11a7 7 0 0 0 14 0' }),
+                    h('path', { d: 'M12 18v3' }),
+                  ),
+                )
+              : null,
             h(
             'button',
             {
