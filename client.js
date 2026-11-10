@@ -4567,14 +4567,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
       // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
-      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', phase: '' })
+      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', notice: '', phase: '' })
       const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
       // The listener: a persona the author chose, its remark history (so it does not repeat itself), and the
       // manager sheet.
       const [personas, setPersonas] = useState([])
       const [personaId, setPersonaId] = useState('')
       const [personaSheet, setPersonaSheet] = useState(null)
-      const personaRef = useRef({ lastAt: 0, said: [], busy: false })
+      const personaRef = useRef({ lastAt: 0, said: [], busy: false, welcomed: '' })
       // Which call is running ("structure" / "translate"), and a counter that changes whenever a
       // result lands — the counter is the wipe animation's key.
       const [busy, setBusy] = useState('')
@@ -4691,7 +4691,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         if (!voice.available) return
         const Ctor = typeof AudioContext === 'undefined' ? globalThis.webkitAudioContext : AudioContext
         if (Ctor === undefined || navigator?.mediaDevices === undefined) {
-          flash(t.voiceUnusable)
+          setVoice((current) => ({ ...current, notice: t.voiceUnusable }))
           return
         }
         try {
@@ -4756,7 +4756,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           }, 100)
           setVoice((current) => ({ ...current, listening: true, busy: false, heard: '' }))
         } catch {
-          flash(t.voiceUnusable)
+          setVoice((current) => ({ ...current, notice: t.voiceUnusable }))
           setVoice((current) => ({ ...current, listening: false, busy: false }))
         }
       }
@@ -4834,7 +4834,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           }
         } catch (error) {
           const message = String(error?.message ?? '')
-          flash(message === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed)
+          setVoice((current) => ({ ...current, notice: message === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed }))
         } finally {
           held.committing = false
           setVoice((current) => ({ ...current, busy: false }))
@@ -4945,7 +4945,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           } else {
             // Silence is an answer too: two in a row and the listener is told to keep quiet.
             held.skips += 1
-            if (force === true) flash(t.partnerSilent)
+            if (force === true) setVoice((current) => ({ ...current, notice: t.partnerSilent }))
           }
         } catch {
           /* a quiet listener is not an error */
@@ -5903,7 +5903,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           { className: 'dshn-row dshn-capture-tools' },
         // The voice UI floats above the footer instead of taking part in the sheet's layout: a row that
         // appears while you speak must not move the text you are reading.
-        voice.listening || voice.busy || String(voice.heard ?? '') !== ''
+        voice.listening || voice.busy || String(voice.heard ?? '') !== '' || String(voice.notice ?? '') !== ''
           ? h(
               'div',
               { className: 'dshn-voice-dock' },
@@ -5918,7 +5918,19 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                         className: 'dshn-persona-select',
                         value: personaId,
                         title: t.personaHint,
-                        onChange: (event) => setPersonaId(event.target.value),
+                        onChange: (event) => {
+                          const next = event.target.value
+                          setPersonaId(next)
+                          if (next === '') return
+                          const held = personaRef.current
+                          const chosen = personas.find((entry) => entry.id === next)
+                          if (chosen === undefined || held.welcomed === next) return
+                          held.welcomed = next
+                          // A partner that is selected should say something, or it looks broken. The greeting is
+                          // part of the persona, so it costs nothing and never surprises with a wrong tone.
+                          const welcome = String(chosen.welcome ?? '').trim()
+                          if (welcome !== '') insertInterjection(detectLanguage() === 'zh' ? chosen.name : (chosen.nameEn ?? chosen.name), welcome)
+                        },
                       },
                       h('option', { value: '' }, t.personaNone),
                       ...personas.map((entry) =>
@@ -5928,17 +5940,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                           detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name),
                         ),
                       ),
-                    ),
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        className: 'dshn-btn ghost dshn-persona-manage',
-                        disabled: personaId === '' || personaRef.current.busy,
-                        title: t.partnerSummonHint,
-                        onClick: () => void maybeInterject({ force: true }),
-                      },
-                      t.partnerSummon,
                     ),
                     h('span', { className: 'dshn-grow' }),
                     h(
@@ -5963,11 +5964,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 h(
                   'span',
                   { className: 'dshn-voice-text' },
-                  voice.busy
-                  ? t.voiceBusy
-                  : String(voice.heard ?? '') !== ''
-                    ? `${t.voiceHeard}：${voice.heard}`
-                    : t.voiceListening,
+                  String(voice.notice ?? '') !== ''
+                  ? voice.notice
+                  : voice.busy
+                    ? t.voiceBusy
+                    : String(voice.heard ?? '') !== ''
+                      ? `${t.voiceHeard}：${voice.heard}`
+                      : t.voiceListening,
                 ),
               ),
             )

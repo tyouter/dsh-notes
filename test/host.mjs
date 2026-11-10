@@ -407,6 +407,7 @@ await rm(tokenVault, { recursive: true, force: true })
   const store = new NoteStore({ config: { notesPath: root } })
   const personas = new PersonaStore(store)
   check('the presets ship in code', BUILTIN_PERSONAS.length === 4 && BUILTIN_PERSONAS.every((entry) => entry.id && entry.brief))
+  check('every preset greets', BUILTIN_PERSONAS.every((entry) => typeof entry.welcome === 'string' && entry.welcome.length > 0))
   check('a persona without a brief is dropped', normalizePersona({ id: 'x', name: 'X' }) === null)
 
   const before = await personas.list()
