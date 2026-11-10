@@ -4692,6 +4692,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             startedAt: 0,
             committing: false,
             lastCommittedAt: 0,
+            interjected: false,
+            gapMs: PERSONA_BASE_GAP_MS,
+            skips: 0,
+            lastRemarkAt: 0,
+            lastRemarkText: '',
           }
           voiceRef.current = held
           held.timer = setInterval(() => {
@@ -4713,6 +4718,15 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               const quiet = current.lastLoudAt === 0 ? 0 : now - current.lastLoudAt
               const long = now - current.startedAt > VOICE_MAX_MS
               if (quiet > VOICE_COMMIT_MS || long) stopSegment()
+            } else if (
+              current.interjected === false &&
+              current.lastCommittedAt !== 0 &&
+              now - current.lastCommittedAt >= DICTATION_PARAGRAPH_PAUSE_MS
+            ) {
+              // The author has been quiet long enough that the thought is finished: only now is a listener
+              // allowed to speak.
+              current.interjected = true
+              void maybeInterject()
             }
           }, 100)
           setVoice((current) => ({ ...current, listening: true, busy: false, heard: '' }))
@@ -4726,6 +4740,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const startSegment = () => {
         const held = voiceRef.current
         if (held.stream === null || held.recorder !== null) return
+        // Speaking right after a remark is an answer: the listener was not talking to itself.
+        if (held.lastRemarkAt !== 0) {
+          held.lastRemarkAt = 0
+          held.lastRemarkText = ''
+          held.gapMs = PERSONA_BASE_GAP_MS
+          held.ignored = []
+        }
+        held.interjected = false
         try {
           const recorder = new MediaRecorder(held.stream)
           held.chunks = []
@@ -4815,21 +4837,39 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
-      /** How often a listener may speak, and how much must have been said since the last time. */
-      const PERSONA_MIN_GAP_MS = 20000
+      /** Waiting between remarks, and how much must have been said since the last one. */
+      const PERSONA_BASE_GAP_MS = 20000
+      const PERSONA_MAX_GAP_MS = 120000
+      const PERSONA_ANSWER_WINDOW_MS = 12000
       const PERSONA_MIN_CHARS = 80
 
       /**
        * Ask the selected persona whether it has one thing to add.
        *
-       * The remark is written into the note as a quote, in italics, with the persona's name: it is text like
-       * any other, so the author answers it by speaking (or by typing), or deletes it, or ignores it.
+       * The moment is the long pause: the author has stopped, the thought is on the page, and a listener may
+       * have something to say. The remark is written as a quote in italics with the persona's name; it is text
+       * like any other, so the author answers it by speaking, types over it, deletes it, or ignores it.
+       *
+       * Ignoring is a signal, not a failure: a remark nobody answered is remembered, shown to the persona next
+       * time as something not to bring up again, and the wait before the next remark grows. Speaking into a
+       * note that is already under way is; interrupting one that is working is not.
        */
       const maybeInterject = async () => {
         const persona = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
         const held = personaRef.current
         if (persona === null || held.busy) return
-        if (Date.now() - held.lastAt < PERSONA_MIN_GAP_MS) return
+        if (Date.now() - held.lastAt < held.gapMs) return
+
+        // A remark the author never answered: remember it, and raise the bar for the next one.
+        if (held.lastRemarkAt !== 0 && Date.now() - held.lastRemarkAt > PERSONA_ANSWER_WINDOW_MS) {
+          if (held.lastRemarkText !== '') {
+            held.ignored = [...held.ignored, held.lastRemarkText].slice(-3)
+            held.gapMs = Math.min(PERSONA_MAX_GAP_MS, Math.round(held.gapMs * 1.6))
+          }
+          held.lastRemarkAt = 0
+          held.lastRemarkText = ''
+        }
+
         const value = String(draftRef.current ?? '')
         const excerpt = value.slice(-1500)
         if (excerpt.trim().length < PERSONA_MIN_CHARS) return
@@ -4840,12 +4880,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             personaId: persona.id,
             excerpt,
             recent: held.said.slice(-3),
+            ignored: held.ignored,
+            skips: held.skips,
+            quietMs: held.lastCommittedAt === 0 ? 0 : Date.now() - held.lastCommittedAt,
           })
           const remark = String(answer?.text ?? '').trim()
           if (remark !== '') {
             held.said = [...held.said, remark].slice(-3)
+            held.lastRemarkAt = Date.now()
+            held.lastRemarkText = remark
+            held.skips = 0
             insertInterjection(String(answer?.persona?.name ?? persona.name), remark)
             setVoice((current) => ({ ...current, heard: remark }))
+          } else {
+            // Silence is an answer too: two in a row and the listener is told to keep quiet.
+            held.skips += 1
           }
         } catch {
           /* a quiet listener is not an error */

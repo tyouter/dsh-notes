@@ -429,6 +429,19 @@ await rm(tokenVault, { recursive: true, force: true })
   check('the prompt carries what was said', prompt.user.includes('今天开会没定下来。'))
   check('the prompt carries what it already said', prompt.user.includes('先定义一下'))
   check('silence is allowed', /SKIP/.test(prompt.system))
+
+  // Restraint: what was ignored is shown back, and a silence streak raises the bar.
+  const learning = buildInterjectPrompt(persona, {
+    excerpt: '今天开会没定下来。',
+    recent: ['先定义一下"定下来"。'],
+    ignored: ['先定义一下"定下来"。'],
+    skips: 2,
+    quietMs: 90000,
+  })
+  check('what was ignored is shown back to it', learning.system.includes('不要再提同类') && learning.system.includes('先定义一下'))
+  check('a silence streak asks for more silence', /连续 2 次选择沉默/.test(learning.system))
+  check('a long stretch of speech discourages interruption', /不要打断他/.test(learning.system))
+  check('it is told not to become a nuisance', /宁可十次沉默/.test(learning.system))
 }
 
 {
