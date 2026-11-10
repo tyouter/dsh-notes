@@ -135,10 +135,10 @@ window.__ModuleLoader__.load({
     voiceHeard: '刚才听到',
     voiceWrote: '已写入',
     voiceUnusable: '这台设备没有可用的麦克风',
-    personaLabel: '人格',
+    personaLabel: '写作伙伴',
     personaNone: '不选',
     personaManage: '管理',
-    personaHint: '选一个旁听者：它会偶尔插一句，插话以引文形式写在正文里，你可以直接在正文里回答，也可以不理会。',
+    personaHint: '开启麦克风后可选：它会偶尔插一句（以引文写在正文里）；你也可以主动呼叫它。',
     personaName: '称呼',
     personaBrief: '提示词：它关注什么、怎么说话',
     personaNew: '新增人格',
@@ -146,6 +146,9 @@ window.__ModuleLoader__.load({
     personaClose: '关闭',
     personaDelete: '删除',
     personaSaving: '保存中…',
+    partnerSummon: '呼叫',
+    partnerSummonHint: '让它现在就说一句',
+    partnerSilent: '它这次没说话',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -312,10 +315,10 @@ window.__ModuleLoader__.load({
     voiceHeard: 'Heard',
     voiceWrote: 'Written',
     voiceUnusable: 'No usable microphone on this device',
-    personaLabel: 'Persona',
+    personaLabel: 'Writing partner',
     personaNone: 'none',
     personaManage: 'Manage',
-    personaHint: 'Pick a listener: it now and then adds one line, quoted, in the note. Answer it in speech or ignore it.',
+    personaHint: 'Available while the microphone is on: it may add one quoted line, and you can call it yourself.',
     personaName: 'Name',
     personaBrief: 'Brief: what it notices, how it speaks',
     personaNew: 'New persona',
@@ -323,6 +326,9 @@ window.__ModuleLoader__.load({
     personaClose: 'Close',
     personaDelete: 'Delete',
     personaSaving: 'Saving…',
+    partnerSummon: 'Ask',
+    partnerSummonHint: 'Have it say something now',
+    partnerSilent: 'It stayed quiet',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -3372,14 +3378,29 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   overflow-y: auto;
 }
 /* ---- persona: the listener bar, its manager, and the quoted line it writes ---- */
+.dshn-voice-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 52px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 var(--dshn-sheet-pad, 0px);
+  pointer-events: none;
+}
+.dshn-voice-dock > * { pointer-events: auto; }
 .dshn-persona-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: auto;
-  padding-top: 8px;
+  padding: 6px 8px;
   min-width: 0;
-  border-top: 1px solid var(--dsw-alias-border-l1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dshn-r-sm);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 8%);
 }
 .dshn-persona-bar .dshn-cap { flex: 0 0 auto; }
 .dshn-persona-select {
@@ -3451,7 +3472,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: auto;
   padding: 6px 10px;
   border-radius: var(--dshn-r-sm);
   background: var(--dsw-alias-bg-layer-2);
@@ -4801,8 +4821,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             await typeDictation(arrangeDictation(spoken), gap)
             held.lastCommittedAt = Date.now()
             // A listener may now have something to say. It is asked after the words are on the page, and a
-            // silent answer is a normal answer.
-            void maybeInterject()
+            // silent answer is a normal answer. Saying its name with a request is a summons, not a pause.
+            const partner = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
+            if (partner !== null && wantsPartner(spoken, partner)) void maybeInterject({ force: true })
+            else void maybeInterject()
             setVoice((current) => ({ ...current, heard: spoken }))
           }
         } catch (error) {
@@ -4837,6 +4859,26 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
+      /**
+       * Did the author just call the partner by name?
+       *
+       * Dictation has no command shell, so a summons is plain speech: the partner's name (either script)
+       * together with a word that asks for an opinion. `乔布斯，你觉得呢` and `let Jobs weigh in` both count;
+       * simply mentioning the name does not.
+       */
+      const wantsPartner = (spoken, partner) => {
+        const value = String(spoken ?? '')
+        if (value.trim() === '') return false
+        const names = [partner.name, partner.nameEn].filter((name) => typeof name === 'string' && name.trim() !== '')
+        const lowered = value.toLowerCase()
+        const last = typeof partner.nameEn === 'string' && partner.nameEn.includes(' ')
+          ? partner.nameEn.split(' ').slice(-1)[0].toLowerCase()
+          : ''
+        const named = names.some((name) => lowered.includes(name.toLowerCase())) || (last !== '' && lowered.includes(last))
+        if (!named) return false
+        return /(评价|看法|怎么看|说说|谈谈|意见|你觉得|你说呢|评一评|点评|weigh in|thoughts|what do you think|comment)/i.test(value)
+      }
+
       /** Waiting between remarks, and how much must have been said since the last one. */
       const PERSONA_BASE_GAP_MS = 20000
       const PERSONA_MAX_GAP_MS = 120000
@@ -4854,11 +4896,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
        * time as something not to bring up again, and the wait before the next remark grows. Speaking into a
        * note that is already under way is; interrupting one that is working is not.
        */
-      const maybeInterject = async () => {
+      const maybeInterject = async ({ force = false } = {}) => {
         const persona = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
         const held = personaRef.current
         if (persona === null || held.busy) return
-        if (Date.now() - held.lastAt < held.gapMs) return
+        // Forced means the author asked for it: the waiting and the ignored-penalty do not apply, but the
+        // "enough has been said" floor still does, because an empty page has nothing to comment on.
+        if (force === false && Date.now() - held.lastAt < held.gapMs) return
 
         // A remark the author never answered: remember it, and raise the bar for the next one.
         if (held.lastRemarkAt !== 0 && Date.now() - held.lastRemarkAt > PERSONA_ANSWER_WINDOW_MS) {
@@ -4890,11 +4934,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             held.lastRemarkAt = Date.now()
             held.lastRemarkText = remark
             held.skips = 0
+            held.lastAt = Date.now()
             insertInterjection(String(answer?.persona?.name ?? persona.name), remark)
             setVoice((current) => ({ ...current, heard: remark }))
           } else {
             // Silence is an answer too: two in a row and the listener is told to keep quiet.
             held.skips += 1
+            if (force === true) flash(t.partnerSilent)
           }
         } catch {
           /* a quiet listener is not an error */
@@ -4967,7 +5013,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         let shown = ''
         for (let i = 0; i < full.length; i += step) {
           shown = full.slice(0, i + step)
-          applyEdit(head + shown + tail, head.length + shown.length)
+          const lastStep = i + step >= full.length
+          applyEdit(head + shown + tail, head.length + shown.length, { focus: lastStep })
           // 16ms per step: a short segment lands in well under a second, a long one keeps moving.
           await new Promise((resolve) => setTimeout(resolve, 16))
         }
@@ -5041,12 +5088,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
        * Setting `area.value` first means React's re-render with the same string is a no-op, so the caret we
        * just set survives.
        */
-      const applyEdit = (value, caret) => {
+      const applyEdit = (value, caret, options = {}) => {
         const area = areaRef.current
         setDraft(value)
         if (area === null) return
         area.value = value
-        area.focus()
+        // Focusing on every step of the typewriter makes the browser scroll the editor each time, which reads
+        // as the page jittering. Only the last step takes focus.
+        if (options.focus !== false) area.focus()
         area.setSelectionRange(caret, caret)
       }
 
@@ -5844,56 +5893,70 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           }),
             ),
           ),
-        // The listener: only while the microphone is available, and defaulting to nobody. Choosing one is
-        // the whole consent step — nothing is sent to a model until a persona is picked.
-        voice.available
-          ? h(
-              'div',
-              { className: 'dshn-persona-bar' },
-              h('span', { className: 'dshn-cap' }, t.personaLabel),
-              h(
-                'select',
-                {
-                  className: 'dshn-persona-select',
-                  value: personaId,
-                  title: t.personaHint,
-                  onChange: (event) => setPersonaId(event.target.value),
-                },
-                h('option', { value: '' }, t.personaNone),
-                ...personas.map((entry) =>
-                  h(
-                    'option',
-                    { key: entry.id, value: entry.id },
-                    detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name),
-                  ),
-                ),
-              ),
-              h(
-                'button',
-                {
-                  type: 'button',
-                  className: 'dshn-btn ghost dshn-persona-manage',
-                  onClick: () =>
-                    setPersonaSheet({
-                      list: personas.filter((entry) => entry.custom !== false).map((entry) => ({ ...entry })),
-                      saving: false,
-                    }),
-                },
-                t.personaManage,
-              ),
-            )
-          : null,
-        // What the microphone is doing, in one line above the footer: listening, transcribing, or the
-        // phrase it just wrote. It only exists while the microphone is on or something was just heard.
+        // The voice UI floats above the footer instead of taking part in the sheet's layout: a row that
+        // appears while you speak must not move the text you are reading.
         voice.listening || voice.busy || voice.heard !== ''
           ? h(
               'div',
-              { className: 'dshn-voice-strip', 'data-live': String(voice.listening) },
-              h('span', { className: 'dshn-voice-dot' }),
+              { className: 'dshn-voice-dock' },
+              voice.listening && personas.length > 0
+                ? h(
+                    'div',
+                    { className: 'dshn-persona-bar' },
+                    h('span', { className: 'dshn-cap' }, t.personaLabel),
+                    h(
+                      'select',
+                      {
+                        className: 'dshn-persona-select',
+                        value: personaId,
+                        title: t.personaHint,
+                        onChange: (event) => setPersonaId(event.target.value),
+                      },
+                      h('option', { value: '' }, t.personaNone),
+                      ...personas.map((entry) =>
+                        h(
+                          'option',
+                          { key: entry.id, value: entry.id },
+                          detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name),
+                        ),
+                      ),
+                    ),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        className: 'dshn-btn ghost dshn-persona-manage',
+                        disabled: personaId === '' || personaRef.current.busy,
+                        title: t.partnerSummonHint,
+                        onClick: () => void maybeInterject({ force: true }),
+                      },
+                      t.partnerSummon,
+                    ),
+                    h('span', { className: 'dshn-grow' }),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        className: 'dshn-btn ghost dshn-persona-manage',
+                        onClick: () =>
+                          setPersonaSheet({
+                            list: personas.filter((entry) => entry.custom !== false).map((entry) => ({ ...entry })),
+                            saving: false,
+                          }),
+                      },
+                      t.personaManage,
+                    ),
+                  )
+                : null,
               h(
-                'span',
-                { className: 'dshn-voice-text' },
-                voice.busy ? t.voiceBusy : voice.heard !== '' ? `${t.voiceHeard}：${voice.heard}` : t.voiceListening,
+                'div',
+                { className: 'dshn-voice-strip', 'data-live': String(voice.listening) },
+                h('span', { className: 'dshn-voice-dot' }),
+                h(
+                  'span',
+                  { className: 'dshn-voice-text' },
+                  voice.busy ? t.voiceBusy : voice.heard !== '' ? `${t.voiceHeard}：${voice.heard}` : t.voiceListening,
+                ),
               ),
             )
           : null,

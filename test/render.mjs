@@ -641,8 +641,13 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the host routes exist', /route === 'speech\/state'/.test(apiSource) && /route === 'speech\/transcribe'/.test(apiSource) && /SpeechBridge/.test(indexSource))
 
     // ---- AI talk: a listener that may interject ----
-    check('a persona is chosen, never defaulted', /const \[personaId, setPersonaId\] = useState\(''\)/.test(boardSource) && /t\.personaNone/.test(boardSource))
-    check('the picker sits above the microphone', /dshn-persona-bar/.test(boardSource) && /voice\.available\s*\n\s*\? h\(/.test(boardSource))
+    check('a partner is chosen, never defaulted', /const \[personaId, setPersonaId\] = useState\(''\)/.test(boardSource) && /t\.personaNone/.test(boardSource))
+    check('the picker appears only while the microphone is on', /voice\.listening && personas\.length > 0/.test(boardSource) && !/voice\.available\s*\n\s*\? h\(/.test(boardSource))
+    check('it is called a writing partner', /personaLabel: 'Writing partner'/.test(headSource) && /personaLabel: '写作伙伴'/.test(headSource))
+    check('the voice UI is pinned, not in the flow', /\.dshn-voice-dock \{[\s\S]{0,220}position: absolute/.test(headCss) && /dshn-voice-dock/.test(boardSource))
+    check('the typewriter only focuses once', /const lastStep = i \+ step >= full\.length/.test(boardSource) && /\{ focus: lastStep \}/.test(boardSource))
+    check('a partner can be summoned by a button', /t\.partnerSummon/.test(boardSource) && /maybeInterject\(\{ force: true \}\)/.test(boardSource))
+    check('saying its name summons it too', /const wantsPartner = \(spoken, partner\)/.test(boardSource) && /wantsPartner\(spoken, partner\)/.test(boardSource))
     check('an interjection is quoted, named and italic', /const line = \`> \*\${String\(name\)}：\${String\(remark\)}\*\`/.test(boardSource))
     check('a listener speaks rarely and not twice', /PERSONA_BASE_GAP_MS/.test(boardSource) && /held\.said\.slice\(-3\)/.test(boardSource))
     check('the moment is the long pause', /DICTATION_PARAGRAPH_PAUSE_MS/.test(boardSource) && /now - current\.lastCommittedAt >= DICTATION_PARAGRAPH_PAUSE_MS/.test(boardSource) && /current\.interjected/.test(boardSource))

@@ -117,10 +117,10 @@
     voiceHeard: '刚才听到',
     voiceWrote: '已写入',
     voiceUnusable: '这台设备没有可用的麦克风',
-    personaLabel: '人格',
+    personaLabel: '写作伙伴',
     personaNone: '不选',
     personaManage: '管理',
-    personaHint: '选一个旁听者：它会偶尔插一句，插话以引文形式写在正文里，你可以直接在正文里回答，也可以不理会。',
+    personaHint: '开启麦克风后可选：它会偶尔插一句（以引文写在正文里）；你也可以主动呼叫它。',
     personaName: '称呼',
     personaBrief: '提示词：它关注什么、怎么说话',
     personaNew: '新增人格',
@@ -128,6 +128,9 @@
     personaClose: '关闭',
     personaDelete: '删除',
     personaSaving: '保存中…',
+    partnerSummon: '呼叫',
+    partnerSummonHint: '让它现在就说一句',
+    partnerSilent: '它这次没说话',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -294,10 +297,10 @@
     voiceHeard: 'Heard',
     voiceWrote: 'Written',
     voiceUnusable: 'No usable microphone on this device',
-    personaLabel: 'Persona',
+    personaLabel: 'Writing partner',
     personaNone: 'none',
     personaManage: 'Manage',
-    personaHint: 'Pick a listener: it now and then adds one line, quoted, in the note. Answer it in speech or ignore it.',
+    personaHint: 'Available while the microphone is on: it may add one quoted line, and you can call it yourself.',
     personaName: 'Name',
     personaBrief: 'Brief: what it notices, how it speaks',
     personaNew: 'New persona',
@@ -305,6 +308,9 @@
     personaClose: 'Close',
     personaDelete: 'Delete',
     personaSaving: 'Saving…',
+    partnerSummon: 'Ask',
+    partnerSummonHint: 'Have it say something now',
+    partnerSilent: 'It stayed quiet',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -3354,14 +3360,29 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   overflow-y: auto;
 }
 /* ---- persona: the listener bar, its manager, and the quoted line it writes ---- */
+.dshn-voice-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 52px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 var(--dshn-sheet-pad, 0px);
+  pointer-events: none;
+}
+.dshn-voice-dock > * { pointer-events: auto; }
 .dshn-persona-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: auto;
-  padding-top: 8px;
+  padding: 6px 8px;
   min-width: 0;
-  border-top: 1px solid var(--dsw-alias-border-l1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dshn-r-sm);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 8%);
 }
 .dshn-persona-bar .dshn-cap { flex: 0 0 auto; }
 .dshn-persona-select {
@@ -3433,7 +3454,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: auto;
   padding: 6px 10px;
   border-radius: var(--dshn-r-sm);
   background: var(--dsw-alias-bg-layer-2);
