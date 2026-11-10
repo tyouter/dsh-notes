@@ -798,5 +798,11 @@
 
         // Capture lives inside the panel now (the board's 快速记录 button), so the
         // composer icon, the Alt+N shortcut and the floating card are all gone.
+
+        // The switch board for the writing partner, on the bundle's own Plugins page. The key is the
+        // bundle's package name (not the patch id): that is the string the Plugins page looks up.
+        ctx.slots.inject('plugins.bundle.config', () =>
+          ctx.slots.register({ name: 'plugins.bundle.config', key: PACKAGE }, NotesSettings),
+        )
       },
     }

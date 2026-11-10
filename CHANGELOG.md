@@ -1,5 +1,76 @@
 # Changelog
 
+## Unreleased — the salon
+
+- The capture page no longer asks who should listen: it shows who is in the room and nothing else.
+- The switch board lives on the bundle's own page (Plugins → Notebook): enable or disable the partner,
+  automatic or pinned persona, and your own personas. Presets stay read-only — they are code.
+- **Two seconds of silence, then the room**: nothing is said when a segment is transcribed. The panel
+  waits until the author has been quiet for two full seconds (measured from the last sound, not from the
+  last transcript), then asks the convenor once. Talking over a half-finished sentence — and asking the
+  host on every segment, which made it repeat its own scheduling line — is gone; an identical quote is
+  never inserted twice.
+- **The room and the speakers are separate**: the plan lists `seat` (everyone in the room) and `speak`
+  (who answers now, usually one). A new guest can be kept in the room while an older one takes the turn,
+  and a guest who is not speaking is still seated. The room is the **union** of everyone seated so far —
+  a guest only leaves when the host explicitly dismisses them — so "the person I just summoned" no
+  longer vanishes between turns.
+- **A host turn can hand over the floor**: "到了，徐霞客在" is followed by 徐霞客 speaking in the same
+  turn, instead of the host repeating that he is present while nobody talks. A host line is now spoken
+  in any speaking mode (it introduces who is about to talk).
+- **The host stays out when the author names someone**: "这不是应该黄仁宇来回答" now produces 黄仁宇's
+  answer with no host line at all; the host only narrates when it introduces somebody or is itself
+  addressed. A host line that says "我请 X 来" must also create or seat X — it cannot promise and stop.
+- **Guests stop correcting the author's typos**: a mis-heard word is read from context ("驿道" heard as
+  "易道"), not answered with "我没说过".
+- **A cancelled page drops its in-flight answers**: save/cancel bumps a conversation generation, so a
+  remark or plan that was still coming back cannot land in the next, empty page.
+- **A freshly summoned guest speaks first**: "我想找樊锦诗聊聊" seats her and gives her the turn, while
+  the room keeps whoever was already there.
+- **An empty transcript is not a failure**: a cough or a clipped syllable used to raise "没有识别出文字"
+  every few pauses; now it stays quiet, and a segment commits after 800 ms of quiet (was 500 ms) so the
+  recogniser has more to work with.
+- **Save and cancel close the microphone**: either button ends dictation and clears the strip, so it can
+  no longer linger after the page is put away.
+- **The host answers instead of apologising**: apology phrasing is forbidden ("我没接住", "是我的问题"),
+  "可以找谁" gets a name before the guest speaks, "进来了吗" gets 在/不在, and the host is shown what it
+  said last turn so it does not repeat its own scheduling line.
+- **The host is always in the room**: the microphone being on means every finished sentence and every
+  pause passes through the convenor. It judges whether the author is writing, talking to the host,
+  talking to one guest, or telling the guests to talk to each other — and answers as itself when
+  addressed (`mode: host`, its words land as `> **召唤师**：…`), opens a discussion when told to, or
+  stays quiet.
+- **No keyword lists left in the panel**: the client no longer decides what counts as a summons, a
+  question, or a name (the old rules kept missing "修摩罗什", "罗石", "你怎么看" — each misspelling was a
+  new rule). That judgement is the convenor's: it reads the same transcript, knows the room, and is
+  told that dictation mangles names and that a question to the room must be answered with `now`.
+- **The convenor decides**: every pause hands the page to a host that returns a plan — who is seated,
+  what each guest is asked to do, whether they answer alone, answer each other, or stay quiet. It may
+  answer `{"keep":true}` ("same room, nothing to say"), and then the room waits.
+- **When it decides to speak, it speaks**: a named guest is always brought out; an unnamed but clear
+  moment also gets someone (`now`); unclear moments stay silent. A summoned guest with nothing to add
+  still shows up with its own opening line, inserted as a quote.
+- **Guests speak only as quotes in the page** — `> **名字**：内容`. The strip is status only: listening,
+  transcribing, "召唤师在看这一桌…", who is seated. Nothing a guest says lives there.
+- **Context is handed over in labelled blocks**: what the author wrote before, what the room already
+  said (the guests' own words, kept as background), and the sentence the author just finished (the
+  focus). The guest is told which is which and to find the topic point the newest sentence picks up.
+- **A table, not a single listener**: up to three guests; one remark per pause, the longest-waiting
+  guest first. A discussion round (each guest hearing the last) only runs when the author asked for it.
+- **A table stays a table**: the room is kept between pauses, and a new guest starts listening when it
+  sits down.
+- **Restraint on non-forced turns**: 45 s between a guest's remarks, 220 new characters since it last
+  spoke, two remarks no closer than 25 s, and only at a sentence boundary. Dictation never waits on a
+  model call.
+- **The convenor writes the missing guest**: a name outside the catalogue is written in the same schema
+  (third-person brief), stored and seated; at most one every ten minutes; auto cards carry a tag in the
+  settings page.
+- **The guests speak as themselves**: the prompt forbids talking about the conversation itself, requires
+  a concrete thing from the page, and the four presets got sharper briefs — Aristotle defines, Jobs
+  cuts, the analyst reflects once, the diviner reads a pattern.
+- **Stopping the microphone stops everything**: an in-flight transcription is aborted, the strip is
+  cleared, and a stray notice expires after four seconds — "识别中" cannot outlive the microphone.
+- Settings live in `notes-vault/settings.json`; interjections are standard Markdown quotes.
 ## 1.1.3 — colours, immersion, and the typing path
 
 ### Charts

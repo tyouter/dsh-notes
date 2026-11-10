@@ -16,6 +16,8 @@
 window.__ModuleLoader__.load({
   id: '@tyouter/dsh-notes',
   factory(require) {
+    /** The bundle's own package name: the key the Plugins page looks its configuration up by. */
+    const PACKAGE = '@tyouter/dsh-notes'
     const React = require('react')
     const h = React.createElement
     const { useState, useEffect, useMemo, useCallback, useRef } = React
@@ -146,6 +148,34 @@ window.__ModuleLoader__.load({
     personaClose: '关闭',
     personaDelete: '删除',
     personaSaving: '保存中…',
+    personaSeated: '在座',
+    personaOff: '已关闭',
+    personaAutoTbd: '自动挑选中',
+    partnerJoined: '新请来',
+    convenorThinking: '召唤师在看这一桌…',
+    convenorName: '召唤师',
+    personaWhy: '它只在你停下来时偶尔插一句，写成一段引用；喊它的名字再加一句求意见的话，它就会答。',
+    settingsTitle: '写作伙伴',
+    settingsIntro: '谁在场、怎么选，都在这里定。写的时候它不打断你，只在停顿处说一句。',
+    settingsEnabled: '启用写作伙伴',
+    settingsEnabledHint: '关掉之后不再插话，也不产生任何模型调用。',
+    settingsMode: '谁在场',
+    settingsModeAuto: '自动',
+    settingsModeManual: '指定',
+    settingsModeAutoHint: '按你正在写的内容挑一位；挑不出合适的就安静。',
+    settingsModeManualHint: '固定用下面这一位。',
+    settingsPersona: '指定人格',
+    settingsPersonaNone: '不选（它不会开口）',
+    settingsPersonaAutoHint: '自动模式下由它自己挑；想固定某一位就切到「指定」。',
+    settingsLibrary: '人格库',
+    settingsLibraryHint: '预设随插件发布，不能改；你自己建的可以增删改。',
+    settingsPresets: '预设',
+    settingsCustom: '我的',
+    settingsAdd: '新增人格',
+    settingsSaved: '已保存',
+    settingsSaveFailed: '保存失败',
+    settingsEmptyCustom: '还没有自建人格。',
+    settingsAutoTag: '自动',
     partnerSummon: '呼叫',
     partnerSummonHint: '让它现在就说一句',
     partnerSilent: '它这次没说话',
@@ -326,6 +356,34 @@ window.__ModuleLoader__.load({
     personaClose: 'Close',
     personaDelete: 'Delete',
     personaSaving: 'Saving…',
+    personaSeated: 'In the room',
+    personaOff: 'Off',
+    personaAutoTbd: 'Choosing…',
+    partnerJoined: 'Joined',
+    convenorThinking: 'The host is looking at the room…',
+    convenorName: 'Host',
+    personaWhy: 'It speaks only when you pause, as a quoted passage. Say its name with a request for an opinion and it answers.',
+    settingsTitle: 'Writing partner',
+    settingsIntro: 'Who is in the room, and how it is chosen, is settled here. It never interrupts; it speaks at a pause.',
+    settingsEnabled: 'Enable the writing partner',
+    settingsEnabledHint: 'With this off it says nothing and spends no tokens.',
+    settingsMode: 'Who is in the room',
+    settingsModeAuto: 'Automatic',
+    settingsModeManual: 'Chosen',
+    settingsModeAutoHint: 'Picks the best fit for what you are writing; stays quiet when nobody fits.',
+    settingsModeManualHint: 'Always use the one selected below.',
+    settingsPersona: 'Persona',
+    settingsPersonaNone: 'None (it stays quiet)',
+    settingsPersonaAutoHint: 'In automatic mode it chooses; switch to Chosen to pin one.',
+    settingsLibrary: 'Personas',
+    settingsLibraryHint: 'Presets ship with the plugin and cannot be edited; the ones you write can.',
+    settingsPresets: 'Presets',
+    settingsCustom: 'Mine',
+    settingsAdd: 'New persona',
+    settingsSaved: 'Saved',
+    settingsSaveFailed: 'Could not save',
+    settingsEmptyCustom: 'No personas of your own yet.',
+    settingsAutoTag: 'Auto',
     partnerSummon: 'Ask',
     partnerSummonHint: 'Have it say something now',
     partnerSilent: 'It stayed quiet',
@@ -1219,7 +1277,7 @@ window.__ModuleLoader__.load({
     const SUB_CUE = /^(?:比如|例如|具体来说|具体是|也就是|就是说)/
 
     /** A pause this long between segments starts a new paragraph instead of continuing the line. */
-    const DICTATION_PARAGRAPH_PAUSE_MS = 1200
+    const DICTATION_PARAGRAPH_PAUSE_MS = 2000
 
     /** How long one dictated paragraph may grow before it is broken anyway. */
     const DICTATION_PARAGRAPH_CHARS = 180
@@ -1873,6 +1931,24 @@ window.__ModuleLoader__.load({
     }
 
     const dict = () => STRINGS[detectLanguage()]
+
+    /**
+     * Who reads as "in the room" on the capture strip.
+     *
+     * The capture page no longer lets anyone choose: the ids come from the convenor, and in `auto` mode
+     * the room stays empty until somebody has been seated.
+     */
+    function partnerSeatLabel(t, personas, seated, settings) {
+      if (settings !== null && settings !== undefined && settings.enabled === false) return t.personaOff
+      const ids = Array.isArray(seated) ? seated : seated === '' || seated === undefined ? [] : [seated]
+      const names = ids.map((id) => {
+        const found = (Array.isArray(personas) ? personas : []).find((entry) => entry.id === id)
+        if (found === undefined) return ''
+        return detectLanguage() === 'zh' ? found.name : (found.nameEn ?? found.name)
+      }).filter((name) => name !== '')
+      if (names.length > 0) return names.join('、')
+      return settings !== null && settings !== undefined && settings.mode === 'auto' ? t.personaAutoTbd : t.personaNone
+    }
 
     // ----------------------------------------------------------------- api ---
 
@@ -3405,60 +3481,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   box-shadow: 0 4px 14px rgb(0 0 0 / 8%);
 }
 .dshn-persona-bar .dshn-cap { flex: 0 0 auto; }
-.dshn-persona-select {
-  appearance: none;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-sm);
-  background: var(--dsw-alias-bg-base);
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
+.dshn-persona-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
-  max-width: 180px;
-}
-.dshn-persona-select:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
-.dshn-persona-manage { height: 26px; padding: 0 8px; font-size: 12px; }
-.dshn-persona-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent);
-  backdrop-filter: blur(2px);
-}
-.dshn-persona-panel {
-  width: min(560px, 92vw);
-  max-height: 80vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px 20px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-lg);
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 22%);
-}
-.dshn-persona-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
-.dshn-persona-row:first-of-type { border-top: none; }
-.dshn-persona-line { display: flex; gap: 8px; align-items: center; }
-.dshn-persona-input,
-.dshn-persona-text {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-sm);
-  background: var(--dsw-alias-bg-base);
+  font-weight: 500;
   color: var(--dsw-alias-label-primary);
-  font: inherit;
-  font-size: 12px;
 }
-.dshn-persona-text { min-height: 64px; resize: vertical; line-height: 1.5; }
-.dshn-persona-actions { display: flex; justify-content: flex-end; gap: 8px; }
 /* The interjection itself: a quote line, set slightly larger and in italics by the markdown renderer. */
 .dshn-md-quote {
   margin: 12px 0;
@@ -4198,7 +4230,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Dictation: a segment ends after this much quiet, and is cut off at the maximum either way.
     // Half a second of quiet ends a segment: short enough to feel like typing, long enough not to cut words.
-    const VOICE_COMMIT_MS = 500
+    const VOICE_COMMIT_MS = 800
     // Below this a segment is a cough or a chair, and transcribing it costs a request and writes nonsense.
     const VOICE_MIN_SEGMENT_MS = 400
     const VOICE_MAX_MS = 20000
@@ -4569,14 +4601,18 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
       // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
-      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', notice: '', phase: '' })
+      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', notice: '', convenor: false, phase: '' })
       const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
-      // The listener: a persona the author chose, its remark history (so it does not repeat itself), and the
-      // manager sheet.
+      const noticeTimer = useRef(0)
+      // The listener: the author's personas, who is currently in the room, and the partner settings
+      // (stored by the Host in `settings.json`, edited on the bundle's Plugins page — never here).
       const [personas, setPersonas] = useState([])
       const [personaId, setPersonaId] = useState('')
-      const [personaSheet, setPersonaSheet] = useState(null)
-      const personaRef = useRef({ lastAt: 0, said: [], busy: false, welcomed: '' })
+      const [guests, setGuests] = useState([])
+      const [partnerSettings, setPartnerSettings] = useState(null)
+      // Per-guest memory (what each one already said, what the author ignored) plus the convening cache:
+      // a table is re-chosen for a new topic, not on every pause.
+      const personaRef = useRef({ byId: {}, topic: '', convenedAt: 0, table: [], welcomed: {}, lastInserted: '' })
       // Which call is running ("structure" / "translate"), and a counter that changes whenever a
       // result lands — the counter is the wipe animation's key.
       const [busy, setBusy] = useState('')
@@ -4624,6 +4660,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             } catch {
               /* the picker simply stays empty */
             }
+            try {
+              const saved = await api('/settings')
+              if (!cancelled && saved?.settings) {
+                setPartnerSettings(saved.settings)
+                // `manual` remembers a persona; `auto` starts with nobody chosen and lets the chooser speak.
+                if (String(saved.settings.personaId ?? '') !== '') setPersonaId(saved.settings.personaId)
+              }
+            } catch {
+              /* defaults live on the Host */
+            }
             if (cancelled) return
             setVoice((current) => ({
               ...current,
@@ -4655,6 +4701,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       }
 
       /**
+       * A line in the voice strip that removes itself.
+       *
+       * A notice is a moment ("已请来：黄仁宇"), not a mode: leaving it on screen after the microphone is
+       * off is exactly how the strip came to say "识别中" forever.
+       */
+      const sayVoice = (text) => {
+        setVoice((current) => ({ ...current, notice: String(text ?? '') }))
+        if (noticeTimer.current !== 0) clearTimeout(noticeTimer.current)
+        noticeTimer.current = setTimeout(() => {
+          setVoice((current) => (current.notice === '' ? current : { ...current, notice: '' }))
+          noticeTimer.current = 0
+        }, 4200)
+      }
+
+      /**
        * Continuous dictation.
        *
        * The microphone stays open until the switch is turned off again. The level is watched; a segment
@@ -4665,6 +4726,19 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
        */
       const stopVoice = () => {
         const held = voiceRef.current
+        // From here on the strip belongs to the author again, not to the recogniser.
+        held.stopped = true
+        // Anything already in flight — a transcript, a convenor plan, a guest's remark — belongs to the
+        // conversation that is ending; the generation bump makes them land nowhere.
+        personaRef.current.generation = (personaRef.current.generation || 0) + 1
+        // A transcription already in flight must not outlive the microphone: abort it, so `busy` cannot
+        // stay true (the strip used to say "识别中" after the switch was off).
+        try {
+          held.transcribeAbort?.abort?.()
+        } catch {
+          /* already settled */
+        }
+        held.transcribeAbort = null
         if (held.timer !== 0) {
           clearInterval(held.timer)
           held.timer = 0
@@ -4684,16 +4758,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       }
 
       const toggleVoice = async () => {
-        if (voice.busy) return
+        // Stopping comes first on purpose: a transcription in flight must never block the off switch.
         if (voice.listening) {
           stopVoice()
-          setVoice((current) => ({ ...current, listening: false, busy: false }))
+          if (noticeTimer.current !== 0) {
+            clearTimeout(noticeTimer.current)
+            noticeTimer.current = 0
+          }
+          setVoice((current) => ({ ...current, listening: false, busy: false, heard: '', notice: '', convenor: false }))
           return
         }
+        if (voice.busy) return
         if (!voice.available) return
         const Ctor = typeof AudioContext === 'undefined' ? globalThis.webkitAudioContext : AudioContext
         if (Ctor === undefined || navigator?.mediaDevices === undefined) {
-          setVoice((current) => ({ ...current, notice: t.voiceUnusable }))
+          sayVoice(t.voiceUnusable)
           return
         }
         try {
@@ -4718,6 +4797,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             lastLoudAt: 0,
             startedAt: 0,
             committing: false,
+            stopped: false,
+            lastSpoken: '',
+            transcribeAbort: null,
             lastCommittedAt: 0,
             interjected: false,
             gapMs: PERSONA_BASE_GAP_MS,
@@ -4747,18 +4829,19 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               if (quiet > VOICE_COMMIT_MS || long) stopSegment()
             } else if (
               current.interjected === false &&
-              current.lastCommittedAt !== 0 &&
-              now - current.lastCommittedAt >= DICTATION_PARAGRAPH_PAUSE_MS
+              current.lastLoudAt !== 0 &&
+              current.committing === false &&
+              now - current.lastLoudAt >= DICTATION_PARAGRAPH_PAUSE_MS
             ) {
-              // The author has been quiet long enough that the thought is finished: only now is a listener
-              // allowed to speak.
+              // He has been silent for two full seconds: only now may the room speak. While he is
+              // talking — or while a segment is still being transcribed — nothing comes out.
               current.interjected = true
-              void maybeInterject()
+              void pauseTurn()
             }
           }, 100)
-          setVoice((current) => ({ ...current, listening: true, busy: false, heard: '' }))
+          setVoice((current) => ({ ...current, listening: true, busy: false, heard: '', notice: '', convenor: false }))
         } catch {
-          setVoice((current) => ({ ...current, notice: t.voiceUnusable }))
+          sayVoice(t.voiceUnusable)
           setVoice((current) => ({ ...current, listening: false, busy: false }))
         }
       }
@@ -4813,7 +4896,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         if (held.committing) return
         if (Date.now() - held.startedAt < VOICE_MIN_SEGMENT_MS) return
         held.committing = true
-        setVoice((current) => ({ ...current, busy: true }))
+        // A segment that was already recording when the author switched the microphone off finishes
+        // silently: its text still lands, but the strip must not claim to be listening again.
+        const silent = held.stopped === true
+        if (!silent) setVoice((current) => ({ ...current, busy: true }))
         try {
           const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
           const bytes = new Uint8Array(await blob.arrayBuffer())
@@ -4823,7 +4909,17 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           // back as Japanese. The note's own script wins; the UI language is the fallback.
           const draftLanguage = detectTextLanguage(String(draftRef.current ?? ''))
           const language = draftLanguage === 'zh' || draftLanguage === 'en' ? draftLanguage : detectLanguage() === 'zh' ? 'zh' : 'en'
-          const result = await post('/speech/transcribe', { audioBase64: toBase64(wav), language })
+          // A recogniser that never answers must not hold the strip in "识别中" forever: 25 s, then give up.
+          const controller = typeof AbortController === 'undefined' ? null : new AbortController()
+          held.transcribeAbort = controller
+          const guard = controller === null ? 0 : setTimeout(() => controller.abort(), 25000)
+          let result = null
+          try {
+            result = await post('/speech/transcribe', { audioBase64: toBase64(wav), language }, controller?.signal)
+          } finally {
+            if (guard !== 0) clearTimeout(guard)
+            held.transcribeAbort = null
+          }
           const spoken = String(result?.text ?? '').trim()
           if (spoken !== '') {
             // Local layout first (no model, no tokens), then the typewriter: the words appear while the next
@@ -4832,19 +4928,21 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             const gap = held.lastCommittedAt === 0 ? 0 : Date.now() - held.lastCommittedAt
             await typeDictation(arrangeDictation(spoken), gap)
             held.lastCommittedAt = Date.now()
-            // A listener may now have something to say. It is asked after the words are on the page, and a
-            // silent answer is a normal answer. Saying its name with a request is a summons, not a pause.
-            const partner = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
-            if (partner !== null && wantsPartner(spoken, partner)) void maybeInterject({ force: true })
-            else void maybeInterject()
-            setVoice((current) => ({ ...current, heard: spoken }))
+            held.lastSpoken = spoken
+            // No one speaks here. The room waits for the two-second silence gate in the level monitor:
+            // talking over the author — or answering a half-finished sentence — is what made it feel
+            // choppy. The convenor is asked once, at the pause, with this segment as the focus.
+            setVoice((current) => ({ ...current, heard: String(spoken) }))
           }
         } catch (error) {
+          // An aborted transcription is not a failure: the microphone was switched off mid-flight.
+          if (String(error?.name ?? '') === 'AbortError') return
           const message = String(error?.message ?? '')
-          setVoice((current) => ({ ...current, notice: message === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed }))
+          // An empty transcript is normal (cough, noise, a clipped syllable); only real failures speak.
+          if (!silent && message !== t.voiceEmpty) sayVoice(t.voiceFailed)
         } finally {
           held.committing = false
-          setVoice((current) => ({ ...current, busy: false }))
+          if (!silent) setVoice((current) => ({ ...current, busy: false }))
         }
       }
 
@@ -4871,50 +4969,176 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
-      /**
-       * Did the author just call the partner by name?
-       *
-       * Dictation has no command shell, so a summons is plain speech: the partner's name (either script)
-       * together with a word that asks for an opinion. `乔布斯，你觉得呢` and `let Jobs weigh in` both count;
-       * simply mentioning the name does not.
-       */
-      const wantsPartner = (spoken, partner) => {
-        const value = String(spoken ?? '')
-        if (value.trim() === '') return false
-        const names = [partner.name, partner.nameEn].filter((name) => typeof name === 'string' && name.trim() !== '')
-        const lowered = value.toLowerCase()
-        const last = typeof partner.nameEn === 'string' && partner.nameEn.includes(' ')
-          ? partner.nameEn.split(' ').slice(-1)[0].toLowerCase()
-          : ''
-        const named = names.some((name) => lowered.includes(name.toLowerCase())) || (last !== '' && lowered.includes(last))
-        if (!named) return false
-        return /(评价|看法|怎么看|说说|谈谈|意见|你觉得|你说呢|评一评|点评|weigh in|thoughts|what do you think|comment)/i.test(value)
+      // The client no longer guesses what counts as a summons, a question, or a name with a typo in it.
+      // That judgement belongs to the convenor, which reads the same transcript and knows the room; the
+      // panel only carries out the plan. (This is what a keyword list kept getting wrong: "修摩罗什",
+      // "罗石", "你怎么看" — every misspelling was a new rule.)
+
+      /** Waiting between remarks, and how much new text must have been written since the last one. */
+      const PERSONA_BASE_GAP_MS = 45000
+      const PERSONA_MAX_GAP_MS = 180000
+      const PERSONA_ANSWER_WINDOW_MS = 12000
+      const PERSONA_MIN_CHARS = 100
+      /** New characters since this guest last spoke — a paraphrase of the same page is not "news". */
+      const PERSONA_MIN_NEW_CHARS = 220
+      /** Two remarks never land closer than this, whichever guest says them. */
+      const PERSONA_PAUSE_MS = 25000
+      /** Writing a new guest: at most once per this window, so a long session cannot spam the library. */
+      const PERSONA_CREATE_MS = 600000
+      /** One remark per pause: a table of three takes turns, it does not all speak at once. */
+      const PERSONA_MAX_REMARKS = 1
+
+      /** Each guest keeps its own memory: what it said, what was ignored, how long it now waits. */
+      const stateOf = (id) => {
+        const all = personaRef.current.byId
+        if (all[id] === undefined) {
+          all[id] = {
+            said: [],
+            ignored: [],
+            skips: 0,
+            gapMs: PERSONA_BASE_GAP_MS,
+            lastAt: 0,
+            markChars: 0,
+            lastRemarkAt: 0,
+            lastRemarkText: '',
+            busy: false,
+          }
+        }
+        return all[id]
       }
 
-      /** Waiting between remarks, and how much must have been said since the last one. */
-      const PERSONA_BASE_GAP_MS = 20000
-      const PERSONA_MAX_GAP_MS = 120000
-      const PERSONA_ANSWER_WINDOW_MS = 12000
-      const PERSONA_MIN_CHARS = 80
+      /**
+       * What the author actually wrote, with the room's own lines removed.
+       *
+       * Interjections are stored as blockquotes in the same page. Feeding them back as "what he is
+       * writing" made a guest continue its own thread — it answered its last remark instead of the
+       * author. The room's words travel separately (`discussion`), never inside the page text.
+       */
+      const authorOnly = (text) =>
+        String(text ?? '')
+          .split('\n')
+          .filter((line) => /^\s*>/.test(line) === false)
+          .join('\n')
 
       /**
-       * Ask the selected persona whether it has one thing to add.
+       * Ask the convenor what this moment needs.
        *
-       * The moment is the long pause: the author has stopped, the thought is on the page, and a listener may
-       * have something to say. The remark is written as a quote in italics with the persona's name; it is text
-       * like any other, so the author answers it by speaking, types over it, deletes it, or ignores it.
-       *
-       * Ignoring is a signal, not a failure: a remark nobody answered is remembered, shown to the persona next
-       * time as something not to bring up again, and the wait before the next remark grows. Speaking into a
-       * note that is already under way is; interrupting one that is working is not.
+       * The convenor is the host of the room: it decides who is seated, what each guest is asked to do,
+       * and whether the room answers now or at the next pause. The panel only decides the floor (a
+       * fragment is not worth a call) and carries the plan out.
        */
-      const maybeInterject = async ({ force = false } = {}) => {
-        const persona = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
+      const convene = async (spoken) => {
         const held = personaRef.current
-        if (persona === null || held.busy) return
-        // Forced means the author asked for it: the waiting and the ignored-penalty do not apply, but the
-        // "enough has been said" floor still does, because an empty page has nothing to comment on.
-        if (force === false && Date.now() - held.lastAt < held.gapMs) return
+        if (held.convening === true) return held.plan ?? null
+        // The segment commit and the long-pause check can land a second apart; one call is enough.
+        if (Date.now() - (held.calledAt || 0) < 2000) return held.plan ?? null
+        const full = String(draftRef.current ?? '')
+        const author = authorOnly(full)
+        // Any content is enough: the convenor decides whether it deserves a guest, not a character count.
+        if (author.trim() === '') return held.plan ?? null
+        const limit = Math.min(3, Math.max(1, Number(partnerSettings?.maxGuests) || 1))
+        const generation = personaRef.current.generation || 0
+        held.convening = true
+        held.calledAt = Date.now()
+        setVoice((current) => ({ ...current, convenor: true }))
+        try {
+          // Every pause asks the host: the page is short, the call is cheap, and the answer may be
+          // "nothing changes". Caching is left to the model's prompt cache — the rules and the catalogue
+          // are the stable system prefix, only the seating and the new text travel in the user turn.
+          const plan = await post('/voice/convene', {
+            excerpt: full.slice(-1500),
+            focus: String(spoken ?? '').slice(-600),
+            maxGuests: limit,
+            seated: (held.table ?? []).map((guest) => guest.id),
+            current: held.plan === null || held.plan === undefined ? null : {
+              mode: held.plan.mode,
+              timing: held.plan.timing,
+              say: held.plan.say ?? '',
+              directives: held.plan.directives ?? {},
+            },
+          })
+          if (plan === null || typeof plan !== 'object') return held.plan ?? null
+          // The page was saved or cancelled while the convenor was thinking.
+          if ((personaRef.current.generation || 0) !== generation) return null
+          // Keep means "same room, and nothing to say this turn". The convenor has already read the
+          // transcript (typos and all); if it says keep, the room stays quiet.
+          if (plan.keep === true) return held.plan === null || held.plan === undefined ? null : { ...held.plan, keep: true }
+          // The room is the union of who was already seated and who the convenor lists now; only an
+          // explicit dismiss removes someone. Guests used to vanish between turns when the host forgot
+          // to repeat them, which read as "the person I just summoned is gone".
+          const byId = new Map((held.table ?? []).map((guest) => [guest.id, guest]))
+          for (const guest of Array.isArray(plan.seat) ? plan.seat : []) byId.set(guest.id, guest)
+          for (const id of Array.isArray(plan.dismiss) ? plan.dismiss : []) byId.delete(String(id))
+          const table = [...byId.values()].slice(-5)
+          plan.seat = table
+          // A speaker who was dismissed this turn does not speak.
+          plan.speak = (Array.isArray(plan.speak) ? plan.speak : []).filter((guest) => byId.has(guest.id))
+          const now = Date.now()
+          // A guest that has just sat down starts its clock now: it has listened to nothing yet.
+          for (const guest of table) {
+            if ((held.seatedIds ?? []).includes(guest.id)) continue
+            const state = stateOf(guest.id)
+            state.lastAt = now
+            state.markChars = author.length
+          }
+          held.seatedIds = table.map((guest) => guest.id)
+          held.plan = plan
+          held.table = table
+          held.convenedAt = now
+          if (plan.created !== null && plan.created !== undefined) {
+            const guest = plan.created
+            setPersonas((current) => (current.some((entry) => entry.id === guest.id) ? current : [...current, guest]))
+            sayVoice(`${t.partnerJoined}：${guest.name}`)
+          }
+          setGuests(table.map((guest) => guest.id))
+          // Nothing the convenor says is rendered as text anywhere: the strip is status only, and every
+          // word a guest says becomes a quote in the page (see insertInterjection). The host's own `note`
+          // stays in the plan for debugging, not on screen.
+          return plan
+        } catch {
+          return held.plan ?? null
+        } finally {
+          held.convening = false
+          setVoice((current) => (current.convenor === false ? current : { ...current, convenor: false }))
+        }
+      }
+
+      /**
+       * Ask one guest for one remark, under the convenor's directive.
+       *
+       * Without a directive the timing gates decide (see `speakPlan`); a forced call is a summons and
+       * skips them. Either way the remark is a quote in the page, so it can be answered, edited or
+       * deleted like the author's own text.
+       */
+      const maybeInterject = async ({ force = false, persona = null, directive = '', discussion = [], focus = '' } = {}) => {
+        if (partnerSettings !== null && partnerSettings.enabled === false) return ''
+        if (persona === null) return ''
+        // Save/cancel increments the generation; an answer that was already in flight must not land
+        // in the next, empty page.
+        const generation = personaRef.current.generation || 0
+        const held = stateOf(persona.id)
+        if (held.busy) return ''
+
+        const full = String(draftRef.current ?? '')
+        const value = authorOnly(full)
+        if (value.trim().length < (force ? 20 : PERSONA_MIN_CHARS)) return ''
+
+        // Forced means the convenor or the author asked for it: the waiting and the ignored-penalty do
+        // not apply, but there still has to be a page to answer.
+        if (force === false) {
+          if (Date.now() - held.lastAt < held.gapMs) return ''
+          // Silence needs a reason to be broken: something new since this guest last spoke, not a
+          // reworded version of the same page.
+          if (value.length - (held.markChars ?? 0) < PERSONA_MIN_NEW_CHARS) return ''
+          // And no two remarks may land on top of each other, whichever guest says them.
+          if (Date.now() - (personaRef.current.lastAnyAt ?? 0) < PERSONA_PAUSE_MS) return ''
+          // A thought has to have landed: a half sentence is not a place to interrupt.
+          if (!/[。！？!?…」”’）)\n]$/.test(value)) return ''
+        } else if (held.said.length > 0 && value.length - (held.markChars ?? 0) < 4) {
+          // A forced answer still needs *something* new to answer; a guest that just spoke twice in a
+          // row on unchanged text is the host talking to itself, not a remark.
+          return ''
+        }
 
         // A remark the author never answered: remember it, and raise the bar for the next one.
         if (held.lastRemarkAt !== 0 && Date.now() - held.lastRemarkAt > PERSONA_ANSWER_WINDOW_MS) {
@@ -4926,73 +5150,154 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           held.lastRemarkText = ''
         }
 
-        const value = String(draftRef.current ?? '')
-        const excerpt = value.slice(-1500)
-        if (excerpt.trim().length < PERSONA_MIN_CHARS) return
         held.busy = true
         held.lastAt = Date.now()
         try {
           const answer = await post('/voice/interject', {
             personaId: persona.id,
-            excerpt,
+            excerpt: full.slice(-1500),
+            focus: String(focus ?? '').slice(-600),
             recent: held.said.slice(-3),
             ignored: held.ignored,
             skips: held.skips,
-            quietMs: held.lastCommittedAt === 0 ? 0 : Date.now() - held.lastCommittedAt,
+            quietMs: voiceRef.current.lastCommittedAt === 0 ? 0 : Date.now() - voiceRef.current.lastCommittedAt,
+            directive,
+            discussion,
           })
           const remark = String(answer?.text ?? '').trim()
+          if ((personaRef.current.generation || 0) !== generation) return ''
           if (remark !== '') {
             held.said = [...held.said, remark].slice(-3)
             held.lastRemarkAt = Date.now()
             held.lastRemarkText = remark
             held.skips = 0
             held.lastAt = Date.now()
+            held.markChars = value.length
+            personaRef.current.lastAnyAt = Date.now()
             insertInterjection(String(answer?.persona?.name ?? persona.name), remark)
-            setVoice((current) => ({ ...current, heard: remark }))
-          } else {
-            // Silence is an answer too: two in a row and the listener is told to keep quiet.
-            held.skips += 1
-            if (force === true) setVoice((current) => ({ ...current, notice: t.partnerSilent }))
+            return remark
           }
+          // Silence is an answer too: two in a row and the guest is told to keep quiet.
+          held.skips += 1
+          if (force === true) sayVoice(t.partnerSilent)
+          return ''
         } catch {
           /* a quiet listener is not an error */
+          return ''
         } finally {
           held.busy = false
         }
       }
 
-      /** One quoted line on its own paragraph, the way a speaker in a play is written. */
+      /**
+       * Carry out the convenor's plan.
+       *
+       * `reply` lets one guest answer (the one with a directive and the longest wait); `discuss` runs a
+       * short round where each guest hears what the previous one said; `listen` says nothing at all.
+       * A round only happens when the author asked for it (`now`) — a discussion the convenor merely
+       * predicts still waits for a pause and speaks one at a time.
+       */
+      const speakPlan = async (plan, spoken) => {
+        if (plan === null || plan === undefined || plan.keep === true) return
+        const generation = personaRef.current.generation || 0
+        const hostLine = String(plan.say ?? '').trim()
+        if (plan.mode === 'listen') {
+          // Defensive: a model that wrote words but labelled the turn `listen` still gets heard.
+          if (hostLine !== '') insertInterjection(t.convenorName, hostLine)
+          return
+        }
+        // The host may introduce who is about to speak ("请张骞来，他走过西南夷的道"), so its line is
+        // inserted in any speaking mode — but not when it is the only one talking (listen).
+        if (hostLine !== '') insertInterjection(t.convenorName, hostLine)
+        const speakers = Array.isArray(plan.speak) ? plan.speak : []
+        // A host turn that also names a speaker ("到了，徐霞客在——你说") lets that guest speak after it.
+        if (speakers.length === 0) return
+        // The convenor owns the decision: `now` means it wants this turn answered, out loud, at once.
+        const now = plan.timing === 'now'
+        const round = plan.mode === 'discuss' && now
+        const directives = plan.directives ?? {}
+        const ordered = [...speakers].sort((a, b) => (stateOf(a.id).lastAt || 0) - (stateOf(b.id).lastAt || 0))
+        const limit = round ? Math.min(3, speakers.length) : PERSONA_MAX_REMARKS
+        const history = []
+        let remarks = 0
+        for (const guest of ordered) {
+          if (remarks >= limit) break
+          // Cancelled or saved meanwhile: nothing else is inserted.
+          if ((personaRef.current.generation || 0) !== generation) return
+          const state = stateOf(guest.id)
+          const remark = await maybeInterject({
+            persona: guest,
+            force: now,
+            focus: String(spoken ?? ''),
+            directive: String(directives[guest.id] ?? ''),
+            discussion: history,
+          })
+          if (remark !== '') {
+            remarks += 1
+            history.push({ name: guest.name, text: remark })
+            continue
+          }
+          // The host asked for someone to speak and they had nothing to add: their own opening line is
+          // the acknowledgement, and it costs no model call. Later turns get no such fallback.
+          const welcome = String(guest.welcome ?? '').trim()
+          if (now && state.said.length === 0 && welcome !== '') {
+            state.said = [welcome]
+            state.markChars = authorOnly(draftRef.current).length
+            insertInterjection(detectLanguage() === 'zh' ? guest.name : (guest.nameEn ?? guest.name), welcome)
+            remarks += 1
+          }
+        }
+      }
+
+      /** The author has been quiet for the gate: let the room answer, if the convenor says so. */
+      const pauseTurn = async () => {
+        if (partnerSettings !== null && partnerSettings.enabled === false) return
+        const generation = personaRef.current.generation || 0
+        const spoken = String(voiceRef.current.lastSpoken ?? '')
+        let plan = null
+        if (partnerSettings !== null && partnerSettings.mode === 'auto') {
+          plan = await convene(spoken)
+        } else if (personaId !== '') {
+          const one = personas.find((entry) => entry.id === personaId)
+          if (one !== undefined) plan = { mode: 'reply', timing: 'pause', say: '', seat: [one], speak: [one], directives: {} }
+        }
+        if ((personaRef.current.generation || 0) !== generation) return
+        await speakPlan(plan, spoken)
+      }
+
+      /** Save or cancel closes the conversation: the microphone must not keep listening behind it. */
+      const endVoice = () => {
+        if (voice.listening) stopVoice()
+        if (noticeTimer.current !== 0) {
+          clearTimeout(noticeTimer.current)
+          noticeTimer.current = 0
+        }
+        setVoice((current) => ({ ...current, listening: false, busy: false, heard: '', notice: '', convenor: false }))
+      }
+
+      /**
+       * One quoted remark on its own paragraph, the way a speaker in a play is written.
+       *
+       * Plain Markdown blockquote — `> **名字**：内容` — so it survives a copy, a re-render, and being
+       * pasted into any other Markdown editor; the name is bold rather than italic so it reads as a
+       * speaker at a glance.
+       */
       const insertInterjection = (name, remark) => {
+        const line = `> **${String(name)}**：${String(remark)}`
+        // The same line twice in a row is a loop, not a remark: the host repeating its own scheduling
+        // sentence on every pause was half of what made the room feel stitched together.
+        if (personaRef.current.lastInserted === line) return
+        personaRef.current.lastInserted = line
         const area = areaRef.current
         const base = String(draftRef.current ?? '')
         const caret = area === null ? base.length : (area.selectionStart ?? base.length)
         const before = base.slice(0, caret)
         const after = base.slice(caret)
         const lead = before === '' ? '' : /\n$/.test(before) ? '\n' : '\n\n'
-        const line = `> *${String(name)}：${String(remark)}*`
         const inserted = `${lead}${line}\n`
         setAccepted(null)
         setGhost(null)
         applyEdit(before + inserted + after, (before + inserted).length)
-      }
-
-      /** Save the author's own personas; presets stay in code. */
-      const savePersonas = async (list) => {
-        setPersonaSheet({ list, saving: true })
-        try {
-          const saved = await post('/voice/personas', {
-            personas: list.map((entry) => ({
-              id: entry.id,
-              name: entry.name,
-              brief: entry.brief,
-              custom: true,
-            })),
-          })
-          if (Array.isArray(saved?.personas)) setPersonas(saved.personas)
-          setPersonaSheet(null)
-        } catch {
-          setPersonaSheet((current) => (current === null ? current : { ...current, saving: false }))
-        }
       }
 
       /**
@@ -5910,7 +6215,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           { className: 'dshn-row dshn-capture-tools' },
         // The voice UI floats above the footer instead of taking part in the sheet's layout: a row that
         // appears while you speak must not move the text you are reading.
-        voice.listening || voice.busy || String(voice.heard ?? '') !== '' || String(voice.notice ?? '') !== ''
+        voice.listening || voice.busy || voice.convenor || String(voice.heard ?? '') !== '' || String(voice.notice ?? '') !== ''
           ? h(
               'div',
               { className: 'dshn-voice-dock' },
@@ -5918,49 +6223,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 ? h(
                     'div',
                     { className: 'dshn-persona-bar' },
-                    h('span', { className: 'dshn-cap' }, t.personaLabel),
+                    h('span', { className: 'dshn-cap' }, t.personaSeated),
                     h(
-                      'select',
-                      {
-                        className: 'dshn-persona-select',
-                        value: personaId,
-                        title: t.personaHint,
-                        onChange: (event) => {
-                          const next = event.target.value
-                          setPersonaId(next)
-                          if (next === '') return
-                          const held = personaRef.current
-                          const chosen = personas.find((entry) => entry.id === next)
-                          if (chosen === undefined || held.welcomed === next) return
-                          held.welcomed = next
-                          // A partner that is selected should say something, or it looks broken. The greeting is
-                          // part of the persona, so it costs nothing and never surprises with a wrong tone.
-                          const welcome = String(chosen.welcome ?? '').trim()
-                          if (welcome !== '') insertInterjection(detectLanguage() === 'zh' ? chosen.name : (chosen.nameEn ?? chosen.name), welcome)
-                        },
-                      },
-                      h('option', { value: '' }, t.personaNone),
-                      ...personas.map((entry) =>
-                        h(
-                          'option',
-                          { key: entry.id, value: entry.id },
-                          detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name),
-                        ),
-                      ),
-                    ),
-                    h('span', { className: 'dshn-grow' }),
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        className: 'dshn-btn ghost dshn-persona-manage',
-                        onClick: () =>
-                          setPersonaSheet({
-                            list: personas.filter((entry) => entry.custom !== false).map((entry) => ({ ...entry })),
-                            saving: false,
-                          }),
-                      },
-                      t.personaManage,
+                      'span',
+                      { className: 'dshn-persona-name', title: t.personaWhy },
+                      partnerSeatLabel(t, personas, guests.length > 0 ? guests : (personaId === '' ? [] : [personaId]), partnerSettings),
                     ),
                   )
                 : null,
@@ -5973,11 +6240,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                   { className: 'dshn-voice-text' },
                   String(voice.notice ?? '') !== ''
                   ? voice.notice
-                  : voice.busy
-                    ? t.voiceBusy
-                    : String(voice.heard ?? '') !== ''
-                      ? `${t.voiceHeard}：${voice.heard}`
-                      : t.voiceListening,
+                  : voice.convenor
+                    ? t.convenorThinking
+                    : voice.busy
+                      ? t.voiceBusy
+                      : String(voice.heard ?? '') !== ''
+                        ? `${t.voiceHeard}：${voice.heard}`
+                        : t.voiceListening,
                 ),
               ),
             )
@@ -6059,6 +6328,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 {
                   className: 'dshn-btn ghost',
                   onClick: () => {
+                    endVoice()
                     if (typeof props.onCancel === 'function') props.onCancel()
                     else setDraft('')
                   },
@@ -6066,7 +6336,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 },
                 t.cancel,
               ),
-              h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
+              h('button', { className: 'dshn-btn primary', onClick: () => { endVoice(); void saveDraft() }, disabled: draft.trim() === '' }, t.save),
               compactLayout
             ? null
             : h(
@@ -6326,114 +6596,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // printed permanently under the page, which read as stray text, so it is gone.
       const statusLine = status !== '' ? h('div', { className: 'dshn-cap' }, status) : null
 
-      // The manager: presets are code and cannot be edited here; only the author's own personas are listed,
-      // and each one is a name plus the brief that shapes what it notices.
-      const personaEditor =
-        personaSheet === null
-          ? null
-          : h(
-              'div',
-              { className: 'dshn-persona-sheet', role: 'dialog', 'aria-modal': 'true' },
-              h(
-                'div',
-                { className: 'dshn-persona-panel' },
-                h(
-                  'div',
-                  { className: 'dshn-row' },
-                  h('strong', null, t.personaManage),
-                  h('span', { className: 'dshn-grow' }),
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshn-icon-btn',
-                      'aria-label': t.personaClose,
-                      onClick: () => setPersonaSheet(null),
-                    },
-                    '✕',
-                  ),
-                ),
-                h('div', { className: 'dshn-cap' }, t.personaHint),
-                ...personaSheet.list.map((entry, index) =>
-                  h(
-                    'div',
-                    { className: 'dshn-persona-row', key: entry.id ?? index },
-                    h(
-                      'div',
-                      { className: 'dshn-persona-line' },
-                      h('input', {
-                        className: 'dshn-persona-input',
-                        value: entry.name,
-                        placeholder: t.personaName,
-                        onChange: (event) =>
-                          setPersonaSheet((current) => {
-                            const list = current.list.slice()
-                            list[index] = { ...list[index], name: event.target.value }
-                            return { ...current, list }
-                          }),
-                      }),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          className: 'dshn-btn ghost',
-                          onClick: () =>
-                            setPersonaSheet((current) => ({
-                              ...current,
-                              list: current.list.filter((_, at) => at !== index),
-                            })),
-                        },
-                        t.personaDelete,
-                      ),
-                    ),
-                    h('textarea', {
-                      className: 'dshn-persona-text',
-                      value: entry.brief,
-                      placeholder: t.personaBrief,
-                      onChange: (event) =>
-                        setPersonaSheet((current) => {
-                          const list = current.list.slice()
-                          list[index] = { ...list[index], brief: event.target.value }
-                          return { ...current, list }
-                        }),
-                    }),
-                  ),
-                ),
-                h(
-                  'div',
-                  { className: 'dshn-persona-actions' },
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshn-btn ghost',
-                      onClick: () =>
-                        setPersonaSheet((current) => ({
-                          ...current,
-                          list: [
-                            ...current.list,
-                            { id: `own-${Date.now().toString(36)}`, name: '', brief: '', custom: true },
-                          ],
-                        })),
-                    },
-                    t.personaNew,
-                  ),
-                  h('span', { className: 'dshn-grow' }),
-                  h('button', { type: 'button', className: 'dshn-btn ghost', onClick: () => setPersonaSheet(null) }, t.personaClose),
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshn-btn primary',
-                      disabled: personaSheet.saving === true,
-                      onClick: () => void savePersonas(personaSheet.list),
-                    },
-                    personaSheet.saving === true ? t.personaSaving : t.personaSave,
-                  ),
-                ),
-              ),
-            )
-
       return h(
         'div',
         {
@@ -6481,7 +6643,6 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             : null,
         ),
         statusLine,
-        personaEditor,
       )
     }
 
@@ -6808,6 +6969,391 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                   h(CaptureBox, { t, onSaved: load, autoFocus: true }),
                 )
               : h('div', { className: 'dshn-chat-box' }, side),
+          ),
+        ),
+      )
+    }
+
+    // ------------------------------------------------------- settings page ---
+    //
+    // The bundle's own page on the Plugins screen: `plugins.bundle.config`, keyed by the package name.
+    // It is the only place personas are edited now — the capture page shows who is in the room, and
+    // nothing else. Styles live here rather than in the panel's STYLES because this component renders
+    // while the panel is closed, and a style element is removed when it unmounts.
+
+    const SETTINGS_STYLES = `
+.dshn-settings {
+  max-width: 680px;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.dshn-settings h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.dshn-settings-intro { margin: 0 0 20px; color: var(--dsw-alias-label-secondary); }
+.dshn-setting { display: flex; align-items: flex-start; gap: 18px; padding: 14px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-setting-text { flex: 1 1 auto; min-width: 0; }
+.dshn-setting-label { font-weight: 500; }
+.dshn-setting-hint { margin-top: 2px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dshn-setting-side { flex: 0 0 auto; padding-top: 1px; }
+.dshn-settings-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 11px;
+  background: var(--dsw-alias-bg-layer-2);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.dshn-settings-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-secondary);
+  transition: transform .15s ease, background .15s ease;
+}
+.dshn-settings-switch[aria-checked='true'] { background: var(--dsw-alias-brand-primary); border-color: transparent; }
+/* The knob is inverted before it is white: in this theme the brand accent itself is light, so a literal
+   white knob would vanish into the track. bg-base is the one colour guaranteed to sit against it. */
+.dshn-settings-switch[aria-checked='true']::after { transform: translateX(16px); background: var(--dsw-alias-bg-base); }
+.dshn-seg { display: inline-flex; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; overflow: hidden; }
+.dshn-seg button {
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dshn-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.dshn-settings-select {
+  max-width: 220px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.dshn-library { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-library h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.dshn-pcard {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+.dshn-pcard input,
+.dshn-pcard textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  padding: 6px 8px;
+  outline: none;
+}
+.dshn-pcard textarea { min-height: 64px; resize: vertical; }
+.dshn-pcard input:focus,
+.dshn-pcard textarea:focus { border-color: var(--dsw-alias-brand-primary); }
+.dshn-pcard-head { display: flex; gap: 8px; align-items: center; }
+.dshn-pcard-head input { flex: 1 1 auto; min-width: 0; width: auto; }
+.dshn-pcard-head .dshn-btnm { flex: none; white-space: nowrap; }
+.dshn-pcard-tag {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dshn-settings .dshn-grow { flex: 1 1 auto; }
+.dshn-btnm {
+  border: 1px solid var(--dsw-alias-border-l1);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dshn-btnm:hover { background: var(--dsw-alias-bg-layer-2); }
+.dshn-btnm.primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: var(--dsw-alias-bg-base); font-weight: 500; }
+.dshn-btnm:disabled { opacity: .5; cursor: default; }
+.dshn-presets { display: grid; gap: 6px; }
+.dshn-preset { color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dshn-preset b { color: var(--dsw-alias-label-primary); font-weight: 500; margin-right: 6px; }
+.dshn-settings-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.dshn-settings-status { color: var(--dsw-alias-label-secondary); font-size: 12px; margin-left: auto; }
+`
+
+    function NotesSettingsStyle() {
+      return h('style', { 'data-dsh-notes-settings': '' }, SETTINGS_STYLES)
+    }
+
+    /** One labelled setting; the control sits at the right edge. */
+    function SettingRow({ label, hint, side }) {
+      return h(
+        'div',
+        { className: 'dshn-setting' },
+        h(
+          'div',
+          { className: 'dshn-setting-text' },
+          h('div', { className: 'dshn-setting-label' }, label),
+          hint === undefined || hint === '' ? null : h('div', { className: 'dshn-setting-hint' }, hint),
+        ),
+        h('div', { className: 'dshn-setting-side' }, side),
+      )
+    }
+
+    function SettingsSwitch({ checked, onChange, label }) {
+      return h('button', {
+        type: 'button',
+        role: 'switch',
+        'aria-checked': String(checked === true),
+        'aria-label': label,
+        className: 'dshn-settings-switch',
+        onClick: () => onChange(checked !== true),
+      })
+    }
+
+    /**
+     * The writing partner's switch board.
+     *
+     * Shows `view: 'page'` on the bundle's Plugins page; the same slot renders a one-line summary in
+     * row mode, where this returns nothing so the row stays as small as the host drew it.
+     */
+    function NotesSettings(props) {
+      const t = dict()
+      const summary = props?.view === 'summary'
+      const [settings, setSettings] = useState(null)
+      const [personas, setPersonas] = useState([])
+      const [draft, setDraft] = useState(null)
+      const [status, setStatus] = useState('')
+      const [saving, setSaving] = useState(false)
+
+      const customOf = (list) => (Array.isArray(list) ? list : []).filter((entry) => entry.custom !== false)
+
+      useEffect(() => {
+        if (summary) return undefined
+        let cancelled = false
+        const read = async () => {
+          try {
+            const [state, library] = await Promise.all([get('/settings'), get('/voice/personas')])
+            if (cancelled) return
+            setSettings(state?.settings ?? null)
+            const list = Array.isArray(library?.personas) ? library.personas : []
+            setPersonas(list)
+            setDraft(customOf(list))
+          } catch {
+            if (!cancelled) setStatus(dict().settingsSaveFailed)
+          }
+        }
+        void read()
+        return () => {
+          cancelled = true
+        }
+      }, [summary])
+
+      if (summary) return null
+      const t0 = t
+      const flash = (message) => {
+        setStatus(message)
+        setTimeout(() => setStatus(''), 1800)
+      }
+
+      /** One patch over what is stored; the response is what the panel keeps, not the guess. */
+      const saveSettings = async (patch) => {
+        setSettings((current) => (current === null ? current : { ...current, ...patch }))
+        try {
+          const saved = await post('/settings', { settings: patch })
+          if (saved?.settings) setSettings(saved.settings)
+          flash(t0.settingsSaved)
+        } catch {
+          flash(t0.settingsSaveFailed)
+        }
+      }
+
+      const saveDraft = async () => {
+        const payload = (draft ?? [])
+          .map((entry) => ({ id: entry.id, name: String(entry.name ?? '').trim(), brief: String(entry.brief ?? '').trim(), custom: true }))
+          .filter((entry) => entry.name !== '' && entry.brief !== '')
+        setSaving(true)
+        try {
+          const saved = await post('/voice/personas', { personas: payload })
+          const list = Array.isArray(saved?.personas) ? saved.personas : []
+          setPersonas(list)
+          setDraft(customOf(list))
+          // A persona deleted here may still be the one the notebook points at; clear a dangling id.
+          const ids = new Set(list.map((entry) => entry.id))
+          if (settings !== null && settings.personaId !== '' && !ids.has(settings.personaId)) {
+            await saveSettings({ personaId: '' })
+          }
+          flash(t0.settingsSaved)
+        } catch {
+          flash(t0.settingsSaveFailed)
+        } finally {
+          setSaving(false)
+        }
+      }
+
+      if (settings === null) {
+        return h('div', { className: 'dshn-settings' }, h(NotesSettingsStyle), h('div', { className: 'dshn-settings-intro' }, t.settingsIntro))
+      }
+
+      const presets = personas.filter((entry) => entry.custom === false)
+      const manual = settings.mode !== 'auto'
+      const choosePersona = (event) => void saveSettings({ personaId: event.target.value, mode: 'manual' })
+
+      return h(
+        'div',
+        { className: 'dshn-settings' },
+        h(NotesSettingsStyle),
+        h('h3', null, t.settingsTitle),
+        h('p', { className: 'dshn-settings-intro' }, t.settingsIntro),
+
+        h(SettingRow, {
+          label: t.settingsEnabled,
+          hint: t.settingsEnabledHint,
+          side: h(SettingsSwitch, {
+            checked: settings.enabled === true,
+            label: t.settingsEnabled,
+            onChange: (next) => void saveSettings({ enabled: next }),
+          }),
+        }),
+
+        h(SettingRow, {
+          label: t.settingsMode,
+          hint: manual ? t.settingsModeManualHint : t.settingsModeAutoHint,
+          side: h(
+            'div',
+            { className: 'dshn-seg', role: 'group', 'aria-label': t.settingsMode },
+            h(
+              'button',
+              { type: 'button', 'aria-pressed': String(!manual), onClick: () => void saveSettings({ mode: 'auto' }) },
+              t.settingsModeAuto,
+            ),
+            h(
+              'button',
+              { type: 'button', 'aria-pressed': String(manual), onClick: () => void saveSettings({ mode: 'manual' }) },
+              t.settingsModeManual,
+            ),
+          ),
+        }),
+
+        h(SettingRow, {
+          label: t.settingsPersona,
+          hint: manual ? '' : t.settingsPersonaAutoHint,
+          side: h(
+            'select',
+            {
+              className: 'dshn-settings-select',
+              value: settings.personaId ?? '',
+              disabled: !manual,
+              onChange: choosePersona,
+            },
+            h('option', { value: '' }, t.settingsPersonaNone),
+            ...personas.map((entry) =>
+              h('option', { key: entry.id, value: entry.id }, detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name)),
+            ),
+          ),
+        }),
+
+        h(
+          'div',
+          { className: 'dshn-library' },
+          h('h4', null, t.settingsLibrary),
+          h('div', { className: 'dshn-setting-hint' }, t.settingsLibraryHint),
+          (draft ?? []).map((entry, index) =>
+            h(
+              'div',
+              { className: 'dshn-pcard', key: String(entry.id ?? index), style: { marginTop: '12px' } },
+              h(
+                'div',
+                { className: 'dshn-pcard-head' },
+                h('input', {
+                  value: entry.name ?? '',
+                  placeholder: t.personaName,
+                  'aria-label': t.personaName,
+                  onChange: (event) =>
+                    setDraft((current) => {
+                      const list = (current ?? []).slice()
+                      list[index] = { ...list[index], name: event.target.value }
+                      return list
+                    }),
+                }),
+                entry.origin === 'auto' ? h('span', { className: 'dshn-pcard-tag' }, t.settingsAutoTag) : null,
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'dshn-btnm',
+                    onClick: () => setDraft((current) => (current ?? []).filter((_, at) => at !== index)),
+                  },
+                  t.personaDelete,
+                ),
+              ),
+              h('textarea', {
+                value: entry.brief ?? '',
+                placeholder: t.personaBrief,
+                'aria-label': t.personaBrief,
+                onChange: (event) =>
+                  setDraft((current) => {
+                    const list = (current ?? []).slice()
+                    list[index] = { ...list[index], brief: event.target.value }
+                    return list
+                  }),
+              }),
+            ),
+          ),
+          (draft ?? []).length === 0 ? h('div', { className: 'dshn-setting-hint', style: { marginTop: '10px' } }, t.settingsEmptyCustom) : null,
+          h(
+            'div',
+            { className: 'dshn-settings-foot' },
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshn-btnm',
+                onClick: () =>
+                  setDraft((current) => [...(current ?? []), { id: `own-${Date.now().toString(36)}`, name: '', brief: '', custom: true }]),
+              },
+              t.settingsAdd,
+            ),
+            h('span', { className: 'dshn-grow' }),
+            h('span', { className: 'dshn-settings-status' }, status),
+            h('button', { type: 'button', className: 'dshn-btnm primary', disabled: saving, onClick: () => void saveDraft() }, saving ? t.personaSaving : t.personaSave),
+          ),
+          h(
+            'div',
+            { style: { marginTop: '18px' } },
+            h('div', { className: 'dshn-setting-hint' }, t.settingsPresets),
+            h(
+              'div',
+              { className: 'dshn-presets', style: { marginTop: '8px' } },
+              ...presets.map((entry) =>
+                h(
+                  'div',
+                  { className: 'dshn-preset', key: entry.id },
+                  h('b', null, detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name)),
+                  String(entry.welcome ?? ''),
+                ),
+              ),
+            ),
           ),
         ),
       )
@@ -7613,6 +8159,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
         // Capture lives inside the panel now (the board's 快速记录 button), so the
         // composer icon, the Alt+N shortcut and the floating card are all gone.
+
+        // The switch board for the writing partner, on the bundle's own Plugins page. The key is the
+        // bundle's package name (not the patch id): that is the string the Plugins page looks up.
+        ctx.slots.inject('plugins.bundle.config', () =>
+          ctx.slots.register({ name: 'plugins.bundle.config', key: PACKAGE }, NotesSettings),
+        )
       },
     }
 

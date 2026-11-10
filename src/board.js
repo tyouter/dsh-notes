@@ -1,6 +1,6 @@
     // Dictation: a segment ends after this much quiet, and is cut off at the maximum either way.
     // Half a second of quiet ends a segment: short enough to feel like typing, long enough not to cut words.
-    const VOICE_COMMIT_MS = 500
+    const VOICE_COMMIT_MS = 800
     // Below this a segment is a cough or a chair, and transcribing it costs a request and writes nonsense.
     const VOICE_MIN_SEGMENT_MS = 400
     const VOICE_MAX_MS = 20000
@@ -371,14 +371,18 @@
       // mirrors it so the button can say which way it goes.
       const [immersive, setImmersive] = useState(false)
       // Voice input: `available` is decided by the Host, which knows whether the voice bundle is on.
-      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', notice: '', phase: '' })
+      const [voice, setVoice] = useState({ available: false, listening: false, busy: false, heard: '', notice: '', convenor: false, phase: '' })
       const voiceRef = useRef({ recorder: null, chunks: [], stream: null })
-      // The listener: a persona the author chose, its remark history (so it does not repeat itself), and the
-      // manager sheet.
+      const noticeTimer = useRef(0)
+      // The listener: the author's personas, who is currently in the room, and the partner settings
+      // (stored by the Host in `settings.json`, edited on the bundle's Plugins page — never here).
       const [personas, setPersonas] = useState([])
       const [personaId, setPersonaId] = useState('')
-      const [personaSheet, setPersonaSheet] = useState(null)
-      const personaRef = useRef({ lastAt: 0, said: [], busy: false, welcomed: '' })
+      const [guests, setGuests] = useState([])
+      const [partnerSettings, setPartnerSettings] = useState(null)
+      // Per-guest memory (what each one already said, what the author ignored) plus the convening cache:
+      // a table is re-chosen for a new topic, not on every pause.
+      const personaRef = useRef({ byId: {}, topic: '', convenedAt: 0, table: [], welcomed: {}, lastInserted: '' })
       // Which call is running ("structure" / "translate"), and a counter that changes whenever a
       // result lands — the counter is the wipe animation's key.
       const [busy, setBusy] = useState('')
@@ -426,6 +430,16 @@
             } catch {
               /* the picker simply stays empty */
             }
+            try {
+              const saved = await api('/settings')
+              if (!cancelled && saved?.settings) {
+                setPartnerSettings(saved.settings)
+                // `manual` remembers a persona; `auto` starts with nobody chosen and lets the chooser speak.
+                if (String(saved.settings.personaId ?? '') !== '') setPersonaId(saved.settings.personaId)
+              }
+            } catch {
+              /* defaults live on the Host */
+            }
             if (cancelled) return
             setVoice((current) => ({
               ...current,
@@ -457,6 +471,21 @@
       }
 
       /**
+       * A line in the voice strip that removes itself.
+       *
+       * A notice is a moment ("已请来：黄仁宇"), not a mode: leaving it on screen after the microphone is
+       * off is exactly how the strip came to say "识别中" forever.
+       */
+      const sayVoice = (text) => {
+        setVoice((current) => ({ ...current, notice: String(text ?? '') }))
+        if (noticeTimer.current !== 0) clearTimeout(noticeTimer.current)
+        noticeTimer.current = setTimeout(() => {
+          setVoice((current) => (current.notice === '' ? current : { ...current, notice: '' }))
+          noticeTimer.current = 0
+        }, 4200)
+      }
+
+      /**
        * Continuous dictation.
        *
        * The microphone stays open until the switch is turned off again. The level is watched; a segment
@@ -467,6 +496,19 @@
        */
       const stopVoice = () => {
         const held = voiceRef.current
+        // From here on the strip belongs to the author again, not to the recogniser.
+        held.stopped = true
+        // Anything already in flight — a transcript, a convenor plan, a guest's remark — belongs to the
+        // conversation that is ending; the generation bump makes them land nowhere.
+        personaRef.current.generation = (personaRef.current.generation || 0) + 1
+        // A transcription already in flight must not outlive the microphone: abort it, so `busy` cannot
+        // stay true (the strip used to say "识别中" after the switch was off).
+        try {
+          held.transcribeAbort?.abort?.()
+        } catch {
+          /* already settled */
+        }
+        held.transcribeAbort = null
         if (held.timer !== 0) {
           clearInterval(held.timer)
           held.timer = 0
@@ -486,16 +528,21 @@
       }
 
       const toggleVoice = async () => {
-        if (voice.busy) return
+        // Stopping comes first on purpose: a transcription in flight must never block the off switch.
         if (voice.listening) {
           stopVoice()
-          setVoice((current) => ({ ...current, listening: false, busy: false }))
+          if (noticeTimer.current !== 0) {
+            clearTimeout(noticeTimer.current)
+            noticeTimer.current = 0
+          }
+          setVoice((current) => ({ ...current, listening: false, busy: false, heard: '', notice: '', convenor: false }))
           return
         }
+        if (voice.busy) return
         if (!voice.available) return
         const Ctor = typeof AudioContext === 'undefined' ? globalThis.webkitAudioContext : AudioContext
         if (Ctor === undefined || navigator?.mediaDevices === undefined) {
-          setVoice((current) => ({ ...current, notice: t.voiceUnusable }))
+          sayVoice(t.voiceUnusable)
           return
         }
         try {
@@ -520,6 +567,9 @@
             lastLoudAt: 0,
             startedAt: 0,
             committing: false,
+            stopped: false,
+            lastSpoken: '',
+            transcribeAbort: null,
             lastCommittedAt: 0,
             interjected: false,
             gapMs: PERSONA_BASE_GAP_MS,
@@ -549,18 +599,19 @@
               if (quiet > VOICE_COMMIT_MS || long) stopSegment()
             } else if (
               current.interjected === false &&
-              current.lastCommittedAt !== 0 &&
-              now - current.lastCommittedAt >= DICTATION_PARAGRAPH_PAUSE_MS
+              current.lastLoudAt !== 0 &&
+              current.committing === false &&
+              now - current.lastLoudAt >= DICTATION_PARAGRAPH_PAUSE_MS
             ) {
-              // The author has been quiet long enough that the thought is finished: only now is a listener
-              // allowed to speak.
+              // He has been silent for two full seconds: only now may the room speak. While he is
+              // talking — or while a segment is still being transcribed — nothing comes out.
               current.interjected = true
-              void maybeInterject()
+              void pauseTurn()
             }
           }, 100)
-          setVoice((current) => ({ ...current, listening: true, busy: false, heard: '' }))
+          setVoice((current) => ({ ...current, listening: true, busy: false, heard: '', notice: '', convenor: false }))
         } catch {
-          setVoice((current) => ({ ...current, notice: t.voiceUnusable }))
+          sayVoice(t.voiceUnusable)
           setVoice((current) => ({ ...current, listening: false, busy: false }))
         }
       }
@@ -615,7 +666,10 @@
         if (held.committing) return
         if (Date.now() - held.startedAt < VOICE_MIN_SEGMENT_MS) return
         held.committing = true
-        setVoice((current) => ({ ...current, busy: true }))
+        // A segment that was already recording when the author switched the microphone off finishes
+        // silently: its text still lands, but the strip must not claim to be listening again.
+        const silent = held.stopped === true
+        if (!silent) setVoice((current) => ({ ...current, busy: true }))
         try {
           const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
           const bytes = new Uint8Array(await blob.arrayBuffer())
@@ -625,7 +679,17 @@
           // back as Japanese. The note's own script wins; the UI language is the fallback.
           const draftLanguage = detectTextLanguage(String(draftRef.current ?? ''))
           const language = draftLanguage === 'zh' || draftLanguage === 'en' ? draftLanguage : detectLanguage() === 'zh' ? 'zh' : 'en'
-          const result = await post('/speech/transcribe', { audioBase64: toBase64(wav), language })
+          // A recogniser that never answers must not hold the strip in "识别中" forever: 25 s, then give up.
+          const controller = typeof AbortController === 'undefined' ? null : new AbortController()
+          held.transcribeAbort = controller
+          const guard = controller === null ? 0 : setTimeout(() => controller.abort(), 25000)
+          let result = null
+          try {
+            result = await post('/speech/transcribe', { audioBase64: toBase64(wav), language }, controller?.signal)
+          } finally {
+            if (guard !== 0) clearTimeout(guard)
+            held.transcribeAbort = null
+          }
           const spoken = String(result?.text ?? '').trim()
           if (spoken !== '') {
             // Local layout first (no model, no tokens), then the typewriter: the words appear while the next
@@ -634,19 +698,21 @@
             const gap = held.lastCommittedAt === 0 ? 0 : Date.now() - held.lastCommittedAt
             await typeDictation(arrangeDictation(spoken), gap)
             held.lastCommittedAt = Date.now()
-            // A listener may now have something to say. It is asked after the words are on the page, and a
-            // silent answer is a normal answer. Saying its name with a request is a summons, not a pause.
-            const partner = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
-            if (partner !== null && wantsPartner(spoken, partner)) void maybeInterject({ force: true })
-            else void maybeInterject()
-            setVoice((current) => ({ ...current, heard: spoken }))
+            held.lastSpoken = spoken
+            // No one speaks here. The room waits for the two-second silence gate in the level monitor:
+            // talking over the author — or answering a half-finished sentence — is what made it feel
+            // choppy. The convenor is asked once, at the pause, with this segment as the focus.
+            setVoice((current) => ({ ...current, heard: String(spoken) }))
           }
         } catch (error) {
+          // An aborted transcription is not a failure: the microphone was switched off mid-flight.
+          if (String(error?.name ?? '') === 'AbortError') return
           const message = String(error?.message ?? '')
-          setVoice((current) => ({ ...current, notice: message === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed }))
+          // An empty transcript is normal (cough, noise, a clipped syllable); only real failures speak.
+          if (!silent && message !== t.voiceEmpty) sayVoice(t.voiceFailed)
         } finally {
           held.committing = false
-          setVoice((current) => ({ ...current, busy: false }))
+          if (!silent) setVoice((current) => ({ ...current, busy: false }))
         }
       }
 
@@ -673,50 +739,176 @@
         return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
-      /**
-       * Did the author just call the partner by name?
-       *
-       * Dictation has no command shell, so a summons is plain speech: the partner's name (either script)
-       * together with a word that asks for an opinion. `乔布斯，你觉得呢` and `let Jobs weigh in` both count;
-       * simply mentioning the name does not.
-       */
-      const wantsPartner = (spoken, partner) => {
-        const value = String(spoken ?? '')
-        if (value.trim() === '') return false
-        const names = [partner.name, partner.nameEn].filter((name) => typeof name === 'string' && name.trim() !== '')
-        const lowered = value.toLowerCase()
-        const last = typeof partner.nameEn === 'string' && partner.nameEn.includes(' ')
-          ? partner.nameEn.split(' ').slice(-1)[0].toLowerCase()
-          : ''
-        const named = names.some((name) => lowered.includes(name.toLowerCase())) || (last !== '' && lowered.includes(last))
-        if (!named) return false
-        return /(评价|看法|怎么看|说说|谈谈|意见|你觉得|你说呢|评一评|点评|weigh in|thoughts|what do you think|comment)/i.test(value)
+      // The client no longer guesses what counts as a summons, a question, or a name with a typo in it.
+      // That judgement belongs to the convenor, which reads the same transcript and knows the room; the
+      // panel only carries out the plan. (This is what a keyword list kept getting wrong: "修摩罗什",
+      // "罗石", "你怎么看" — every misspelling was a new rule.)
+
+      /** Waiting between remarks, and how much new text must have been written since the last one. */
+      const PERSONA_BASE_GAP_MS = 45000
+      const PERSONA_MAX_GAP_MS = 180000
+      const PERSONA_ANSWER_WINDOW_MS = 12000
+      const PERSONA_MIN_CHARS = 100
+      /** New characters since this guest last spoke — a paraphrase of the same page is not "news". */
+      const PERSONA_MIN_NEW_CHARS = 220
+      /** Two remarks never land closer than this, whichever guest says them. */
+      const PERSONA_PAUSE_MS = 25000
+      /** Writing a new guest: at most once per this window, so a long session cannot spam the library. */
+      const PERSONA_CREATE_MS = 600000
+      /** One remark per pause: a table of three takes turns, it does not all speak at once. */
+      const PERSONA_MAX_REMARKS = 1
+
+      /** Each guest keeps its own memory: what it said, what was ignored, how long it now waits. */
+      const stateOf = (id) => {
+        const all = personaRef.current.byId
+        if (all[id] === undefined) {
+          all[id] = {
+            said: [],
+            ignored: [],
+            skips: 0,
+            gapMs: PERSONA_BASE_GAP_MS,
+            lastAt: 0,
+            markChars: 0,
+            lastRemarkAt: 0,
+            lastRemarkText: '',
+            busy: false,
+          }
+        }
+        return all[id]
       }
 
-      /** Waiting between remarks, and how much must have been said since the last one. */
-      const PERSONA_BASE_GAP_MS = 20000
-      const PERSONA_MAX_GAP_MS = 120000
-      const PERSONA_ANSWER_WINDOW_MS = 12000
-      const PERSONA_MIN_CHARS = 80
+      /**
+       * What the author actually wrote, with the room's own lines removed.
+       *
+       * Interjections are stored as blockquotes in the same page. Feeding them back as "what he is
+       * writing" made a guest continue its own thread — it answered its last remark instead of the
+       * author. The room's words travel separately (`discussion`), never inside the page text.
+       */
+      const authorOnly = (text) =>
+        String(text ?? '')
+          .split('\n')
+          .filter((line) => /^\s*>/.test(line) === false)
+          .join('\n')
 
       /**
-       * Ask the selected persona whether it has one thing to add.
+       * Ask the convenor what this moment needs.
        *
-       * The moment is the long pause: the author has stopped, the thought is on the page, and a listener may
-       * have something to say. The remark is written as a quote in italics with the persona's name; it is text
-       * like any other, so the author answers it by speaking, types over it, deletes it, or ignores it.
-       *
-       * Ignoring is a signal, not a failure: a remark nobody answered is remembered, shown to the persona next
-       * time as something not to bring up again, and the wait before the next remark grows. Speaking into a
-       * note that is already under way is; interrupting one that is working is not.
+       * The convenor is the host of the room: it decides who is seated, what each guest is asked to do,
+       * and whether the room answers now or at the next pause. The panel only decides the floor (a
+       * fragment is not worth a call) and carries the plan out.
        */
-      const maybeInterject = async ({ force = false } = {}) => {
-        const persona = personaId === '' ? null : personas.find((entry) => entry.id === personaId)
+      const convene = async (spoken) => {
         const held = personaRef.current
-        if (persona === null || held.busy) return
-        // Forced means the author asked for it: the waiting and the ignored-penalty do not apply, but the
-        // "enough has been said" floor still does, because an empty page has nothing to comment on.
-        if (force === false && Date.now() - held.lastAt < held.gapMs) return
+        if (held.convening === true) return held.plan ?? null
+        // The segment commit and the long-pause check can land a second apart; one call is enough.
+        if (Date.now() - (held.calledAt || 0) < 2000) return held.plan ?? null
+        const full = String(draftRef.current ?? '')
+        const author = authorOnly(full)
+        // Any content is enough: the convenor decides whether it deserves a guest, not a character count.
+        if (author.trim() === '') return held.plan ?? null
+        const limit = Math.min(3, Math.max(1, Number(partnerSettings?.maxGuests) || 1))
+        const generation = personaRef.current.generation || 0
+        held.convening = true
+        held.calledAt = Date.now()
+        setVoice((current) => ({ ...current, convenor: true }))
+        try {
+          // Every pause asks the host: the page is short, the call is cheap, and the answer may be
+          // "nothing changes". Caching is left to the model's prompt cache — the rules and the catalogue
+          // are the stable system prefix, only the seating and the new text travel in the user turn.
+          const plan = await post('/voice/convene', {
+            excerpt: full.slice(-1500),
+            focus: String(spoken ?? '').slice(-600),
+            maxGuests: limit,
+            seated: (held.table ?? []).map((guest) => guest.id),
+            current: held.plan === null || held.plan === undefined ? null : {
+              mode: held.plan.mode,
+              timing: held.plan.timing,
+              say: held.plan.say ?? '',
+              directives: held.plan.directives ?? {},
+            },
+          })
+          if (plan === null || typeof plan !== 'object') return held.plan ?? null
+          // The page was saved or cancelled while the convenor was thinking.
+          if ((personaRef.current.generation || 0) !== generation) return null
+          // Keep means "same room, and nothing to say this turn". The convenor has already read the
+          // transcript (typos and all); if it says keep, the room stays quiet.
+          if (plan.keep === true) return held.plan === null || held.plan === undefined ? null : { ...held.plan, keep: true }
+          // The room is the union of who was already seated and who the convenor lists now; only an
+          // explicit dismiss removes someone. Guests used to vanish between turns when the host forgot
+          // to repeat them, which read as "the person I just summoned is gone".
+          const byId = new Map((held.table ?? []).map((guest) => [guest.id, guest]))
+          for (const guest of Array.isArray(plan.seat) ? plan.seat : []) byId.set(guest.id, guest)
+          for (const id of Array.isArray(plan.dismiss) ? plan.dismiss : []) byId.delete(String(id))
+          const table = [...byId.values()].slice(-5)
+          plan.seat = table
+          // A speaker who was dismissed this turn does not speak.
+          plan.speak = (Array.isArray(plan.speak) ? plan.speak : []).filter((guest) => byId.has(guest.id))
+          const now = Date.now()
+          // A guest that has just sat down starts its clock now: it has listened to nothing yet.
+          for (const guest of table) {
+            if ((held.seatedIds ?? []).includes(guest.id)) continue
+            const state = stateOf(guest.id)
+            state.lastAt = now
+            state.markChars = author.length
+          }
+          held.seatedIds = table.map((guest) => guest.id)
+          held.plan = plan
+          held.table = table
+          held.convenedAt = now
+          if (plan.created !== null && plan.created !== undefined) {
+            const guest = plan.created
+            setPersonas((current) => (current.some((entry) => entry.id === guest.id) ? current : [...current, guest]))
+            sayVoice(`${t.partnerJoined}：${guest.name}`)
+          }
+          setGuests(table.map((guest) => guest.id))
+          // Nothing the convenor says is rendered as text anywhere: the strip is status only, and every
+          // word a guest says becomes a quote in the page (see insertInterjection). The host's own `note`
+          // stays in the plan for debugging, not on screen.
+          return plan
+        } catch {
+          return held.plan ?? null
+        } finally {
+          held.convening = false
+          setVoice((current) => (current.convenor === false ? current : { ...current, convenor: false }))
+        }
+      }
+
+      /**
+       * Ask one guest for one remark, under the convenor's directive.
+       *
+       * Without a directive the timing gates decide (see `speakPlan`); a forced call is a summons and
+       * skips them. Either way the remark is a quote in the page, so it can be answered, edited or
+       * deleted like the author's own text.
+       */
+      const maybeInterject = async ({ force = false, persona = null, directive = '', discussion = [], focus = '' } = {}) => {
+        if (partnerSettings !== null && partnerSettings.enabled === false) return ''
+        if (persona === null) return ''
+        // Save/cancel increments the generation; an answer that was already in flight must not land
+        // in the next, empty page.
+        const generation = personaRef.current.generation || 0
+        const held = stateOf(persona.id)
+        if (held.busy) return ''
+
+        const full = String(draftRef.current ?? '')
+        const value = authorOnly(full)
+        if (value.trim().length < (force ? 20 : PERSONA_MIN_CHARS)) return ''
+
+        // Forced means the convenor or the author asked for it: the waiting and the ignored-penalty do
+        // not apply, but there still has to be a page to answer.
+        if (force === false) {
+          if (Date.now() - held.lastAt < held.gapMs) return ''
+          // Silence needs a reason to be broken: something new since this guest last spoke, not a
+          // reworded version of the same page.
+          if (value.length - (held.markChars ?? 0) < PERSONA_MIN_NEW_CHARS) return ''
+          // And no two remarks may land on top of each other, whichever guest says them.
+          if (Date.now() - (personaRef.current.lastAnyAt ?? 0) < PERSONA_PAUSE_MS) return ''
+          // A thought has to have landed: a half sentence is not a place to interrupt.
+          if (!/[。！？!?…」”’）)\n]$/.test(value)) return ''
+        } else if (held.said.length > 0 && value.length - (held.markChars ?? 0) < 4) {
+          // A forced answer still needs *something* new to answer; a guest that just spoke twice in a
+          // row on unchanged text is the host talking to itself, not a remark.
+          return ''
+        }
 
         // A remark the author never answered: remember it, and raise the bar for the next one.
         if (held.lastRemarkAt !== 0 && Date.now() - held.lastRemarkAt > PERSONA_ANSWER_WINDOW_MS) {
@@ -728,73 +920,154 @@
           held.lastRemarkText = ''
         }
 
-        const value = String(draftRef.current ?? '')
-        const excerpt = value.slice(-1500)
-        if (excerpt.trim().length < PERSONA_MIN_CHARS) return
         held.busy = true
         held.lastAt = Date.now()
         try {
           const answer = await post('/voice/interject', {
             personaId: persona.id,
-            excerpt,
+            excerpt: full.slice(-1500),
+            focus: String(focus ?? '').slice(-600),
             recent: held.said.slice(-3),
             ignored: held.ignored,
             skips: held.skips,
-            quietMs: held.lastCommittedAt === 0 ? 0 : Date.now() - held.lastCommittedAt,
+            quietMs: voiceRef.current.lastCommittedAt === 0 ? 0 : Date.now() - voiceRef.current.lastCommittedAt,
+            directive,
+            discussion,
           })
           const remark = String(answer?.text ?? '').trim()
+          if ((personaRef.current.generation || 0) !== generation) return ''
           if (remark !== '') {
             held.said = [...held.said, remark].slice(-3)
             held.lastRemarkAt = Date.now()
             held.lastRemarkText = remark
             held.skips = 0
             held.lastAt = Date.now()
+            held.markChars = value.length
+            personaRef.current.lastAnyAt = Date.now()
             insertInterjection(String(answer?.persona?.name ?? persona.name), remark)
-            setVoice((current) => ({ ...current, heard: remark }))
-          } else {
-            // Silence is an answer too: two in a row and the listener is told to keep quiet.
-            held.skips += 1
-            if (force === true) setVoice((current) => ({ ...current, notice: t.partnerSilent }))
+            return remark
           }
+          // Silence is an answer too: two in a row and the guest is told to keep quiet.
+          held.skips += 1
+          if (force === true) sayVoice(t.partnerSilent)
+          return ''
         } catch {
           /* a quiet listener is not an error */
+          return ''
         } finally {
           held.busy = false
         }
       }
 
-      /** One quoted line on its own paragraph, the way a speaker in a play is written. */
+      /**
+       * Carry out the convenor's plan.
+       *
+       * `reply` lets one guest answer (the one with a directive and the longest wait); `discuss` runs a
+       * short round where each guest hears what the previous one said; `listen` says nothing at all.
+       * A round only happens when the author asked for it (`now`) — a discussion the convenor merely
+       * predicts still waits for a pause and speaks one at a time.
+       */
+      const speakPlan = async (plan, spoken) => {
+        if (plan === null || plan === undefined || plan.keep === true) return
+        const generation = personaRef.current.generation || 0
+        const hostLine = String(plan.say ?? '').trim()
+        if (plan.mode === 'listen') {
+          // Defensive: a model that wrote words but labelled the turn `listen` still gets heard.
+          if (hostLine !== '') insertInterjection(t.convenorName, hostLine)
+          return
+        }
+        // The host may introduce who is about to speak ("请张骞来，他走过西南夷的道"), so its line is
+        // inserted in any speaking mode — but not when it is the only one talking (listen).
+        if (hostLine !== '') insertInterjection(t.convenorName, hostLine)
+        const speakers = Array.isArray(plan.speak) ? plan.speak : []
+        // A host turn that also names a speaker ("到了，徐霞客在——你说") lets that guest speak after it.
+        if (speakers.length === 0) return
+        // The convenor owns the decision: `now` means it wants this turn answered, out loud, at once.
+        const now = plan.timing === 'now'
+        const round = plan.mode === 'discuss' && now
+        const directives = plan.directives ?? {}
+        const ordered = [...speakers].sort((a, b) => (stateOf(a.id).lastAt || 0) - (stateOf(b.id).lastAt || 0))
+        const limit = round ? Math.min(3, speakers.length) : PERSONA_MAX_REMARKS
+        const history = []
+        let remarks = 0
+        for (const guest of ordered) {
+          if (remarks >= limit) break
+          // Cancelled or saved meanwhile: nothing else is inserted.
+          if ((personaRef.current.generation || 0) !== generation) return
+          const state = stateOf(guest.id)
+          const remark = await maybeInterject({
+            persona: guest,
+            force: now,
+            focus: String(spoken ?? ''),
+            directive: String(directives[guest.id] ?? ''),
+            discussion: history,
+          })
+          if (remark !== '') {
+            remarks += 1
+            history.push({ name: guest.name, text: remark })
+            continue
+          }
+          // The host asked for someone to speak and they had nothing to add: their own opening line is
+          // the acknowledgement, and it costs no model call. Later turns get no such fallback.
+          const welcome = String(guest.welcome ?? '').trim()
+          if (now && state.said.length === 0 && welcome !== '') {
+            state.said = [welcome]
+            state.markChars = authorOnly(draftRef.current).length
+            insertInterjection(detectLanguage() === 'zh' ? guest.name : (guest.nameEn ?? guest.name), welcome)
+            remarks += 1
+          }
+        }
+      }
+
+      /** The author has been quiet for the gate: let the room answer, if the convenor says so. */
+      const pauseTurn = async () => {
+        if (partnerSettings !== null && partnerSettings.enabled === false) return
+        const generation = personaRef.current.generation || 0
+        const spoken = String(voiceRef.current.lastSpoken ?? '')
+        let plan = null
+        if (partnerSettings !== null && partnerSettings.mode === 'auto') {
+          plan = await convene(spoken)
+        } else if (personaId !== '') {
+          const one = personas.find((entry) => entry.id === personaId)
+          if (one !== undefined) plan = { mode: 'reply', timing: 'pause', say: '', seat: [one], speak: [one], directives: {} }
+        }
+        if ((personaRef.current.generation || 0) !== generation) return
+        await speakPlan(plan, spoken)
+      }
+
+      /** Save or cancel closes the conversation: the microphone must not keep listening behind it. */
+      const endVoice = () => {
+        if (voice.listening) stopVoice()
+        if (noticeTimer.current !== 0) {
+          clearTimeout(noticeTimer.current)
+          noticeTimer.current = 0
+        }
+        setVoice((current) => ({ ...current, listening: false, busy: false, heard: '', notice: '', convenor: false }))
+      }
+
+      /**
+       * One quoted remark on its own paragraph, the way a speaker in a play is written.
+       *
+       * Plain Markdown blockquote — `> **名字**：内容` — so it survives a copy, a re-render, and being
+       * pasted into any other Markdown editor; the name is bold rather than italic so it reads as a
+       * speaker at a glance.
+       */
       const insertInterjection = (name, remark) => {
+        const line = `> **${String(name)}**：${String(remark)}`
+        // The same line twice in a row is a loop, not a remark: the host repeating its own scheduling
+        // sentence on every pause was half of what made the room feel stitched together.
+        if (personaRef.current.lastInserted === line) return
+        personaRef.current.lastInserted = line
         const area = areaRef.current
         const base = String(draftRef.current ?? '')
         const caret = area === null ? base.length : (area.selectionStart ?? base.length)
         const before = base.slice(0, caret)
         const after = base.slice(caret)
         const lead = before === '' ? '' : /\n$/.test(before) ? '\n' : '\n\n'
-        const line = `> *${String(name)}：${String(remark)}*`
         const inserted = `${lead}${line}\n`
         setAccepted(null)
         setGhost(null)
         applyEdit(before + inserted + after, (before + inserted).length)
-      }
-
-      /** Save the author's own personas; presets stay in code. */
-      const savePersonas = async (list) => {
-        setPersonaSheet({ list, saving: true })
-        try {
-          const saved = await post('/voice/personas', {
-            personas: list.map((entry) => ({
-              id: entry.id,
-              name: entry.name,
-              brief: entry.brief,
-              custom: true,
-            })),
-          })
-          if (Array.isArray(saved?.personas)) setPersonas(saved.personas)
-          setPersonaSheet(null)
-        } catch {
-          setPersonaSheet((current) => (current === null ? current : { ...current, saving: false }))
-        }
       }
 
       /**
@@ -1712,7 +1985,7 @@
           { className: 'dshn-row dshn-capture-tools' },
         // The voice UI floats above the footer instead of taking part in the sheet's layout: a row that
         // appears while you speak must not move the text you are reading.
-        voice.listening || voice.busy || String(voice.heard ?? '') !== '' || String(voice.notice ?? '') !== ''
+        voice.listening || voice.busy || voice.convenor || String(voice.heard ?? '') !== '' || String(voice.notice ?? '') !== ''
           ? h(
               'div',
               { className: 'dshn-voice-dock' },
@@ -1720,49 +1993,11 @@
                 ? h(
                     'div',
                     { className: 'dshn-persona-bar' },
-                    h('span', { className: 'dshn-cap' }, t.personaLabel),
+                    h('span', { className: 'dshn-cap' }, t.personaSeated),
                     h(
-                      'select',
-                      {
-                        className: 'dshn-persona-select',
-                        value: personaId,
-                        title: t.personaHint,
-                        onChange: (event) => {
-                          const next = event.target.value
-                          setPersonaId(next)
-                          if (next === '') return
-                          const held = personaRef.current
-                          const chosen = personas.find((entry) => entry.id === next)
-                          if (chosen === undefined || held.welcomed === next) return
-                          held.welcomed = next
-                          // A partner that is selected should say something, or it looks broken. The greeting is
-                          // part of the persona, so it costs nothing and never surprises with a wrong tone.
-                          const welcome = String(chosen.welcome ?? '').trim()
-                          if (welcome !== '') insertInterjection(detectLanguage() === 'zh' ? chosen.name : (chosen.nameEn ?? chosen.name), welcome)
-                        },
-                      },
-                      h('option', { value: '' }, t.personaNone),
-                      ...personas.map((entry) =>
-                        h(
-                          'option',
-                          { key: entry.id, value: entry.id },
-                          detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name),
-                        ),
-                      ),
-                    ),
-                    h('span', { className: 'dshn-grow' }),
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        className: 'dshn-btn ghost dshn-persona-manage',
-                        onClick: () =>
-                          setPersonaSheet({
-                            list: personas.filter((entry) => entry.custom !== false).map((entry) => ({ ...entry })),
-                            saving: false,
-                          }),
-                      },
-                      t.personaManage,
+                      'span',
+                      { className: 'dshn-persona-name', title: t.personaWhy },
+                      partnerSeatLabel(t, personas, guests.length > 0 ? guests : (personaId === '' ? [] : [personaId]), partnerSettings),
                     ),
                   )
                 : null,
@@ -1775,11 +2010,13 @@
                   { className: 'dshn-voice-text' },
                   String(voice.notice ?? '') !== ''
                   ? voice.notice
-                  : voice.busy
-                    ? t.voiceBusy
-                    : String(voice.heard ?? '') !== ''
-                      ? `${t.voiceHeard}：${voice.heard}`
-                      : t.voiceListening,
+                  : voice.convenor
+                    ? t.convenorThinking
+                    : voice.busy
+                      ? t.voiceBusy
+                      : String(voice.heard ?? '') !== ''
+                        ? `${t.voiceHeard}：${voice.heard}`
+                        : t.voiceListening,
                 ),
               ),
             )
@@ -1861,6 +2098,7 @@
                 {
                   className: 'dshn-btn ghost',
                   onClick: () => {
+                    endVoice()
                     if (typeof props.onCancel === 'function') props.onCancel()
                     else setDraft('')
                   },
@@ -1868,7 +2106,7 @@
                 },
                 t.cancel,
               ),
-              h('button', { className: 'dshn-btn primary', onClick: () => void saveDraft(), disabled: draft.trim() === '' }, t.save),
+              h('button', { className: 'dshn-btn primary', onClick: () => { endVoice(); void saveDraft() }, disabled: draft.trim() === '' }, t.save),
               compactLayout
             ? null
             : h(
@@ -2128,114 +2366,6 @@
       // printed permanently under the page, which read as stray text, so it is gone.
       const statusLine = status !== '' ? h('div', { className: 'dshn-cap' }, status) : null
 
-      // The manager: presets are code and cannot be edited here; only the author's own personas are listed,
-      // and each one is a name plus the brief that shapes what it notices.
-      const personaEditor =
-        personaSheet === null
-          ? null
-          : h(
-              'div',
-              { className: 'dshn-persona-sheet', role: 'dialog', 'aria-modal': 'true' },
-              h(
-                'div',
-                { className: 'dshn-persona-panel' },
-                h(
-                  'div',
-                  { className: 'dshn-row' },
-                  h('strong', null, t.personaManage),
-                  h('span', { className: 'dshn-grow' }),
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshn-icon-btn',
-                      'aria-label': t.personaClose,
-                      onClick: () => setPersonaSheet(null),
-                    },
-                    '✕',
-                  ),
-                ),
-                h('div', { className: 'dshn-cap' }, t.personaHint),
-                ...personaSheet.list.map((entry, index) =>
-                  h(
-                    'div',
-                    { className: 'dshn-persona-row', key: entry.id ?? index },
-                    h(
-                      'div',
-                      { className: 'dshn-persona-line' },
-                      h('input', {
-                        className: 'dshn-persona-input',
-                        value: entry.name,
-                        placeholder: t.personaName,
-                        onChange: (event) =>
-                          setPersonaSheet((current) => {
-                            const list = current.list.slice()
-                            list[index] = { ...list[index], name: event.target.value }
-                            return { ...current, list }
-                          }),
-                      }),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          className: 'dshn-btn ghost',
-                          onClick: () =>
-                            setPersonaSheet((current) => ({
-                              ...current,
-                              list: current.list.filter((_, at) => at !== index),
-                            })),
-                        },
-                        t.personaDelete,
-                      ),
-                    ),
-                    h('textarea', {
-                      className: 'dshn-persona-text',
-                      value: entry.brief,
-                      placeholder: t.personaBrief,
-                      onChange: (event) =>
-                        setPersonaSheet((current) => {
-                          const list = current.list.slice()
-                          list[index] = { ...list[index], brief: event.target.value }
-                          return { ...current, list }
-                        }),
-                    }),
-                  ),
-                ),
-                h(
-                  'div',
-                  { className: 'dshn-persona-actions' },
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshn-btn ghost',
-                      onClick: () =>
-                        setPersonaSheet((current) => ({
-                          ...current,
-                          list: [
-                            ...current.list,
-                            { id: `own-${Date.now().toString(36)}`, name: '', brief: '', custom: true },
-                          ],
-                        })),
-                    },
-                    t.personaNew,
-                  ),
-                  h('span', { className: 'dshn-grow' }),
-                  h('button', { type: 'button', className: 'dshn-btn ghost', onClick: () => setPersonaSheet(null) }, t.personaClose),
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshn-btn primary',
-                      disabled: personaSheet.saving === true,
-                      onClick: () => void savePersonas(personaSheet.list),
-                    },
-                    personaSheet.saving === true ? t.personaSaving : t.personaSave,
-                  ),
-                ),
-              ),
-            )
-
       return h(
         'div',
         {
@@ -2283,7 +2413,6 @@
             : null,
         ),
         statusLine,
-        personaEditor,
       )
     }
 

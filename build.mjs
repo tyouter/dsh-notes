@@ -48,6 +48,8 @@ const header = `/**
 window.__ModuleLoader__.load({
   id: '${PACKAGE}',
   factory(require) {
+    /** The bundle's own package name: the key the Plugins page looks its configuration up by. */
+    const PACKAGE = '${PACKAGE}'
 `
 
 const footer = `
@@ -55,7 +57,7 @@ const footer = `
 })
 `
 
-const parts = ['head.js', 'board.js', 'panel.js']
+const parts = ['head.js', 'board.js', 'settings.js', 'panel.js']
 const bodies = []
 for (const name of parts) {
   const text = await readFile(join(here, 'src', name), 'utf8')

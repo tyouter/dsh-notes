@@ -128,6 +128,34 @@
     personaClose: '关闭',
     personaDelete: '删除',
     personaSaving: '保存中…',
+    personaSeated: '在座',
+    personaOff: '已关闭',
+    personaAutoTbd: '自动挑选中',
+    partnerJoined: '新请来',
+    convenorThinking: '召唤师在看这一桌…',
+    convenorName: '召唤师',
+    personaWhy: '它只在你停下来时偶尔插一句，写成一段引用；喊它的名字再加一句求意见的话，它就会答。',
+    settingsTitle: '写作伙伴',
+    settingsIntro: '谁在场、怎么选，都在这里定。写的时候它不打断你，只在停顿处说一句。',
+    settingsEnabled: '启用写作伙伴',
+    settingsEnabledHint: '关掉之后不再插话，也不产生任何模型调用。',
+    settingsMode: '谁在场',
+    settingsModeAuto: '自动',
+    settingsModeManual: '指定',
+    settingsModeAutoHint: '按你正在写的内容挑一位；挑不出合适的就安静。',
+    settingsModeManualHint: '固定用下面这一位。',
+    settingsPersona: '指定人格',
+    settingsPersonaNone: '不选（它不会开口）',
+    settingsPersonaAutoHint: '自动模式下由它自己挑；想固定某一位就切到「指定」。',
+    settingsLibrary: '人格库',
+    settingsLibraryHint: '预设随插件发布，不能改；你自己建的可以增删改。',
+    settingsPresets: '预设',
+    settingsCustom: '我的',
+    settingsAdd: '新增人格',
+    settingsSaved: '已保存',
+    settingsSaveFailed: '保存失败',
+    settingsEmptyCustom: '还没有自建人格。',
+    settingsAutoTag: '自动',
     partnerSummon: '呼叫',
     partnerSummonHint: '让它现在就说一句',
     partnerSilent: '它这次没说话',
@@ -308,6 +336,34 @@
     personaClose: 'Close',
     personaDelete: 'Delete',
     personaSaving: 'Saving…',
+    personaSeated: 'In the room',
+    personaOff: 'Off',
+    personaAutoTbd: 'Choosing…',
+    partnerJoined: 'Joined',
+    convenorThinking: 'The host is looking at the room…',
+    convenorName: 'Host',
+    personaWhy: 'It speaks only when you pause, as a quoted passage. Say its name with a request for an opinion and it answers.',
+    settingsTitle: 'Writing partner',
+    settingsIntro: 'Who is in the room, and how it is chosen, is settled here. It never interrupts; it speaks at a pause.',
+    settingsEnabled: 'Enable the writing partner',
+    settingsEnabledHint: 'With this off it says nothing and spends no tokens.',
+    settingsMode: 'Who is in the room',
+    settingsModeAuto: 'Automatic',
+    settingsModeManual: 'Chosen',
+    settingsModeAutoHint: 'Picks the best fit for what you are writing; stays quiet when nobody fits.',
+    settingsModeManualHint: 'Always use the one selected below.',
+    settingsPersona: 'Persona',
+    settingsPersonaNone: 'None (it stays quiet)',
+    settingsPersonaAutoHint: 'In automatic mode it chooses; switch to Chosen to pin one.',
+    settingsLibrary: 'Personas',
+    settingsLibraryHint: 'Presets ship with the plugin and cannot be edited; the ones you write can.',
+    settingsPresets: 'Presets',
+    settingsCustom: 'Mine',
+    settingsAdd: 'New persona',
+    settingsSaved: 'Saved',
+    settingsSaveFailed: 'Could not save',
+    settingsEmptyCustom: 'No personas of your own yet.',
+    settingsAutoTag: 'Auto',
     partnerSummon: 'Ask',
     partnerSummonHint: 'Have it say something now',
     partnerSilent: 'It stayed quiet',
@@ -1201,7 +1257,7 @@
     const SUB_CUE = /^(?:比如|例如|具体来说|具体是|也就是|就是说)/
 
     /** A pause this long between segments starts a new paragraph instead of continuing the line. */
-    const DICTATION_PARAGRAPH_PAUSE_MS = 1200
+    const DICTATION_PARAGRAPH_PAUSE_MS = 2000
 
     /** How long one dictated paragraph may grow before it is broken anyway. */
     const DICTATION_PARAGRAPH_CHARS = 180
@@ -1855,6 +1911,24 @@
     }
 
     const dict = () => STRINGS[detectLanguage()]
+
+    /**
+     * Who reads as "in the room" on the capture strip.
+     *
+     * The capture page no longer lets anyone choose: the ids come from the convenor, and in `auto` mode
+     * the room stays empty until somebody has been seated.
+     */
+    function partnerSeatLabel(t, personas, seated, settings) {
+      if (settings !== null && settings !== undefined && settings.enabled === false) return t.personaOff
+      const ids = Array.isArray(seated) ? seated : seated === '' || seated === undefined ? [] : [seated]
+      const names = ids.map((id) => {
+        const found = (Array.isArray(personas) ? personas : []).find((entry) => entry.id === id)
+        if (found === undefined) return ''
+        return detectLanguage() === 'zh' ? found.name : (found.nameEn ?? found.name)
+      }).filter((name) => name !== '')
+      if (names.length > 0) return names.join('、')
+      return settings !== null && settings !== undefined && settings.mode === 'auto' ? t.personaAutoTbd : t.personaNone
+    }
 
     // ----------------------------------------------------------------- api ---
 
@@ -3387,60 +3461,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   box-shadow: 0 4px 14px rgb(0 0 0 / 8%);
 }
 .dshn-persona-bar .dshn-cap { flex: 0 0 auto; }
-.dshn-persona-select {
-  appearance: none;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-sm);
-  background: var(--dsw-alias-bg-base);
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
+.dshn-persona-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
-  max-width: 180px;
-}
-.dshn-persona-select:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
-.dshn-persona-manage { height: 26px; padding: 0 8px; font-size: 12px; }
-.dshn-persona-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent);
-  backdrop-filter: blur(2px);
-}
-.dshn-persona-panel {
-  width: min(560px, 92vw);
-  max-height: 80vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px 20px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-lg);
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 22%);
-}
-.dshn-persona-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
-.dshn-persona-row:first-of-type { border-top: none; }
-.dshn-persona-line { display: flex; gap: 8px; align-items: center; }
-.dshn-persona-input,
-.dshn-persona-text {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dshn-r-sm);
-  background: var(--dsw-alias-bg-base);
+  font-weight: 500;
   color: var(--dsw-alias-label-primary);
-  font: inherit;
-  font-size: 12px;
 }
-.dshn-persona-text { min-height: 64px; resize: vertical; line-height: 1.5; }
-.dshn-persona-actions { display: flex; justify-content: flex-end; gap: 8px; }
 /* The interjection itself: a quote line, set slightly larger and in italics by the markdown renderer. */
 .dshn-md-quote {
   margin: 12px 0;

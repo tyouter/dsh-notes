@@ -16,7 +16,21 @@ import { registerNotesTools } from '../lib/tools.js'
 import { streamText } from '../lib/llm.js'
 import { analyzeNotes } from '../lib/tools.js'
 import { SpeechBridge, decodeBase64, readWavHeader, SPEECH_SAMPLE_RATE } from '../lib/speech.js'
-import { BUILTIN_PERSONAS, PersonaStore, buildInterjectPrompt, interject, normalizePersona } from '../lib/personas.js'
+import {
+  BUILTIN_PERSONAS,
+  PersonaStore,
+  buildCreatePrompt,
+  buildInterjectPrompt,
+  buildSelectPrompt,
+  choosePersonas,
+  createPersona,
+  interject,
+  normalizePersona,
+  parsePersonaCard,
+  personaFromCard,
+} from '../lib/personas.js'
+import { DEFAULT_SETTINGS, SettingsStore, normalizeSettings } from '../lib/settings.js'
+import { buildConvenePrompt, convene, normalizePlan, parseConvene } from '../lib/convene.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const vault = join(here, '.host-vault')
@@ -424,12 +438,188 @@ await rm(tokenVault, { recursive: true, force: true })
 }
 
 {
+  // ---- the partner's switch board ----
+  // Defaults are the opinionated ones: on, and choosing for itself. Everything is re-read through
+  // normalizeSettings, so a hand-edited settings.json cannot put the panel in an impossible state.
+  check('the partner starts on and choosing for itself', DEFAULT_SETTINGS.enabled === true && DEFAULT_SETTINGS.mode === 'auto')
+  check('three guests by default', DEFAULT_SETTINGS.maxGuests === 3)
+  check('an unknown mode falls back to auto', normalizeSettings({ mode: 'whatever' }).mode === 'auto')
+  check('guests are clamped', normalizeSettings({ maxGuests: 99 }).maxGuests === 4 && normalizeSettings({ maxGuests: 0 }).maxGuests === 1)
+
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-settings-'))
+  const store = new NoteStore({ config: { notesPath: root } })
+  const settings = new SettingsStore(store)
+  check('a missing file reads as the defaults', (await settings.read()).mode === 'auto')
+  const written = await settings.write({ enabled: false, personaId: 'jobs' })
+  check('a patch is merged and stored', written.enabled === false && written.personaId === 'jobs' && written.maxGuests === 3)
+  const again = await settings.read()
+  check('settings survive a reload', again.enabled === false && again.personaId === 'jobs')
+
+  const prompt = buildSelectPrompt(BUILTIN_PERSONAS, { excerpt: '这一章的财政数据对不上。', maxGuests: 3 })
+  check('the chooser sees the catalogue', BUILTIN_PERSONAS.every((entry) => prompt.user.includes(entry.id)))
+  check('the chooser sees what was said', prompt.user.includes('财政数据'))
+  check('the chooser may answer NONE', /NONE/.test(prompt.system))
+  check('the chooser is told the table size', /最多挑 3 位/.test(prompt.system))
+
+  const generateWith = (text) => async ({ onDelta }) => {
+    onDelta(text)
+  }
+  const table = await choosePersonas({ generate: generateWith('fortune\njobs'), config: {}, store, logger: { warn() {}, info() {} } }, { excerpt: '先看看这件事的走势。', maxGuests: 3 })
+  check('the convenor seats a table', table.length === 2 && table[0].id === 'fortune' && table[1].id === 'jobs')
+  const capped = await choosePersonas({ generate: generateWith('fortune jobs aristotle analyst'), config: {}, store, logger: { warn() {}, info() {} } }, { excerpt: '先看看这件事的走势。', maxGuests: 2 })
+  check('the table respects maxGuests', capped.length === 2)
+  const none = await choosePersonas({ generate: generateWith('NONE'), config: {}, store, logger: { warn() {}, info() {} } }, { excerpt: '今天天气不错。' })
+  check('NONE means nobody fits', none.length === 0)
+  const ghost = await choosePersonas({ generate: generateWith('nobody'), config: {}, store, logger: { warn() {}, info() {} } }, { excerpt: '今天天气不错。' })
+  check('an unknown id is dropped, not trusted', ghost.length === 0)
+
+  // ---- the convenor writing a missing guest ----
+  const createPrompt = buildCreatePrompt(BUILTIN_PERSONAS, { excerpt: '明朝的财政为什么收不上税。' })
+  check('the writer is told the card schema', /"brief"/.test(createPrompt.system) && /"welcome"/.test(createPrompt.system))
+  check('the writer sees the story', createPrompt.user.includes('明朝的财政'))
+  const card = parsePersonaCard('好的：{"name":"黄仁宇","nameEn":"Ray Huang","domain":["历史"],"brief":"You read institutions.","welcome":"我在听。"}')
+  check('a card wrapped in prose is still read', card !== null && card.name === '黄仁宇')
+  const made = personaFromCard(card, BUILTIN_PERSONAS)
+  check('a written card becomes a persona', made !== null && made.id.startsWith('auto-') && made.origin === 'auto')
+  check('a broken card is refused', personaFromCard(null, BUILTIN_PERSONAS) === null && parsePersonaCard('no json here') === null)
+
+  const created = await createPersona({ generate: generateWith('{"name":"黄仁宇","nameEn":"Ray Huang","brief":"You read institutions.","welcome":"我在听。"}'), config: {}, store, logger: { warn() {}, info() {} } }, { excerpt: '明朝的财政。' })
+  check('a written guest is stored', created !== null && created.custom === true && created.origin === 'auto')
+  check('the room grows by one', (await new PersonaStore(store).list()).length === BUILTIN_PERSONAS.length + 1)
+  await rm(root, { recursive: true, force: true })
+}
+
+// ---- the convenor ----
+// The host of the room: it seats people, hands each a directive, and decides whether the room answers
+// now or at the next pause. Everything the panel does downstream follows this plan.
+{
+  const prompt = buildConvenePrompt(BUILTIN_PERSONAS, { excerpt: '明朝的财政收不上税。', seated: ['jobs'], maxGuests: 3 })
+  check('the convenor sees the catalogue', BUILTIN_PERSONAS.every((entry) => prompt.system.includes(entry.id)))
+  check('the convenor knows who is seated', prompt.user.includes('现在在座：乔布斯'))
+  check('the seat is not in the cached prefix', prompt.system.includes('现在在座') === false)
+  check('the convenor is asked for a plan', /"timing"/.test(prompt.system) && /"directive"/.test(prompt.system))
+  check('the convenor may answer "keep"', /"keep":true/.test(prompt.system))
+  check('the convenor is told about transcription typos', /错别字/.test(prompt.system) && /修摩罗什/.test(prompt.system))
+  check('a question to the room must be answered', /必须 timing = now/.test(prompt.system))
+  check('an absent guest answer must also hand over the floor', /必须同时把那个人放进 speak/.test(prompt.system))
+
+  const kept = normalizePlan({ keep: true }, BUILTIN_PERSONAS)
+  check('keep is a first-class answer', kept.keep === true)
+  const hostPlan = normalizePlan({ mode: 'host', say: '我是这里的召唤师。', seat: [] }, BUILTIN_PERSONAS)
+  check('the host can answer as itself', hostPlan.mode === 'host' && hostPlan.say.includes('召唤师') && hostPlan.timing === 'now')
+  const hostBlank = normalizePlan({ mode: 'host', say: '', seat: [] }, BUILTIN_PERSONAS)
+  check('a host with nothing to say stays quiet', hostBlank.mode === 'listen')
+  const mislabelled = normalizePlan({ mode: 'listen', say: '屋里只有鸠摩罗什。', seat: [] }, BUILTIN_PERSONAS)
+  check('words outrank a listen label', mislabelled.mode === 'host')
+  const focused = buildConvenePrompt(BUILTIN_PERSONAS, { excerpt: '先说一句。\n修摩罗什怎么看？', focus: '修摩罗什怎么看？' })
+  check('the convenor is given the latest sentence', focused.user.includes('【作者刚刚说的这一句') && focused.user.includes('修摩罗什怎么看'))
+  check('the convenor is told it is always present', /一直在场/.test(focused.system))
+  check('the convenor is told not to apologise', /不要道歉/.test(focused.system))
+  const withLast = buildConvenePrompt(BUILTIN_PERSONAS, { excerpt: 'x', current: { mode: 'host', timing: 'now', say: '张骞我请来', directives: {} } })
+  check('the convenor sees what it said last turn', withLast.user.includes('你上一轮说过：张骞我请来'))
+  const summoned = normalizePlan(
+    { mode: 'reply', timing: 'now', seat: [{ id: 'jobs', directive: '说一句' }] },
+    BUILTIN_PERSONAS,
+    { excerpt: '可以让鸠摩罗什来跟我说吗？' },
+  )
+  check('a summons without the word 现在 still counts as now', summoned.timing === 'now')
+  const plain = normalizePlan(
+    { mode: 'reply', timing: 'now', seat: [{ id: 'jobs', directive: '说一句' }] },
+    BUILTIN_PERSONAS,
+    { excerpt: '我在写一个产品的取舍。' },
+  )
+  check('a plain sentence may still be answered when the convenor decides', plain.timing === 'now')
+
+  const plan = normalizePlan(
+    {
+      mode: 'discuss',
+      timing: 'now',
+      seat: [
+        { id: 'jobs', directive: '一句话砍掉一半' },
+        { id: 'aristotle', directive: '接上乔布斯的话，追问定义' },
+        { id: 'nobody', directive: 'x' },
+      ],
+      note: '请两位',
+    },
+    BUILTIN_PERSONAS,
+    { maxGuests: 3, excerpt: '你们先讨论一下，现在开始。' },
+  )
+  check('unknown ids are dropped', plan.seat.length === 2 && plan.seat.every((entry) => entry.id !== 'nobody'))
+  check('the directives are kept per guest', plan.directives.jobs.includes('砍掉') && plan.directives.aristotle.includes('接上'))
+  check('now and discuss survive an explicit request', plan.timing === 'now' && plan.mode === 'discuss')
+  check('the caller can refuse now', normalizePlan({ mode: 'reply', timing: 'now', seat: [{ id: 'jobs', directive: 'a' }] }, BUILTIN_PERSONAS, { allowedNow: false }).timing === 'pause')
+  check('a single answer has one errand', Object.keys(normalizePlan({ mode: 'reply', seat: [{ id: 'jobs', directive: 'a' }, { id: 'aristotle', directive: 'b' }] }, BUILTIN_PERSONAS).directives).length === 1)
+
+  const lonely = normalizePlan({ mode: 'discuss', seat: [{ id: 'jobs', directive: 'a' }] }, BUILTIN_PERSONAS)
+  check('a discussion needs two people', lonely.mode === 'reply')
+  const noNow = normalizePlan({ mode: 'reply', timing: 'now', seat: [{ id: 'jobs', directive: 'a' }] }, BUILTIN_PERSONAS, { allowedNow: false })
+  check('now can be refused by the caller', noNow.timing === 'pause')
+  const listen = normalizePlan({ mode: 'listen', timing: 'now', seat: [] }, BUILTIN_PERSONAS)
+  check('a listening turn says nothing', listen.mode === 'listen' && listen.timing === 'pause')
+
+  check('a plan wrapped in prose is read', parseConvene('好：{"mode":"reply","timing":"now","seat":[]}')?.mode === 'reply')
+  check('garbage is refused', parseConvene('no plan here') === null)
+
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-convene-'))
+  const store = new NoteStore({ config: { notesPath: root } })
+  const scripted = (texts) => {
+    let index = 0
+    return async ({ onDelta }) => {
+      onDelta(texts[Math.min(index, texts.length - 1)])
+      index += 1
+    }
+  }
+  const seated = await convene(
+    {
+      generate: scripted(['{"mode":"reply","timing":"pause","seat":[{"id":"jobs","directive":"一句话砍掉一半"}],"create":null,"note":""}']),
+      config: {},
+      store,
+      logger: { warn() {}, info() {} },
+    },
+    { excerpt: '要不要给这个产品加语音。', maxGuests: 3 },
+  )
+  check('the plan is resolved to real personas', seated.seat.length === 1 && seated.seat[0].id === 'jobs')
+  check('the convenor passes its directive through', seated.directives.jobs === '一句话砍掉一半')
+
+  const keptRun = await convene(
+    { generate: scripted(['{"keep":true}']), config: {}, store, logger: { warn() {}, info() {} } },
+    { excerpt: '要不要给这个产品加语音。', seated: ['jobs'], current: { mode: 'reply', timing: 'pause', directives: { jobs: '一句话砍掉一半' } } },
+  )
+  check('keep leaves the room alone', keptRun.keep === true && keptRun.seat.length === 0)
+
+  const made = await convene(
+    {
+      generate: scripted([
+        '{"mode":"reply","timing":"pause","seat":[],"create":{"name":"黄仁宇","field":"财政史","why":"他关心制度与执行的距离"},"note":""}',
+        '{"name":"黄仁宇","nameEn":"Ray Huang","brief":"You read institutions.","welcome":"账要这么看。"}',
+      ]),
+      config: {},
+      store,
+      logger: { warn() {}, info() {} },
+    },
+    { excerpt: '明朝的财政。', maxGuests: 3 },
+  )
+  check('an empty room may be filled by writing a guest', made.seat.length === 1 && made.created && made.created.origin === 'auto')
+  check('the written guest gets its errand', typeof made.directives[made.seat[0].id] === 'string' && made.directives[made.seat[0].id] !== '')
+  await rm(root, { recursive: true, force: true })
+}
+
+{
   const persona = { id: 'p', name: 'P', brief: 'You are P.' }
   const prompt = buildInterjectPrompt(persona, { excerpt: '今天开会没定下来。', recent: ['先定义一下"定下来"。'] })
   check('the prompt carries the brief', prompt.system.includes('You are P.'))
   check('the prompt carries what was said', prompt.user.includes('今天开会没定下来。'))
   check('the prompt carries what it already said', prompt.user.includes('先定义一下'))
   check('silence is allowed', /SKIP/.test(prompt.system))
+
+  const quoted = buildInterjectPrompt(persona, {
+    excerpt: '我去了敦煌。\n> **鸠摩罗什**：那句话译过来时丢了什么？\n现在说武威。',
+    focus: '现在说武威。',
+  })
+  check('the context is split into author / room / focus', quoted.user.includes('【作者先前写的】') && quoted.user.includes('【你们在屋里说过的') && quoted.user.includes('【作者刚刚说的这一句】'))
+  check('the room keeps its own words as background', quoted.user.includes('那句话译过来时丢了什么'))
+  check('the focus is the latest sentence', /【作者刚刚说的这一句】\n现在说武威。/.test(quoted.user))
+  check('the focus is not repeated in the earlier block', quoted.user.indexOf('现在说武威。') === quoted.user.lastIndexOf('现在说武威。'))
 
   // Restraint: what was ignored is shown back, and a silence streak raises the bar.
   const learning = buildInterjectPrompt(persona, {
