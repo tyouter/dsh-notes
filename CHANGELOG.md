@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.1.3 — colours, immersion, and the typing path
+
+### Charts
+
+- A chart point may carry its own colour (`#rrggbb`, `rgb()`/`hsl()`, or a theme variable). Bar fills,
+  pie arcs and their legend dots, the line, and the stat number use it; anything else is dropped, and a
+  point without a colour keeps the theme palette.
+
+### Writing
+
+- **Immersive mode**: a button at the end of the footer takes the page full screen — sidebar, tab strip
+  and taskbar aside — and Esc leaves it. History's editor has it too.
+- The page fills the pane instead of stopping at 78vh, so the footer sits at the bottom of the window.
+- The footer is two groups that wrap: a narrow pane moves the actions onto their own line instead of
+  clipping them, and the key hint is shown whole or not at all.
+
+### Typing
+
+- A suggestion only appears at the end of the text; mid-line it would be painted over the words.
+- A TAB chunk is undone by one Backspace from anywhere inside it, and moving the caret with the arrow keys
+  no longer decides its fate.
+- Structural edits (Enter, an indented item, backing out) write the value and the caret in one tick, so a
+  fast typist no longer loses the second space or lands the caret inside the marker.
+- Auto-write asks again: the end-of-text check reads the editor instead of the previous render, which had
+  silently switched suggestions off.
+
 ## 1.1.2 — what the notebook does
 
 ### One page, typeset as you write
