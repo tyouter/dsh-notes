@@ -506,6 +506,7 @@
             lastLoudAt: 0,
             startedAt: 0,
             committing: false,
+            lastCommittedAt: 0,
           }
           voiceRef.current = held
           held.timer = setInterval(() => {
@@ -588,7 +589,10 @@
           if (spoken !== '') {
             // Local layout first (no model, no tokens), then the typewriter: the words appear while the next
             // segment is still being spoken, which is as close to streaming as a request/response recognizer gets.
-            await typeDictation(arrangeDictation(spoken))
+            const held = voiceRef.current
+            const gap = held.lastCommittedAt === 0 ? 0 : Date.now() - held.lastCommittedAt
+            await typeDictation(arrangeDictation(spoken), gap)
+            held.lastCommittedAt = Date.now()
             setVoice((current) => ({ ...current, heard: spoken }))
           }
         } catch (error) {
@@ -633,7 +637,7 @@
        * A note that is still empty gets a blank first line first, so the spoken text is body and the title
        * stays empty rather than becoming the first thing said.
        */
-      const typeDictation = async (arranged) => {
+      const typeDictation = async (arranged, gapMs = 0) => {
         const spoken = String(arranged ?? '')
         if (spoken.trim() === '') return
         const area = areaRef.current
@@ -645,7 +649,7 @@
           current = '\n'
           caret = 1
         }
-        const joiner = dictationJoiner(current.slice(0, caret))
+        const joiner = dictationJoiner(current.slice(0, caret), gapMs)
         const tail = current.slice(caret)
         const head = current.slice(0, caret)
         const full = joiner + spoken

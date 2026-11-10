@@ -193,9 +193,13 @@ check('a suggestion stays chunked', suggestionChunks('先做压测，再定上�
   check('ordinal sentences become bullets', arrangeDictation('第一点先定范围。第二点再排时间。').split('\n').every((line) => line.startsWith('- ')))
   check('a continuation cue is indented under the previous line', arrangeDictation('先定范围。比如只做桌面端。').split('\n')[1] === '  - 比如只做桌面端。')
   check('plain speech stays prose', arrangeDictation('今天开会没定下来。') === '今天开会没定下来。')
-  check('a finished sentence starts a new line', dictationJoiner('今天开会。') === '\n')
-  check('a fragment continues the line', dictationJoiner('今天开会') === ' ')
-  check('the start of a note has no joiner', dictationJoiner('') === '')
+  check('a breath continues the same paragraph', dictationJoiner('今天开会。', 300) === '')
+  check('a fragment continues the same paragraph', dictationJoiner('今天开会', 300) === '')
+  check('a long pause starts a new line', dictationJoiner('今天开会。', 2000) === '\n')
+  check('english keeps its space', dictationJoiner('The meeting ended.', 300) === ' ')
+  check('the start of a note has no joiner', dictationJoiner('', 0) === '')
+  // prose does not get split just because it has two sentences
+  check('two spoken sentences stay one paragraph', arrangeDictation('今天开会。没定下来。') === '今天开会。没定下来。')
 }
 
 await rm(fixtures, { recursive: true, force: true })

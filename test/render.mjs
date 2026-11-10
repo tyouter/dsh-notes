@@ -634,7 +634,7 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('segments end after half a second of quiet', /const VOICE_COMMIT_MS = 500/.test(boardSource))
     // Continuous: the switch stays on, the level decides where a segment ends, the text is written then.
     check('the microphone stays on until switched off', /voice\.listening/.test(boardSource) && /setInterval\(\(\) => \{/.test(boardSource) && /VOICE_COMMIT_MS/.test(boardSource))
-    check('a pause ends the segment and writes it', /commitSegment\(chunks/.test(boardSource) && /quiet > VOICE_COMMIT_MS/.test(boardSource) && /dictationJoiner\(current\.slice\(0, caret\)\)/.test(boardSource))
+    check('a pause ends the segment and writes it', /commitSegment\(chunks/.test(boardSource) && /quiet > VOICE_COMMIT_MS/.test(boardSource) && /dictationJoiner\(current\.slice\(0, caret\), gapMs\)/.test(boardSource) && /DICTATION_PARAGRAPH_PAUSE_MS/.test(headCss + boardSource))
     check('a segment cannot run away', /VOICE_MAX_MS/.test(boardSource) && /now - current\.startedAt > VOICE_MAX_MS/.test(boardSource))
     check('the strip above the footer shows what was heard', /dshn-voice-strip/.test(boardSource) && /\.dshn-voice-strip \{/.test(headCss) && /dshn-voice-pulse/.test(headCss))
     check('the host routes exist', /route === 'speech\/state'/.test(apiSource) && /route === 'speech\/transcribe'/.test(apiSource) && /SpeechBridge/.test(indexSource))

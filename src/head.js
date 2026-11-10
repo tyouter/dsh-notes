@@ -1167,42 +1167,68 @@
       return parts.map((part) => part.trim()).filter((part) => part !== '')
     }
 
-    /** Ordinal cues a speaker uses to start a list. */
-    const ORDINAL_CUE = /^(?:第[一二三四五六七八九十\d]+[、.，,：:]?|首先|其次|再者|然后|接着|最后|另外|还有|一[、.]|二[、.]|三[、.]|\d+[.)、])/
-    /** Cues that usually continue the previous item rather than start a new one. */
-    const SUB_CUE = /^(?:比如|例如|具体|也就是|就是说|因为|所以|于是|其中)/
+    /** Cues that really start a list. "然后 / 接着 / 另外" are narrative, and stay in the paragraph. */
+    const ORDINAL_CUE = /^(?:第[一二三四五六七八九十\d]+[、.，,：:]?|首先|其次|再次|最后|一[、.]|二[、.]|三[、.]|\d+[.)、])/
+    /** Cues that introduce an example or a reason for the line above. */
+    const SUB_CUE = /^(?:比如|例如|具体来说|具体是|也就是|就是说)/
+
+    /** A pause this long between segments starts a new paragraph instead of continuing the line. */
+    const DICTATION_PARAGRAPH_PAUSE_MS = 1200
+
+    /** How long one dictated paragraph may grow before it is broken anyway. */
+    const DICTATION_PARAGRAPH_CHARS = 180
+
+    /** Does this text end in something a script does not separate with a space? */
+    const CJK_TAIL = /[\u3000-\u9fff\uff00-\uffef]$/
 
     /**
      * Lay dictated text out without a model.
      *
-     * One sentence per line, ordinal sentences become list items, and a sentence that continues the previous
-     * one with "比如 / 也就是 / 因为" is indented under it. Wording is never touched: this is a rule engine,
-     * so it costs nothing and never rewrites what was said.
+     * Speech runs on, so prose stays one paragraph: sentences follow each other exactly as they were spoken,
+     * with no line break between them. Structure only appears where it was actually signalled — an ordinal
+     * cue starts a list item, a continuation cue ("比如 / 也就是 / 因为") is indented under the line before,
+     * and a paragraph longer than a comfortable measure is broken. Wording is never touched.
      */
     function arrangeDictation(text) {
       const sentences = spokenSentences(text)
       if (sentences.length === 0) return ''
       const lines = []
       for (const sentence of sentences) {
-        if (SUB_CUE.test(sentence) && lines.length > 0) lines.push(`  - ${sentence}`)
-        else if (ORDINAL_CUE.test(sentence)) lines.push(`- ${sentence}`)
-        else lines.push(sentence)
+        const last = lines.length - 1
+        if (SUB_CUE.test(sentence) && last >= 0) {
+          lines.push(`  - ${sentence}`)
+          continue
+        }
+        if (ORDINAL_CUE.test(sentence)) {
+          lines.push(`- ${sentence}`)
+          continue
+        }
+        // Prose: append to the paragraph in progress, separated the way the script separates sentences.
+        if (last >= 0 && !/^\s*-/.test(lines[last]) && lines[last].length < DICTATION_PARAGRAPH_CHARS) {
+          lines[last] += /\.$/.test(lines[last]) ? ` ${sentence}` : sentence
+        } else {
+          lines.push(sentence)
+        }
       }
       return lines.join('\n')
     }
 
     /**
-     * What goes between what is already on the page and the next dictated line.
+     * What goes between what is already on the page and the next dictated piece.
      *
-     * A finished sentence earns a new line; a fragment (no terminal punctuation) is continued on the same
-     * line, which is what someone pausing mid-thought expects.
+     * A short pause is just a breath: the words continue the same paragraph, separated the way the script
+     * separates them (Chinese needs nothing, English needs a space). A long pause — the one that means "new
+     * thought" — starts a new line, and so does a line that is already full.
      */
-    function dictationJoiner(existing) {
+    function dictationJoiner(existing, gapMs = 0) {
       const value = String(existing ?? '')
       if (value === '') return ''
       const tail = value.slice(-1)
-      if (/[\n。！？!?；;]/.test(tail)) return '\n'
-      if (/[\s]/.test(tail)) return ''
+      if (/\n$/.test(tail)) return ''
+      if (Number(gapMs) >= DICTATION_PARAGRAPH_PAUSE_MS) return '\n'
+      const line = value.slice(value.lastIndexOf('\n') + 1)
+      if (line.length >= DICTATION_PARAGRAPH_CHARS) return '\n'
+      if (CJK_TAIL.test(tail)) return ''
       return ' '
     }
 
