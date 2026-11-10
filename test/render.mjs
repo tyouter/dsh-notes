@@ -628,8 +628,13 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     // Gated by the Host's answer, recorded by the browser, recognised by the Host.
     check('the microphone appears only when the host has speech', /api\('\/speech\/state'\)/.test(boardSource) && /voice\.available \|\| voice\.recording/.test(boardSource))
     check('a recording is sent to the host', /post\('\/speech\/transcribe'/.test(boardSource) && /audioBase64: toBase64\(wav\)/.test(boardSource))
-    check('the browser records and the notebook only encodes', /new MediaRecorder\(stream\)/.test(boardSource) && /encodeWave\(audio\.samples/.test(boardSource) && /resampleMono\(mono, buffer\.sampleRate\)/.test(boardSource))
-    check('dictation lands at the caret', /const next = value\.slice\(0, caret\) \+ text \+ value\.slice\(caret\)/.test(boardSource) && /applyEdit\(next, caret \+ text\.length\)/.test(boardSource))
+    check('the browser records and the notebook only encodes', /new MediaRecorder\(held\.stream\)/.test(boardSource) && /encodeWave\(audio\.samples/.test(boardSource) && /resampleMono\(buffer\.getChannelData\(0\)/.test(boardSource))
+        check('dictation lands at the caret', /const next = value\.slice\(0, caret\) \+ added \+ value\.slice\(caret\)/.test(boardSource) && /applyEdit\(next, caret \+ added\.length\)/.test(boardSource))
+    // Continuous: the switch stays on, the level decides where a segment ends, the text is written then.
+    check('the microphone stays on until switched off', /voice\.listening/.test(boardSource) && /setInterval\(\(\) => \{/.test(boardSource) && /VOICE_COMMIT_MS/.test(boardSource))
+    check('a pause ends the segment and writes it', /const next = value\.slice\(0, caret\) \+ added/.test(boardSource) && /commitSegment\(chunks/.test(boardSource) && /quiet > VOICE_COMMIT_MS/.test(boardSource))
+    check('a segment cannot run away', /VOICE_MAX_MS/.test(boardSource) && /now - current\.startedAt > VOICE_MAX_MS/.test(boardSource))
+    check('the strip above the footer shows what was heard', /dshn-voice-strip/.test(boardSource) && /\.dshn-voice-strip \{/.test(headCss) && /dshn-voice-pulse/.test(headCss))
     check('the host routes exist', /route === 'speech\/state'/.test(apiSource) && /route === 'speech\/transcribe'/.test(apiSource) && /SpeechBridge/.test(indexSource))
 
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))

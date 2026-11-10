@@ -113,6 +113,10 @@
     voicePrepare: '准备识别模型…',
     voiceFailed: '语音识别失败',
     voiceEmpty: '没有识别出文字',
+    voiceListening: '正在听…说完了停一下就写进来',
+    voiceHeard: '刚才听到',
+    voiceWrote: '已写入',
+    voiceUnusable: '这台设备没有可用的麦克风',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -275,6 +279,10 @@
     voicePrepare: 'Preparing the recognizer…',
     voiceFailed: 'Speech recognition failed',
     voiceEmpty: 'Nothing was recognised',
+    voiceListening: 'Listening… pause and it lands on the page',
+    voiceHeard: 'Heard',
+    voiceWrote: 'Written',
+    voiceUnusable: 'No usable microphone on this device',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -3242,6 +3250,44 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   padding: 28px 24px;
   overflow-y: auto;
 }
+/* ---- dictation strip: what the microphone just heard, above the footer ---- */
+.dshn-voice-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 6px 10px;
+  border-radius: var(--dshn-r-sm);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  min-width: 0;
+}
+.dshn-voice-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-secondary);
+}
+.dshn-voice-strip[data-live='true'] .dshn-voice-dot {
+  background: var(--dsw-alias-brand-primary);
+  animation: dshn-voice-pulse 1.2s ease-in-out infinite;
+}
+.dshn-voice-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes dshn-voice-pulse {
+  0%, 100% { opacity: .35; transform: scale(.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dshn-voice-strip[data-live='true'] .dshn-voice-dot { animation: none; }
+}
+
 /* ---- immersive: this page alone, on the whole screen ---- */
 .dshn-capture-pane:fullscreen {
   background: var(--dsw-alias-bg-base);

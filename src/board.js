@@ -1,3 +1,8 @@
+    // Dictation: a segment ends after this much quiet, and is cut off at the maximum either way.
+    const VOICE_COMMIT_MS = 2000
+    const VOICE_MAX_MS = 20000
+    const VOICE_RMS = 0.015
+
     // ------------------------------------------------------------- charts ---
     //
     // The dashboard draws its own charts from data. Every renderer here takes a
@@ -436,82 +441,159 @@
         setTimeout(() => setStatus(''), 1600)
       }
 
-      /** base64 for a byte array, in chunks so a long recording cannot overflow the argument list. */
-      const toBase64 = (bytes) => {
-        let binary = ''
-        const step = 0x8000
-        for (let i = 0; i < bytes.length; i += step) {
-          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step))
-        }
-        return typeof btoa === 'function' ? btoa(binary) : ''
-      }
-
-      /** Stop the microphone and release it. */
+      /**
+       * Continuous dictation.
+       *
+       * The microphone stays open until the switch is turned off again. The level is watched; a segment
+       * starts when the level rises and ends after `VOICE_COMMIT_MS` of quiet, at which point the audio is
+       * sent for transcription and the text lands on the page. Nothing is streamed token by token — the
+       * recognizer is request/response — so the strip above the footer carries the state instead: listening,
+       * transcribing, or the phrase just written.
+       */
       const stopVoice = () => {
         const held = voiceRef.current
+        if (held.timer !== 0) {
+          clearInterval(held.timer)
+          held.timer = 0
+        }
         try {
           if (held.recorder !== null && held.recorder.state !== 'inactive') held.recorder.stop()
         } catch {
           /* already stopped */
         }
+        held.recorder = null
+        held.chunks = []
         for (const track of held.stream?.getTracks?.() ?? []) track.stop()
         held.stream = null
+        held.analyser = null
+        void held.context?.close?.().catch(() => undefined)
+        held.context = null
       }
 
-      /**
-       * Record one utterance and insert what was said.
-       *
-       * The notebook recognises nothing: it encodes the recording as the 16 kHz mono WAV the Host
-       * recognizers accept and asks the Host to transcribe it. The recognizer and the language are the ones
-       * the user picked for DSH voice input.
-       */
       const toggleVoice = async () => {
         if (voice.busy) return
-        if (voice.recording) {
+        if (voice.listening) {
           stopVoice()
-          setVoice((current) => ({ ...current, recording: false, phase: t.voiceBusy }))
+          setVoice((current) => ({ ...current, listening: false, busy: false }))
           return
         }
         if (!voice.available) return
-        if (typeof navigator === 'undefined' || navigator.mediaDevices === undefined) {
-          flash(t.voiceFailed)
+        const Ctor = typeof AudioContext === 'undefined' ? globalThis.webkitAudioContext : AudioContext
+        if (Ctor === undefined || navigator?.mediaDevices === undefined) {
+          flash(t.voiceUnusable)
           return
         }
         try {
-          // Start the recognizer warming while the microphone is being granted; a failure here is not
-          // fatal (the model may already be loaded), so it is deliberately not awaited.
+          // Warm the recognizer while the permission prompt is up; a failure here is not fatal.
           void post('/speech/prepare', {}).catch(() => undefined)
           const stream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true },
           })
-          const recorder = new MediaRecorder(stream)
-          const chunks = []
-          voiceRef.current = { recorder, chunks, stream }
+          const context = new Ctor()
+          const source = context.createMediaStreamSource(stream)
+          const analyser = context.createAnalyser()
+          analyser.fftSize = 1024
+          source.connect(analyser)
+          const held = {
+            stream,
+            context,
+            analyser,
+            samples: new Uint8Array(analyser.fftSize),
+            timer: 0,
+            recorder: null,
+            chunks: [],
+            lastLoudAt: 0,
+            startedAt: 0,
+            committing: false,
+          }
+          voiceRef.current = held
+          held.timer = setInterval(() => {
+            const current = voiceRef.current
+            if (current.analyser === null) return
+            current.analyser.getByteTimeDomainData(current.samples)
+            let energy = 0
+            for (let i = 0; i < current.samples.length; i += 1) {
+              const centred = (current.samples[i] - 128) / 128
+              energy += centred * centred
+            }
+            const level = Math.sqrt(energy / current.samples.length)
+            const now = Date.now()
+            if (level > VOICE_RMS) {
+              current.lastLoudAt = now
+              if (current.recorder === null) startSegment()
+            }
+            if (current.recorder !== null) {
+              const quiet = current.lastLoudAt === 0 ? 0 : now - current.lastLoudAt
+              const long = now - current.startedAt > VOICE_MAX_MS
+              if (quiet > VOICE_COMMIT_MS || long) stopSegment()
+            }
+          }, 100)
+          setVoice((current) => ({ ...current, listening: true, busy: false, heard: '' }))
+        } catch {
+          flash(t.voiceUnusable)
+          setVoice((current) => ({ ...current, listening: false, busy: false }))
+        }
+      }
+
+      /** One utterance: record from the moment the level rises until the pause that ends it. */
+      const startSegment = () => {
+        const held = voiceRef.current
+        if (held.stream === null || held.recorder !== null) return
+        try {
+          const recorder = new MediaRecorder(held.stream)
+          held.chunks = []
+          held.startedAt = Date.now()
+          held.lastLoudAt = held.startedAt
           recorder.ondataavailable = (event) => {
-            if (event.data !== undefined && event.data.size > 0) chunks.push(event.data)
+            if (event.data !== undefined && event.data.size > 0) held.chunks.push(event.data)
           }
           recorder.onstop = () => {
-            void (async () => {
-              try {
-                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
-                const bytes = new Uint8Array(await blob.arrayBuffer())
-                const audio = await decodeToMono(bytes)
-                const wav = encodeWave(audio.samples, audio.sampleRate)
-                const text = await transcribeWave(wav)
-                insertDictation(text)
-              } catch (error) {
-                const label = String(error?.message ?? '') === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed
-                flash(label)
-              } finally {
-                setVoice((current) => ({ ...current, recording: false, busy: false, phase: '' }))
-              }
-            })()
+            const chunks = held.chunks.slice()
+            held.chunks = []
+            held.recorder = null
+            if (chunks.length === 0) return
+            void commitSegment(chunks, recorder.mimeType)
           }
+          held.recorder = recorder
           recorder.start()
-          setVoice((current) => ({ ...current, recording: true, busy: false, phase: '' }))
         } catch {
-          flash(t.voiceFailed)
-          setVoice((current) => ({ ...current, recording: false, busy: false }))
+          held.recorder = null
+        }
+      }
+
+      const stopSegment = () => {
+        const held = voiceRef.current
+        if (held.recorder === null) return
+        try {
+          held.recorder.stop()
+        } catch {
+          held.recorder = null
+        }
+      }
+
+      /** Transcribe one recorded segment and put the words on the page. */
+      const commitSegment = async (chunks, mimeType) => {
+        const held = voiceRef.current
+        if (held.committing) return
+        held.committing = true
+        setVoice((current) => ({ ...current, busy: true }))
+        try {
+          const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
+          const bytes = new Uint8Array(await blob.arrayBuffer())
+          const audio = await decodeToMono(bytes)
+          const wav = encodeWave(audio.samples, audio.sampleRate)
+          const result = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
+          const spoken = String(result?.text ?? '').trim()
+          if (spoken !== '') {
+            insertDictation(spoken)
+            setVoice((current) => ({ ...current, heard: spoken }))
+          }
+        } catch (error) {
+          const message = String(error?.message ?? '')
+          flash(message === t.voiceEmpty ? t.voiceEmpty : t.voiceFailed)
+        } finally {
+          held.committing = false
+          setVoice((current) => ({ ...current, busy: false }))
         }
       }
 
@@ -522,30 +604,33 @@
         const context = new Ctor()
         try {
           const buffer = await context.decodeAudioData(bytes.buffer.slice(0))
-          const mono = buffer.getChannelData(0)
-          return { samples: resampleMono(mono, buffer.sampleRate), sampleRate: 16000 }
+          return { samples: resampleMono(buffer.getChannelData(0), buffer.sampleRate), sampleRate: 16000 }
         } finally {
           await context.close?.()
         }
       }
 
-      /** One Host call: base64 in, text out. */
-      const transcribeWave = async (wav) => {
-        const data = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
-        const text = String(data?.text ?? '').trim()
-        if (text === '') throw new Error(t.voiceEmpty)
-        return text
+      /** base64 for a byte array, in chunks so a long recording cannot overflow the argument list. */
+      const toBase64 = (bytes) => {
+        let binary = ''
+        const step = 0x8000
+        for (let i = 0; i < bytes.length; i += step) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step))
+        }
+        return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
-      /** Insert at the caret, through the same edit path the keyboard uses. */
+      /** Insert at the caret, through the same edit path the keyboard uses. Plain text, as spoken. */
       const insertDictation = (text) => {
         const area = areaRef.current
         const value = String(draftRef.current ?? '')
         const caret = area === null ? value.length : (area.selectionStart ?? value.length)
-        const next = value.slice(0, caret) + text + value.slice(caret)
+        const needsSpace = caret > 0 && !/[\s\n]$/.test(value.slice(0, caret))
+        const added = needsSpace ? ` ${text}` : text
+        const next = value.slice(0, caret) + added + value.slice(caret)
         setAccepted(null)
         setGhost(null)
-        applyEdit(next, caret + text.length)
+        applyEdit(next, caret + added.length)
       }
 
       /**
@@ -1417,6 +1502,20 @@
           }),
             ),
           ),
+        // What the microphone is doing, in one line above the footer: listening, transcribing, or the
+        // phrase it just wrote. It only exists while the microphone is on or something was just heard.
+        voice.listening || voice.busy || voice.heard !== ''
+          ? h(
+              'div',
+              { className: 'dshn-voice-strip', 'data-live': String(voice.listening) },
+              h('span', { className: 'dshn-voice-dot' }),
+              h(
+                'span',
+                { className: 'dshn-voice-text' },
+                voice.busy ? t.voiceBusy : voice.heard !== '' ? `${t.voiceHeard}：${voice.heard}` : t.voiceListening,
+              ),
+            )
+          : null,
         h(
           'div',
           { className: 'dshn-row dshn-capture-tools' },
