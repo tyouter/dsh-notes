@@ -16,6 +16,7 @@ import { registerNotesTools } from '../lib/tools.js'
 import { streamText } from '../lib/llm.js'
 import { analyzeNotes } from '../lib/tools.js'
 import { SpeechBridge, decodeBase64, readWavHeader, SPEECH_SAMPLE_RATE } from '../lib/speech.js'
+import { BUILTIN_PERSONAS, PersonaStore, buildInterjectPrompt, interject, normalizePersona } from '../lib/personas.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const vault = join(here, '.host-vault')
@@ -396,6 +397,71 @@ await rm(tokenVault, { recursive: true, force: true })
   }
   check('transcribing without a service says so', missing?.code === 'SPEECH_UNAVAILABLE', String(missing?.code))
   check('base64 decodes back to the same bytes', decodeBase64(base64).length === wav().length)
+}
+
+// ---- personas ----
+// A listener is a name plus a brief; the presets are code, the author's own live in personas.json, and a
+// silent answer is a valid answer.
+{
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-persona-'))
+  const store = new NoteStore({ config: { notesPath: root } })
+  const personas = new PersonaStore(store)
+  check('the presets ship in code', BUILTIN_PERSONAS.length === 4 && BUILTIN_PERSONAS.every((entry) => entry.id && entry.brief))
+  check('a persona without a brief is dropped', normalizePersona({ id: 'x', name: 'X' }) === null)
+
+  const before = await personas.list()
+  check('the list starts with the presets', before.length === 4 && before.every((entry) => entry.custom === false), JSON.stringify(before.map((entry) => entry.id)))
+
+  const saved = await personas.saveCustom([{ id: 'own-1', name: '我的顾问', brief: '只问一个问题。' }])
+  check('a custom persona is stored beside the notes', saved.length === 5 && saved.some((entry) => entry.id === 'own-1' && entry.custom === true), JSON.stringify(saved.map((entry) => entry.id)))
+  const reread = await personas.list()
+  check('custom personas survive a reload', reread.some((entry) => entry.name === '我的顾问' && entry.brief === '只问一个问题。'))
+
+  const presetEdit = await personas.saveCustom([{ ...BUILTIN_PERSONAS[0], name: '改过的' }])
+  check('a preset is never written by the author', presetEdit.every((entry) => entry.custom === false), JSON.stringify(presetEdit.map((entry) => entry.custom)))
+  await rm(root, { recursive: true, force: true })
+}
+
+{
+  const persona = { id: 'p', name: 'P', brief: 'You are P.' }
+  const prompt = buildInterjectPrompt(persona, { excerpt: '今天开会没定下来。', recent: ['先定义一下"定下来"。'] })
+  check('the prompt carries the brief', prompt.system.includes('You are P.'))
+  check('the prompt carries what was said', prompt.user.includes('今天开会没定下来。'))
+  check('the prompt carries what it already said', prompt.user.includes('先定义一下'))
+  check('silence is allowed', /SKIP/.test(prompt.system))
+}
+
+{
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-persona-run-'))
+  const store = new NoteStore({ config: { notesPath: root } })
+  await new PersonaStore(store).saveCustom([{ id: 'own-2', name: '问者', brief: 'You ask one question.' }])
+  // The generator is injected: the suite must not need a model route to test the wiring.
+  const generateWith = (text) => async ({ onDelta }) => {
+    onDelta(text)
+  }
+
+  const spoken = await interject({ generate: generateWith('这个"定下来"指什么？'), config: {}, store, logger: { warn() {}, info() {} } }, {
+    personaId: 'own-2',
+    excerpt: '今天开会没定下来。',
+    recent: [],
+  })
+  check('an interjection comes back as one line', spoken.text === '这个"定下来"指什么？' && spoken.persona.id === 'own-2', JSON.stringify(spoken))
+
+  const silent = await interject({ generate: generateWith('SKIP'), config: {}, store, logger: { warn() {} } }, {
+    personaId: 'own-2',
+    excerpt: '今天开会没定下来。',
+    recent: [],
+  })
+  check('SKIP means the persona stays quiet', silent.text === '', JSON.stringify(silent))
+
+  let unknown = null
+  try {
+    await interject({ generate: generateWith('x'), config: {}, store, logger: { warn() {} } }, { personaId: 'nobody', excerpt: 'x', recent: [] })
+  } catch (error) {
+    unknown = error
+  }
+  check('an unknown persona is refused', unknown?.code === 'PERSONA_UNKNOWN', String(unknown?.code))
+  await rm(root, { recursive: true, force: true })
 }
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)

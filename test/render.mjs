@@ -432,6 +432,7 @@ const headSource = await readFile(join(packageDir, 'src', 'head.js'), 'utf8')
 const apiSource = await readFile(join(packageDir, 'lib', 'api.js'), 'utf8')
 const indexSource = await readFile(join(packageDir, 'index.js'), 'utf8')
 const speechSource = await readFile(join(packageDir, 'lib', 'speech.js'), 'utf8')
+const personaSource = await readFile(join(packageDir, 'lib', 'personas.js'), 'utf8')
     check('the page flags a split layout', boardSource.includes("'data-split': showRender ? 'true' : 'false'"))
     check('the sheets sit side by side', /\.dshn-sheets \{[^}]*flex-direction: row/s.test(headSource))
     check('both sheets share one basis', headSource.includes('flex: 0 1 820px'))
@@ -638,6 +639,15 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('a segment cannot run away', /VOICE_MAX_MS/.test(boardSource) && /now - current\.startedAt > VOICE_MAX_MS/.test(boardSource))
     check('the strip above the footer shows what was heard', /dshn-voice-strip/.test(boardSource) && /\.dshn-voice-strip \{/.test(headCss) && /dshn-voice-pulse/.test(headCss))
     check('the host routes exist', /route === 'speech\/state'/.test(apiSource) && /route === 'speech\/transcribe'/.test(apiSource) && /SpeechBridge/.test(indexSource))
+
+    // ---- AI talk: a listener that may interject ----
+    check('a persona is chosen, never defaulted', /const \[personaId, setPersonaId\] = useState\(''\)/.test(boardSource) && /t\.personaNone/.test(boardSource))
+    check('the picker sits above the microphone', /dshn-persona-bar/.test(boardSource) && /voice\.available\s*\n\s*\? h\(/.test(boardSource))
+    check('an interjection is quoted, named and italic', /const line = \`> \*\${String\(name\)}：\${String\(remark\)}\*\`/.test(boardSource))
+    check('a listener speaks rarely and not twice', /PERSONA_MIN_GAP_MS/.test(boardSource) && /held\.said\.slice\(-3\)/.test(boardSource))
+    check('the manager saves only the author\'s personas', /post\('\/voice\/personas'/.test(boardSource) && /dshn-persona-sheet/.test(boardSource))
+    check('the quote line is styled apart from the page', /\.dshn-md-quote \{/.test(headCss) && /font-size: 1\.06em/.test(headCss))
+    check('the host offers personas and interjections', /route === 'voice\/personas'/.test(apiSource) && /route === 'voice\/interject'/.test(apiSource) && /BUILTIN_PERSONAS/.test(personaSource) && /SKIP/.test(personaSource))
 
     check('the actions are readable buttons', /\.dshn-capture-tools \.dshn-btn \{ height: 28px; padding: 0 12px;/.test(headCss) && /\.dshn-capture-tools \.dshn-btn,[\s\S]{0,80}white-space: nowrap/.test(headCss))
 

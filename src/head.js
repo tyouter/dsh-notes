@@ -117,6 +117,17 @@
     voiceHeard: '刚才听到',
     voiceWrote: '已写入',
     voiceUnusable: '这台设备没有可用的麦克风',
+    personaLabel: '人格',
+    personaNone: '不选',
+    personaManage: '管理',
+    personaHint: '选一个旁听者：它会偶尔插一句，插话以引文形式写在正文里，你可以直接在正文里回答，也可以不理会。',
+    personaName: '称呼',
+    personaBrief: '提示词：它关注什么、怎么说话',
+    personaNew: '新增人格',
+    personaSave: '保存',
+    personaClose: '关闭',
+    personaDelete: '删除',
+    personaSaving: '保存中…',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -283,6 +294,17 @@
     voiceHeard: 'Heard',
     voiceWrote: 'Written',
     voiceUnusable: 'No usable microphone on this device',
+    personaLabel: 'Persona',
+    personaNone: 'none',
+    personaManage: 'Manage',
+    personaHint: 'Pick a listener: it now and then adds one line, quoted, in the note. Answer it in speech or ignore it.',
+    personaName: 'Name',
+    personaBrief: 'Brief: what it notices, how it speaks',
+    personaNew: 'New persona',
+    personaSave: 'Save',
+    personaClose: 'Close',
+    personaDelete: 'Delete',
+    personaSaving: 'Saving…',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -3331,6 +3353,81 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   padding: 28px 24px;
   overflow-y: auto;
 }
+/* ---- persona: the listener bar, its manager, and the quoted line it writes ---- */
+.dshn-persona-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  min-width: 0;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+}
+.dshn-persona-bar .dshn-cap { flex: 0 0 auto; }
+.dshn-persona-select {
+  appearance: none;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dshn-r-sm);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 12px;
+  max-width: 180px;
+}
+.dshn-persona-select:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.dshn-persona-manage { height: 26px; padding: 0 8px; font-size: 12px; }
+.dshn-persona-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent);
+  backdrop-filter: blur(2px);
+}
+.dshn-persona-panel {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dshn-r-lg);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 22%);
+}
+.dshn-persona-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-persona-row:first-of-type { border-top: none; }
+.dshn-persona-line { display: flex; gap: 8px; align-items: center; }
+.dshn-persona-input,
+.dshn-persona-text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dshn-r-sm);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 12px;
+}
+.dshn-persona-text { min-height: 64px; resize: vertical; line-height: 1.5; }
+.dshn-persona-actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* The interjection itself: a quote line, set slightly larger and in italics by the markdown renderer. */
+.dshn-md-quote {
+  margin: 12px 0;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-label-primary);
+  font-size: 1.06em;
+  line-height: 1.7;
+}
+
 /* ---- dictation strip: what the microphone just heard, above the footer ---- */
 .dshn-voice-strip {
   display: flex;
