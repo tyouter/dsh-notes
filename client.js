@@ -454,6 +454,9 @@ window.__ModuleLoader__.load({
      */
     function splitNoteTitle(text) {
       const lines = String(text ?? '').split(/\r?\n/)
+      // A note that starts with a blank line deliberately has no title line. Dictation uses this: the
+      // spoken text is body, and the title stays the author's business rather than the microphone's.
+      if (lines.length > 1 && lines[0].trim() === '') return { title: '', rest: String(text ?? '') }
       let index = -1
       for (let i = 0; i < lines.length; i += 1) {
         if (isFurnitureLine(lines[i])) continue
@@ -1170,6 +1173,58 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Split speech into sentences.
+     *
+     * The recognizer punctuates; this only trusts that punctuation. A trailing fragment without a terminator
+     * is still a sentence — speech often stops mid-thought and the next segment continues it.
+     */
+    function spokenSentences(text) {
+      const source = String(text ?? '').trim()
+      if (source === '') return []
+      const parts = source.match(/[^。！？!?；;]+[。！？!?；;]?/g) ?? []
+      return parts.map((part) => part.trim()).filter((part) => part !== '')
+    }
+
+    /** Ordinal cues a speaker uses to start a list. */
+    const ORDINAL_CUE = /^(?:第[一二三四五六七八九十\d]+[、.，,：:]?|首先|其次|再者|然后|接着|最后|另外|还有|一[、.]|二[、.]|三[、.]|\d+[.)、])/
+    /** Cues that usually continue the previous item rather than start a new one. */
+    const SUB_CUE = /^(?:比如|例如|具体|也就是|就是说|因为|所以|于是|其中)/
+
+    /**
+     * Lay dictated text out without a model.
+     *
+     * One sentence per line, ordinal sentences become list items, and a sentence that continues the previous
+     * one with "比如 / 也就是 / 因为" is indented under it. Wording is never touched: this is a rule engine,
+     * so it costs nothing and never rewrites what was said.
+     */
+    function arrangeDictation(text) {
+      const sentences = spokenSentences(text)
+      if (sentences.length === 0) return ''
+      const lines = []
+      for (const sentence of sentences) {
+        if (SUB_CUE.test(sentence) && lines.length > 0) lines.push(`  - ${sentence}`)
+        else if (ORDINAL_CUE.test(sentence)) lines.push(`- ${sentence}`)
+        else lines.push(sentence)
+      }
+      return lines.join('\n')
+    }
+
+    /**
+     * What goes between what is already on the page and the next dictated line.
+     *
+     * A finished sentence earns a new line; a fragment (no terminal punctuation) is continued on the same
+     * line, which is what someone pausing mid-thought expects.
+     */
+    function dictationJoiner(existing) {
+      const value = String(existing ?? '')
+      if (value === '') return ''
+      const tail = value.slice(-1)
+      if (/[\n。！？!?；;]/.test(tail)) return '\n'
+      if (/[\s]/.test(tail)) return ''
+      return ' '
+    }
+
+        /**
      * PCM16 WAV from mono samples, which is the one shape every Host recognizer accepts.
      *
      * The built-in voice input encodes the same header; keeping to it means the notebook records, not
@@ -3994,7 +4049,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
     }
 
     // Dictation: a segment ends after this much quiet, and is cut off at the maximum either way.
-    const VOICE_COMMIT_MS = 2000
+    // Half a second of quiet ends a segment: short enough to feel like typing, long enough not to cut words.
+    const VOICE_COMMIT_MS = 500
     const VOICE_MAX_MS = 20000
     const VOICE_RMS = 0.015
 
@@ -4580,7 +4636,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           const result = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
           const spoken = String(result?.text ?? '').trim()
           if (spoken !== '') {
-            insertDictation(spoken)
+            // Local layout first (no model, no tokens), then the typewriter: the words appear while the next
+            // segment is still being spoken, which is as close to streaming as a request/response recognizer gets.
+            await typeDictation(arrangeDictation(spoken))
             setVoice((current) => ({ ...current, heard: spoken }))
           }
         } catch (error) {
@@ -4615,17 +4673,42 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
-      /** Insert at the caret, through the same edit path the keyboard uses. Plain text, as spoken. */
-      const insertDictation = (text) => {
+      /**
+       * Type dictated text onto the page.
+       *
+       * The recognizer answers per segment, so there is no token stream to show; revealing the finished
+       * segment a few characters at a time is what makes dictation feel like typing, and it keeps the caret
+       * and the mark layers in the same state the keyboard would leave them in.
+       *
+       * A note that is still empty gets a blank first line first, so the spoken text is body and the title
+       * stays empty rather than becoming the first thing said.
+       */
+      const typeDictation = async (arranged) => {
+        const spoken = String(arranged ?? '')
+        if (spoken.trim() === '') return
         const area = areaRef.current
-        const value = String(draftRef.current ?? '')
-        const caret = area === null ? value.length : (area.selectionStart ?? value.length)
-        const needsSpace = caret > 0 && !/[\s\n]$/.test(value.slice(0, caret))
-        const added = needsSpace ? ` ${text}` : text
-        const next = value.slice(0, caret) + added + value.slice(caret)
+        const base = String(draftRef.current ?? '')
+        let caret = area === null ? base.length : (area.selectionStart ?? base.length)
+        let current = base
+        if (current.trim() === '' && caret === 0) {
+          applyEdit('\n', 1)
+          current = '\n'
+          caret = 1
+        }
+        const joiner = dictationJoiner(current.slice(0, caret))
+        const tail = current.slice(caret)
+        const head = current.slice(0, caret)
+        const full = joiner + spoken
+        const step = Math.max(1, Math.round(full.length / 32))
+        let shown = ''
+        for (let i = 0; i < full.length; i += step) {
+          shown = full.slice(0, i + step)
+          applyEdit(head + shown + tail, head.length + shown.length)
+          // 16ms per step: a short segment lands in well under a second, a long one keeps moving.
+          await new Promise((resolve) => setTimeout(resolve, 16))
+        }
         setAccepted(null)
         setGhost(null)
-        applyEdit(next, caret + added.length)
       }
 
       /**
@@ -7004,7 +7087,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
     // Test seam: a smoke test may inspect the renderer; nothing sets this in the page.
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_NOTES_TEST__ === true) {
-      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, chartColor, encodeWave, resampleMono, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
+      globalThis.__dshNotesInternals = { renderMarkdown, PreviewBusy, stripInline, titleOf, previewOf, HistoryTab, DashboardTab, Heatmap, Chart, CaptureBox, aiUsageSeries, looksStructured, composeFormattedNote, preserveLabel, sectionLabel, normalizeTranslatedLabel, detectTextLanguage, resolveTranslateTarget, renumberSequence, convertEnumeratorsToArabic, parseEnumerator, convertEnumerators, renumberByTemplate, preserveMarkup, markupOf, normalizeStrayAsterisks, normalizeIndentedBullets, toStandardMarkdown, indentLevel, bulletText, lineBounds, lineBulletLevel, continueBulletLine, spaceBurstLine, autoBulletLine, backspaceLine, suggestionChunks, repetitionSuggestion, duplicateSuggestion, insertChunkAt, mirrorSegments, chartColor, encodeWave, resampleMono, arrangeDictation, dictationJoiner, spokenSentences, formatLocally, plainLine, fidelityReport, fidelityIssues, repairCoverage, assembleIndexedLines, isCovered, typographyIssues, outlineLevels, outlineEntries, splitNoteTitle, renderNoteBody, renderNoteRest, clampSideWidth, SIDE_WIDTH_DEFAULT, SIDE_WIDTH_MIN, SIDE_WIDTH_MAX }
     }
 
     return {

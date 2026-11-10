@@ -185,6 +185,19 @@ check('a suggestion stays chunked', suggestionChunks('先做压测，再定上�
   check('a 16 kHz input is left alone', resampleMono(new Float32Array([1, 2, 3]), 16000, 16000).length === 3)
 }
 
+// ---------------------------------------------------------------- dictation layout (no model) ---
+// Rules, not tokens: sentences to lines, ordinal cues to bullets, continuation cues indented.
+{
+  const { arrangeDictation, dictationJoiner, spokenSentences } = internals
+  check('dictation splits on the recognizer punctuation', spokenSentences('第一点。第二点！还有吗').length === 3)
+  check('ordinal sentences become bullets', arrangeDictation('第一点先定范围。第二点再排时间。').split('\n').every((line) => line.startsWith('- ')))
+  check('a continuation cue is indented under the previous line', arrangeDictation('先定范围。比如只做桌面端。').split('\n')[1] === '  - 比如只做桌面端。')
+  check('plain speech stays prose', arrangeDictation('今天开会没定下来。') === '今天开会没定下来。')
+  check('a finished sentence starts a new line', dictationJoiner('今天开会。') === '\n')
+  check('a fragment continues the line', dictationJoiner('今天开会') === ' ')
+  check('the start of a note has no joiner', dictationJoiner('') === '')
+}
+
 await rm(fixtures, { recursive: true, force: true })
 
 if (failures === 0) console.log('\nall typing flows passed')

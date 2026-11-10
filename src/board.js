@@ -1,5 +1,6 @@
     // Dictation: a segment ends after this much quiet, and is cut off at the maximum either way.
-    const VOICE_COMMIT_MS = 2000
+    // Half a second of quiet ends a segment: short enough to feel like typing, long enough not to cut words.
+    const VOICE_COMMIT_MS = 500
     const VOICE_MAX_MS = 20000
     const VOICE_RMS = 0.015
 
@@ -585,7 +586,9 @@
           const result = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
           const spoken = String(result?.text ?? '').trim()
           if (spoken !== '') {
-            insertDictation(spoken)
+            // Local layout first (no model, no tokens), then the typewriter: the words appear while the next
+            // segment is still being spoken, which is as close to streaming as a request/response recognizer gets.
+            await typeDictation(arrangeDictation(spoken))
             setVoice((current) => ({ ...current, heard: spoken }))
           }
         } catch (error) {
@@ -620,17 +623,42 @@
         return typeof btoa === 'function' ? btoa(binary) : ''
       }
 
-      /** Insert at the caret, through the same edit path the keyboard uses. Plain text, as spoken. */
-      const insertDictation = (text) => {
+      /**
+       * Type dictated text onto the page.
+       *
+       * The recognizer answers per segment, so there is no token stream to show; revealing the finished
+       * segment a few characters at a time is what makes dictation feel like typing, and it keeps the caret
+       * and the mark layers in the same state the keyboard would leave them in.
+       *
+       * A note that is still empty gets a blank first line first, so the spoken text is body and the title
+       * stays empty rather than becoming the first thing said.
+       */
+      const typeDictation = async (arranged) => {
+        const spoken = String(arranged ?? '')
+        if (spoken.trim() === '') return
         const area = areaRef.current
-        const value = String(draftRef.current ?? '')
-        const caret = area === null ? value.length : (area.selectionStart ?? value.length)
-        const needsSpace = caret > 0 && !/[\s\n]$/.test(value.slice(0, caret))
-        const added = needsSpace ? ` ${text}` : text
-        const next = value.slice(0, caret) + added + value.slice(caret)
+        const base = String(draftRef.current ?? '')
+        let caret = area === null ? base.length : (area.selectionStart ?? base.length)
+        let current = base
+        if (current.trim() === '' && caret === 0) {
+          applyEdit('\n', 1)
+          current = '\n'
+          caret = 1
+        }
+        const joiner = dictationJoiner(current.slice(0, caret))
+        const tail = current.slice(caret)
+        const head = current.slice(0, caret)
+        const full = joiner + spoken
+        const step = Math.max(1, Math.round(full.length / 32))
+        let shown = ''
+        for (let i = 0; i < full.length; i += step) {
+          shown = full.slice(0, i + step)
+          applyEdit(head + shown + tail, head.length + shown.length)
+          // 16ms per step: a short segment lands in well under a second, a long one keeps moving.
+          await new Promise((resolve) => setTimeout(resolve, 16))
+        }
         setAccepted(null)
         setGhost(null)
-        applyEdit(next, caret + added.length)
       }
 
       /**

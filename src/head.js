@@ -436,6 +436,9 @@
      */
     function splitNoteTitle(text) {
       const lines = String(text ?? '').split(/\r?\n/)
+      // A note that starts with a blank line deliberately has no title line. Dictation uses this: the
+      // spoken text is body, and the title stays the author's business rather than the microphone's.
+      if (lines.length > 1 && lines[0].trim() === '') return { title: '', rest: String(text ?? '') }
       let index = -1
       for (let i = 0; i < lines.length; i += 1) {
         if (isFurnitureLine(lines[i])) continue
@@ -1152,6 +1155,58 @@
     }
 
     /**
+     * Split speech into sentences.
+     *
+     * The recognizer punctuates; this only trusts that punctuation. A trailing fragment without a terminator
+     * is still a sentence — speech often stops mid-thought and the next segment continues it.
+     */
+    function spokenSentences(text) {
+      const source = String(text ?? '').trim()
+      if (source === '') return []
+      const parts = source.match(/[^。！？!?；;]+[。！？!?；;]?/g) ?? []
+      return parts.map((part) => part.trim()).filter((part) => part !== '')
+    }
+
+    /** Ordinal cues a speaker uses to start a list. */
+    const ORDINAL_CUE = /^(?:第[一二三四五六七八九十\d]+[、.，,：:]?|首先|其次|再者|然后|接着|最后|另外|还有|一[、.]|二[、.]|三[、.]|\d+[.)、])/
+    /** Cues that usually continue the previous item rather than start a new one. */
+    const SUB_CUE = /^(?:比如|例如|具体|也就是|就是说|因为|所以|于是|其中)/
+
+    /**
+     * Lay dictated text out without a model.
+     *
+     * One sentence per line, ordinal sentences become list items, and a sentence that continues the previous
+     * one with "比如 / 也就是 / 因为" is indented under it. Wording is never touched: this is a rule engine,
+     * so it costs nothing and never rewrites what was said.
+     */
+    function arrangeDictation(text) {
+      const sentences = spokenSentences(text)
+      if (sentences.length === 0) return ''
+      const lines = []
+      for (const sentence of sentences) {
+        if (SUB_CUE.test(sentence) && lines.length > 0) lines.push(`  - ${sentence}`)
+        else if (ORDINAL_CUE.test(sentence)) lines.push(`- ${sentence}`)
+        else lines.push(sentence)
+      }
+      return lines.join('\n')
+    }
+
+    /**
+     * What goes between what is already on the page and the next dictated line.
+     *
+     * A finished sentence earns a new line; a fragment (no terminal punctuation) is continued on the same
+     * line, which is what someone pausing mid-thought expects.
+     */
+    function dictationJoiner(existing) {
+      const value = String(existing ?? '')
+      if (value === '') return ''
+      const tail = value.slice(-1)
+      if (/[\n。！？!?；;]/.test(tail)) return '\n'
+      if (/[\s]/.test(tail)) return ''
+      return ' '
+    }
+
+        /**
      * PCM16 WAV from mono samples, which is the one shape every Host recognizer accepts.
      *
      * The built-in voice input encodes the same header; keeping to it means the notebook records, not
