@@ -534,7 +534,7 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('the copy button sits next to Edit', /copyMarkdown/.test(panelSource) && /toStandardMarkdown/.test(panelSource) && /t\.copyMarkdown/.test(panelSource))
     // The blurred/duplicated text under a line: a ghost drawn inside a range. A range is not a
     // continuation, so the suggestion goes away when one exists.
-    check('a range ends the suggestion', (boardSource.match(/if \(end > start \|\| \(event\.target\.selectionStart \?\? 0\) !== String\(draftRef\.current \?\? ''\)\.length\) dismissGhost\(\)/g) ?? []).length === 3)
+    check('a range ends the suggestion', (boardSource.match(/if \(end > start \|\| \(event\.target\.selectionStart \?\? 0\) !== String\(event\.target\.value \?\? ''\)\.length\) dismissGhost\(\)/g) ?? []).length === 3)
     check('structuring clears the suggestion', /const runEnhance = async \(\) => \{[\s\S]{0,260}dismissGhost\(\)/.test(boardSource))
 
     // One highlight at a time: the author's selection outranks the span TAB inserted earlier.
@@ -611,7 +611,9 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
 
     // ---- the four reported defects ----
     // 1. a suggestion mid-line would paint over live text
-    check('a suggestion only appears at the end', /caret !== String\(draftRef\.current/.test(boardSource) && /caret < accepted\.start \|\| caret > accepted\.end/.test(boardSource))
+    check('a suggestion only appears at the end', /if \(caret !== length\) return/.test(boardSource) && /area\.value\.length/.test(boardSource) && /caret < accepted\.start \|\| caret > accepted\.end/.test(boardSource))
+    // The live editor value, never the render-time ref: one keystroke of lag and nothing is suggested.
+    check('the end check reads the live editor value', /const length = area === null \|\| typeof area\.value !== 'string'/.test(boardSource) && !/caret !== String\(draftRef\.current/.test(boardSource))
     // 2. a TAB chunk is undone from anywhere inside it
     check('the chunk is undone from anywhere inside it', /caret >= accepted\.start && caret <= accepted\.end/.test(boardSource) && /const applyEdit = /.test(boardSource))
     // 3. structural edits write the value and the caret in one tick

@@ -592,8 +592,11 @@
         // With auto-write off, nothing appears until TAB asks.
         if (autoWrite === false) return
         // A suggestion continues the text. Anywhere but the end it would be painted over live characters,
-        // which is exactly the double image people reported.
-        if (caret !== String(draftRef.current ?? '').length) return
+        // which is exactly the double image people reported. The comparison has to use the editor's value:
+        // `draftRef` is assigned during render, so inside a change handler it is one keystroke behind.
+        const area = areaRef.current
+        const length = area === null || typeof area.value !== 'string' ? String(draftRef.current ?? '').length : area.value.length
+        if (caret !== length) return
         state.idle = setTimeout(() => {
           state.idle = 0
           void requestCompletion(caret)
@@ -1177,7 +1180,7 @@
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               // The suggestion is a continuation at the caret. With a range selected it is not a
               // continuation of anything, and drawing it would put ghost text inside the text.
-              if (end > start || (event.target.selectionStart ?? 0) !== String(draftRef.current ?? '').length) dismissGhost()
+              if (end > start || (event.target.selectionStart ?? 0) !== String(event.target.value ?? '').length) dismissGhost()
               keepAcceptedMark(event.target.selectionStart ?? 0)
               followCaret(event.target.selectionStart ?? 0)
             },
@@ -1190,7 +1193,7 @@
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               // The suggestion is a continuation at the caret. With a range selected it is not a
               // continuation of anything, and drawing it would put ghost text inside the text.
-              if (end > start || (event.target.selectionStart ?? 0) !== String(draftRef.current ?? '').length) dismissGhost()
+              if (end > start || (event.target.selectionStart ?? 0) !== String(event.target.value ?? '').length) dismissGhost()
               keepAcceptedMark(event.target.selectionStart ?? 0)
               followCaret(event.target.selectionStart ?? 0)
             },
@@ -1203,7 +1206,7 @@
               if (end > start && accepted !== null && (accepted.start !== start || accepted.end !== end)) setAccepted(null)
               // The suggestion is a continuation at the caret. With a range selected it is not a
               // continuation of anything, and drawing it would put ghost text inside the text.
-              if (end > start || (event.target.selectionStart ?? 0) !== String(draftRef.current ?? '').length) dismissGhost()
+              if (end > start || (event.target.selectionStart ?? 0) !== String(event.target.value ?? '').length) dismissGhost()
               keepAcceptedMark(event.target.selectionStart ?? 0)
               followCaret(event.target.selectionStart ?? 0)
             },
