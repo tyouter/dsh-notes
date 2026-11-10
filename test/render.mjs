@@ -629,6 +629,9 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     // Gated by the Host's answer, recorded by the browser, recognised by the Host.
     check('the microphone appears only when the host has speech', /api\('\/speech\/state'\)/.test(boardSource) && /voice\.available \|\| voice\.recording/.test(boardSource))
     check('a recording is sent to the host', /post\('\/speech\/transcribe'/.test(boardSource) && /audioBase64: toBase64\(wav\)/.test(boardSource))
+    check('the language is pinned, not guessed', /audioBase64: toBase64\(wav\), language/.test(boardSource) && /const draftLanguage = detectTextLanguage/.test(boardSource))
+    check('a blip is not sent for recognition', /VOICE_MIN_SEGMENT_MS/.test(boardSource))
+    check('the host honours the requested language', /request\.language = language\.trim\(\)/.test(speechSource))
     check('the browser records and the notebook only encodes', /new MediaRecorder\(held\.stream\)/.test(boardSource) && /encodeWave\(audio\.samples/.test(boardSource) && /resampleMono\(buffer\.getChannelData\(0\)/.test(boardSource))
         check('dictation is laid out locally, then typed in', /arrangeDictation\(spoken\)/.test(boardSource) && /await typeDictation\(/.test(boardSource) && /const step = Math\.max\(1, Math\.round\(full\.length \/ 32\)\)/.test(boardSource))
     check('a dictated note gets a blank first line, not a title', /current\.trim\(\) === '' && caret === 0/.test(boardSource) && /applyEdit\('\\n', 1\)/.test(boardSource))

@@ -1,6 +1,8 @@
     // Dictation: a segment ends after this much quiet, and is cut off at the maximum either way.
     // Half a second of quiet ends a segment: short enough to feel like typing, long enough not to cut words.
     const VOICE_COMMIT_MS = 500
+    // Below this a segment is a cough or a chair, and transcribing it costs a request and writes nonsense.
+    const VOICE_MIN_SEGMENT_MS = 400
     const VOICE_MAX_MS = 20000
     const VOICE_RMS = 0.015
 
@@ -611,6 +613,7 @@
       const commitSegment = async (chunks, mimeType) => {
         const held = voiceRef.current
         if (held.committing) return
+        if (Date.now() - held.startedAt < VOICE_MIN_SEGMENT_MS) return
         held.committing = true
         setVoice((current) => ({ ...current, busy: true }))
         try {
@@ -618,7 +621,11 @@
           const bytes = new Uint8Array(await blob.arrayBuffer())
           const audio = await decodeToMono(bytes)
           const wav = encodeWave(audio.samples, audio.sampleRate)
-          const result = await post('/speech/transcribe', { audioBase64: toBase64(wav) })
+          // Pin the language: with nothing pinned the recognizer guesses, and a short clip of Chinese can come
+          // back as Japanese. The note's own script wins; the UI language is the fallback.
+          const draftLanguage = detectTextLanguage(String(draftRef.current ?? ''))
+          const language = draftLanguage === 'zh' || draftLanguage === 'en' ? draftLanguage : detectLanguage() === 'zh' ? 'zh' : 'en'
+          const result = await post('/speech/transcribe', { audioBase64: toBase64(wav), language })
           const spoken = String(result?.text ?? '').trim()
           if (spoken !== '') {
             // Local layout first (no model, no tokens), then the typewriter: the words appear while the next
