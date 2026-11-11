@@ -1437,7 +1437,16 @@
               // Check what the user would apply: the body alone is missing the title line by design.
               const composedCheck = range === null ? composeFormattedNote(rawTitle, rawBody) : preserveLabel(sourceSpan, rawBody)
               const issues = typographyIssues(sourceSpan, composedCheck, { title: rawTitle })
+              // A JSON answer never becomes a draft, however it got here: it is not the note.
+              if (looksLikeJsonDraft(rawBody)) {
+                issues.push('结果必须是笔记正文的 Markdown：不要输出 JSON，不要输出代码块。')
+              }
               const accept = (body) => {
+                if (looksLikeJsonDraft(body)) {
+                  setEnhanceError(t.enhanceJson)
+                  setStreaming('')
+                  return
+                }
                 // The key changes here, so the reveal animation runs once on the new text.
                 setWipe((current) => current + 1)
                 setEnhance({
@@ -1563,6 +1572,11 @@
           const plain = String(payload?.text ?? '').trim()
           if (indexedLines === null && plain === '') return
           const assembled = indexedLines === null ? finish(plain) : finish(assembleIndexedLines(sourceText, indexedLines))
+          // Same rule as structuring: a JSON answer is a failure, not a translation.
+          if (looksLikeJsonDraft(assembled)) {
+            setEnhanceError(t.enhanceJson)
+            return
+          }
           setWipe((current) => current + 1)
           setEnhance({ ...enhance, title: '', body: assembled })
           setStatus(t.translated)

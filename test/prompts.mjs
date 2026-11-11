@@ -3,7 +3,8 @@
 // The dashboard no longer builds a prompt from statistics: it is a native session
 // whose agent calls the query tools, and the editor copilot is gone. What remains
 // here is the structuring prompt's shape and the term extractor the tools use.
-import { buildEnhanceMessage, readEnhanceResult, dedupeTitle } from '../lib/prompt.js'
+import { readFileSync } from 'node:fs'
+import { buildEnhanceMessage, readEnhanceResult, dedupeTitle, looksLikeJsonAnswer } from '../lib/prompt.js'
 import { buildCompleteMessage, listContextOf } from '../lib/complete.js'
 import { topTerms } from '../lib/text.js'
 
@@ -86,6 +87,31 @@ const normal = dedupeTitle('周会纪要', ['## 与会者', '张三、李四'].j
 check('an unrelated title is kept', normal.title === '周会纪要' && normal.body.startsWith('## 与会者'), JSON.stringify(normal))
 check('plain prose is not accepted', readEnhanceResult('原始') === null)
 check('an empty json body is rejected', readEnhanceResult(['```json', '{"title":"T"}', '```'].join('\n')) === null)
+
+// A JSON answer must never reach the page as a note. It is either salvaged (the old contract) or
+// reported as a failure — one release shipped `{"title": "…", "body": "…"}` into the draft.
+const salvaged = readEnhanceResult(
+  ['```json', '{"title": "缓存优化", "body": "## 背景\\n首 token 1.8 秒", "tags": ["性能", "缓存"]}', '```'].join('\n'),
+)
+check('an old-style json answer is still read', salvaged?.title === '缓存优化', JSON.stringify(salvaged))
+check('its escaped body is unescaped', salvaged?.body === '## 背景\n首 token 1.8 秒', JSON.stringify(salvaged?.body))
+check('its tags come along', JSON.stringify(salvaged?.tags) === '["性能","缓存"]', JSON.stringify(salvaged?.tags))
+
+const broken = readEnhanceResult('{"title": "缓存", "body": "第一行\\n第二行",}')
+check('a broken json answer is salvaged field by field', broken?.body === '第一行\n第二行', JSON.stringify(broken))
+
+const truncated = readEnhanceResult('{"title": "缓存", "body": "写了一半')
+check('a json fragment is never painted as a note', truncated === null, JSON.stringify(truncated))
+check('a json fragment is recognised', looksLikeJsonAnswer('{"title": "t", "body": "b"}') === true)
+check('prose is not mistaken for json', looksLikeJsonAnswer('- 一条待办\n标签：工作') === false)
+
+// The structuring system instruction and the user prompt must agree, or the model splits the
+// difference and answers in whichever shape it saw last.
+const apiSource = readFileSync(new URL('../lib/api.js', import.meta.url), 'utf8')
+const systemBlock = apiSource.slice(apiSource.indexOf('const ENHANCE_SYSTEM'), apiSource.indexOf('].join', apiSource.indexOf('const ENHANCE_SYSTEM')))
+check('the system instruction no longer asks for a json block', /只输出一个\s*json/i.test(systemBlock) === false, systemBlock)
+check('the system instruction asks for Markdown', systemBlock.includes('Markdown'))
+check('the prompt offers the tags line', enhancePrompt.includes('标签：'))
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exitCode = failures === 0 ? 0 : 1

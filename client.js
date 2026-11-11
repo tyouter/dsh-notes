@@ -119,6 +119,7 @@ window.__ModuleLoader__.load({
         enhanceStopped: '已停止',
         enhanceHint: '让 AI 把这段整理成标题、正文和标签；整理结果可以编辑后再保存',
         enhanceFailed: '整理失败',
+        enhanceJson: '模型这次返回了 JSON 而不是笔记正文，已丢弃；再点一次结构化即可',
         enhanceSlow: (seconds) => `已等 ${seconds} 秒，模型还在写⬦`,
         collapseList: '收起列表',
         resizeList: '拖动调整列表宽度',
@@ -327,6 +328,7 @@ window.__ModuleLoader__.load({
         enhanceStopped: 'Stopped',
         enhanceHint: 'Let the AI turn this into a title, body and tags; edit the result before saving',
         enhanceFailed: 'Structuring failed',
+        enhanceJson: 'The model answered with JSON instead of a note, so it was discarded — run Structure again',
         enhanceSlow: (seconds) => `Still writing after ${seconds}s⬦`,
         collapseList: 'Collapse list',
         resizeList: 'Drag to resize the note list',
@@ -1666,6 +1668,21 @@ window.__ModuleLoader__.load({
     function markerCount(line) {
       const pattern = /(^|\s)(\(?[一二三四五六七八九十]{1,3}[、.．)]|\d{1,3}[.)、]|[A-Za-z][.)]|[①-⑳])(?=\s|$)/g
       return (String(line ?? '').match(pattern) ?? []).length
+    }
+
+    /**
+     * Whether a structuring result is a JSON object rather than the note itself.
+     *
+     * The host already refuses to hand JSON to the page, so this is the last line of defence: a
+     * brace and one of the note's field names is enough to know the model answered in the old
+     * schema. Painting that into the page turns a draft into a wall of escaped quotes.
+     */
+    function looksLikeJsonDraft(text) {
+      const value = String(text ?? '').trim()
+      if (value === '') return false
+      const head = value.replace(/^```[a-zA-Z]*\s*/, '')
+      if (!head.startsWith('{')) return false
+      return /"(?:title|body|tags|notes)"\s*:/.test(head)
     }
 
     /**
@@ -5667,7 +5684,16 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               // Check what the user would apply: the body alone is missing the title line by design.
               const composedCheck = range === null ? composeFormattedNote(rawTitle, rawBody) : preserveLabel(sourceSpan, rawBody)
               const issues = typographyIssues(sourceSpan, composedCheck, { title: rawTitle })
+              // A JSON answer never becomes a draft, however it got here: it is not the note.
+              if (looksLikeJsonDraft(rawBody)) {
+                issues.push('结果必须是笔记正文的 Markdown：不要输出 JSON，不要输出代码块。')
+              }
               const accept = (body) => {
+                if (looksLikeJsonDraft(body)) {
+                  setEnhanceError(t.enhanceJson)
+                  setStreaming('')
+                  return
+                }
                 // The key changes here, so the reveal animation runs once on the new text.
                 setWipe((current) => current + 1)
                 setEnhance({
@@ -5793,6 +5819,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           const plain = String(payload?.text ?? '').trim()
           if (indexedLines === null && plain === '') return
           const assembled = indexedLines === null ? finish(plain) : finish(assembleIndexedLines(sourceText, indexedLines))
+          // Same rule as structuring: a JSON answer is a failure, not a translation.
+          if (looksLikeJsonDraft(assembled)) {
+            setEnhanceError(t.enhanceJson)
+            return
+          }
           setWipe((current) => current + 1)
           setEnhance({ ...enhance, title: '', body: assembled })
           setStatus(t.translated)

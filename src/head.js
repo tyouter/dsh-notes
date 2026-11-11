@@ -99,6 +99,7 @@
         enhanceStopped: '已停止',
         enhanceHint: '让 AI 把这段整理成标题、正文和标签；整理结果可以编辑后再保存',
         enhanceFailed: '整理失败',
+        enhanceJson: '模型这次返回了 JSON 而不是笔记正文，已丢弃；再点一次结构化即可',
         enhanceSlow: (seconds) => `已等 ${seconds} 秒，模型还在写⬦`,
         collapseList: '收起列表',
         resizeList: '拖动调整列表宽度',
@@ -307,6 +308,7 @@
         enhanceStopped: 'Stopped',
         enhanceHint: 'Let the AI turn this into a title, body and tags; edit the result before saving',
         enhanceFailed: 'Structuring failed',
+        enhanceJson: 'The model answered with JSON instead of a note, so it was discarded — run Structure again',
         enhanceSlow: (seconds) => `Still writing after ${seconds}s⬦`,
         collapseList: 'Collapse list',
         resizeList: 'Drag to resize the note list',
@@ -1646,6 +1648,21 @@
     function markerCount(line) {
       const pattern = /(^|\s)(\(?[一二三四五六七八九十]{1,3}[、.．)]|\d{1,3}[.)、]|[A-Za-z][.)]|[①-⑳])(?=\s|$)/g
       return (String(line ?? '').match(pattern) ?? []).length
+    }
+
+    /**
+     * Whether a structuring result is a JSON object rather than the note itself.
+     *
+     * The host already refuses to hand JSON to the page, so this is the last line of defence: a
+     * brace and one of the note's field names is enough to know the model answered in the old
+     * schema. Painting that into the page turns a draft into a wall of escaped quotes.
+     */
+    function looksLikeJsonDraft(text) {
+      const value = String(text ?? '').trim()
+      if (value === '') return false
+      const head = value.replace(/^```[a-zA-Z]*\s*/, '')
+      if (!head.startsWith('{')) return false
+      return /"(?:title|body|tags|notes)"\s*:/.test(head)
     }
 
     /**

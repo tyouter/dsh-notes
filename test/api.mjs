@@ -202,10 +202,11 @@ try {
   const enhanceDone = enhanceFrames.find((frame) => frame.event === 'done')
   check('enhance streams a draft', enhanceDone?.data?.draft?.body === 'B', JSON.stringify(enhanceDone?.data)?.slice(0, 120))
 
-  // The structuring instruction is real prompt text, and configurable.
-  const enhanceCall = llmCalls.find((call) => String(call.system).includes('json'))
+  // The structuring instruction is real prompt text, and configurable. It asks for the note itself,
+  // not for a JSON envelope: the draft is read on the page as it arrives.
+  const enhanceCall = llmCalls.find((call) => String(call.system).includes('整理成一条结构化笔记'))
   check('structuring sends a system instruction', enhanceCall !== undefined)
-  check('the instruction asks for a json block', String(enhanceCall?.system).includes('json'))
+  check('the instruction asks for Markdown, not a json block', String(enhanceCall?.system).includes('Markdown') && /只输出一个\s*json/i.test(String(enhanceCall?.system)) === false)
   check('structuring runs without tools', enhanceCall?.tools === undefined)
 
   // The target language travels with the request and lands in the prompt.
