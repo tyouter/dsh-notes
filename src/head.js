@@ -157,6 +157,43 @@
     settingsSaveFailed: '保存失败',
     settingsEmptyCustom: '还没有自建人格。',
     settingsAutoTag: '自动',
+
+    backupTitle: '备份与历史',
+    backupIntro: '把笔记另存一份到你自己的地方：一个 NAS 共享、一个同步盘、一块移动硬盘，或者 NAS 上的 WebDAV。这里只往外写，不会把外面的东西读回来覆盖你的编辑。',
+    backupDestination: '备份到',
+    backupOff: '关闭',
+    backupFolder: '文件夹',
+    backupWebdav: 'WebDAV',
+    backupOffHint: '不备份。笔记只在这台机器上。',
+    backupFolderHint: '填一个这台机器看得见的目录；NAS 共享先映射成盘符或 UNC 路径。',
+    backupWebdavHint: '填 NAS 上的 WebDAV 目录地址，例如群晖的 https://nas.local:5006/notes。',
+    backupFolderPath: '文件夹路径',
+    backupFolderPathHint: '路径不存在时会自动创建。',
+    backupUrl: 'WebDAV 地址',
+    backupUrlHint: '要指到目录，不是首页；第一次同步会自动创建子目录。',
+    backupUser: '用户名',
+    backupUserHint: '留空表示匿名访问。',
+    backupPass: '密码',
+    backupPassHint: '以明文存在 settings.json 里，和笔记放在同一个目录。',
+    backupAuto: '自动备份',
+    backupAutoHint: '每次保存笔记后几秒推一次，只写变化的文件。',
+    backupMirror: '同步删除',
+    backupMirrorHint: '笔记进了回收站或彻底删掉时，备份里的对应文件也删。关掉则只增不删。',
+    backupTest: '测试连接',
+    backupTesting: '测试中…',
+    backupNow: '立即备份',
+    backupRunning: '备份中…',
+    backupReachable: '连接正常',
+    backupUnreachable: '连不上',
+    backupDone: '备份完成',
+    backupNever: '还没有备份过',
+    backupLastOk: '上次备份',
+    backupFailed: '上次失败：',
+    historyTitle: '历史版本',
+    historyKeep: '保留修改记录',
+    historyKeepHint: '每次保存前把上一版存进本地 history/ 目录，可以随时翻回去看一眼。',
+    historyLimit: '每篇保留',
+    historyLimitHint: '版本数上限，超出的从最旧的开始丢。',
     partnerSummon: '呼叫',
     partnerSummonHint: '让它现在就说一句',
     partnerSilent: '它这次没说话',
@@ -174,6 +211,10 @@
         pin: '置顶',
         unpin: '取消置顶',
         delete: '移到回收站',
+    versions: '历史版本',
+    versionsLoading: '读取历史…',
+    versionsEmpty: '这篇还没有历史版本；在设置里打开「保留修改记录」以后，每次保存都会先留下上一版。',
+    versionRestore: '恢复',
         restore: '恢复',
         loading: '加载中…',
         empty: '这里还没有笔记。在上面写第一句，按 Ctrl/⌘+Enter 保存。',
@@ -366,6 +407,43 @@
     settingsSaveFailed: 'Could not save',
     settingsEmptyCustom: 'No personas of your own yet.',
     settingsAutoTag: 'Auto',
+
+    backupTitle: 'Backup and history',
+    backupIntro: 'Keep a copy of the notebook in a place of your own: a NAS share, a synced drive, an external disk, or WebDAV on the NAS. This only ever writes out; it never reads the other way and overwrites an edit.',
+    backupDestination: 'Back up to',
+    backupOff: 'Off',
+    backupFolder: 'Folder',
+    backupWebdav: 'WebDAV',
+    backupOffHint: 'No copy. The notes stay on this machine.',
+    backupFolderHint: 'A directory this machine can see; map the NAS share to a drive letter or use its UNC path.',
+    backupWebdavHint: 'The WebDAV directory URL on the NAS, e.g. https://nas.local:5006/notes.',
+    backupFolderPath: 'Folder path',
+    backupFolderPathHint: 'Created if it does not exist yet.',
+    backupUrl: 'WebDAV URL',
+    backupUrlHint: 'Point it at a directory, not the landing page; subfolders are created on the first run.',
+    backupUser: 'Username',
+    backupUserHint: 'Empty means anonymous.',
+    backupPass: 'Password',
+    backupPassHint: 'Stored in plain text in settings.json, next to the notes.',
+    backupAuto: 'Back up automatically',
+    backupAutoHint: 'A few seconds after each save; only the files that changed are written.',
+    backupMirror: 'Mirror deletions',
+    backupMirrorHint: 'When a note is trashed or deleted, remove its copy too. Off means the backup only grows.',
+    backupTest: 'Test connection',
+    backupTesting: 'Testing…',
+    backupNow: 'Back up now',
+    backupRunning: 'Backing up…',
+    backupReachable: 'Reachable',
+    backupUnreachable: 'Not reachable',
+    backupDone: 'Backed up',
+    backupNever: 'Never backed up',
+    backupLastOk: 'Last backup',
+    backupFailed: 'Last attempt failed: ',
+    historyTitle: 'History',
+    historyKeep: 'Keep versions',
+    historyKeepHint: 'Store the previous version under history/ before each save, so an earlier draft is always one click away.',
+    historyLimit: 'Keep per note',
+    historyLimitHint: 'Upper bound; the oldest versions go first.',
     partnerSummon: 'Ask',
     partnerSummonHint: 'Have it say something now',
     partnerSilent: 'It stayed quiet',
@@ -383,6 +461,10 @@
         pin: 'Pin',
         unpin: 'Unpin',
         delete: 'Move to trash',
+    versions: 'Versions',
+    versionsLoading: 'Reading history…',
+    versionsEmpty: 'No earlier version yet; turn on "Keep versions" in settings and each save keeps the one it replaces.',
+    versionRestore: 'Restore',
         restore: 'Restore',
         loading: 'Loading…',
         empty: 'No notes yet. Write the first line above and press Ctrl/⌘+Enter.',
@@ -2660,6 +2742,31 @@
   /* Belt and braces: even without the spacer, the group sits at the right edge. */
   margin-left: auto;
 }
+/* Kept versions: one row per version, right under the note's own bar. */
+.dshn-versions {
+  max-height: 40%;
+  overflow: auto;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+.dshn-version-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 2px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-version-when { flex: none; font-variant-numeric: tabular-nums; }
+.dshn-version-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-primary);
+}
+.dshn-version-chars { flex: none; font-variant-numeric: tabular-nums; opacity: 0.75; }
+.dshn-version-empty { padding: 4px 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .dshn-icon-btn {
   width: 28px;
   height: 28px;

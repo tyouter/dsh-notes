@@ -177,6 +177,43 @@ window.__ModuleLoader__.load({
     settingsSaveFailed: '保存失败',
     settingsEmptyCustom: '还没有自建人格。',
     settingsAutoTag: '自动',
+
+    backupTitle: '备份与历史',
+    backupIntro: '把笔记另存一份到你自己的地方：一个 NAS 共享、一个同步盘、一块移动硬盘，或者 NAS 上的 WebDAV。这里只往外写，不会把外面的东西读回来覆盖你的编辑。',
+    backupDestination: '备份到',
+    backupOff: '关闭',
+    backupFolder: '文件夹',
+    backupWebdav: 'WebDAV',
+    backupOffHint: '不备份。笔记只在这台机器上。',
+    backupFolderHint: '填一个这台机器看得见的目录；NAS 共享先映射成盘符或 UNC 路径。',
+    backupWebdavHint: '填 NAS 上的 WebDAV 目录地址，例如群晖的 https://nas.local:5006/notes。',
+    backupFolderPath: '文件夹路径',
+    backupFolderPathHint: '路径不存在时会自动创建。',
+    backupUrl: 'WebDAV 地址',
+    backupUrlHint: '要指到目录，不是首页；第一次同步会自动创建子目录。',
+    backupUser: '用户名',
+    backupUserHint: '留空表示匿名访问。',
+    backupPass: '密码',
+    backupPassHint: '以明文存在 settings.json 里，和笔记放在同一个目录。',
+    backupAuto: '自动备份',
+    backupAutoHint: '每次保存笔记后几秒推一次，只写变化的文件。',
+    backupMirror: '同步删除',
+    backupMirrorHint: '笔记进了回收站或彻底删掉时，备份里的对应文件也删。关掉则只增不删。',
+    backupTest: '测试连接',
+    backupTesting: '测试中…',
+    backupNow: '立即备份',
+    backupRunning: '备份中…',
+    backupReachable: '连接正常',
+    backupUnreachable: '连不上',
+    backupDone: '备份完成',
+    backupNever: '还没有备份过',
+    backupLastOk: '上次备份',
+    backupFailed: '上次失败：',
+    historyTitle: '历史版本',
+    historyKeep: '保留修改记录',
+    historyKeepHint: '每次保存前把上一版存进本地 history/ 目录，可以随时翻回去看一眼。',
+    historyLimit: '每篇保留',
+    historyLimitHint: '版本数上限，超出的从最旧的开始丢。',
     partnerSummon: '呼叫',
     partnerSummonHint: '让它现在就说一句',
     partnerSilent: '它这次没说话',
@@ -194,6 +231,10 @@ window.__ModuleLoader__.load({
         pin: '置顶',
         unpin: '取消置顶',
         delete: '移到回收站',
+    versions: '历史版本',
+    versionsLoading: '读取历史…',
+    versionsEmpty: '这篇还没有历史版本；在设置里打开「保留修改记录」以后，每次保存都会先留下上一版。',
+    versionRestore: '恢复',
         restore: '恢复',
         loading: '加载中…',
         empty: '这里还没有笔记。在上面写第一句，按 Ctrl/⌘+Enter 保存。',
@@ -386,6 +427,43 @@ window.__ModuleLoader__.load({
     settingsSaveFailed: 'Could not save',
     settingsEmptyCustom: 'No personas of your own yet.',
     settingsAutoTag: 'Auto',
+
+    backupTitle: 'Backup and history',
+    backupIntro: 'Keep a copy of the notebook in a place of your own: a NAS share, a synced drive, an external disk, or WebDAV on the NAS. This only ever writes out; it never reads the other way and overwrites an edit.',
+    backupDestination: 'Back up to',
+    backupOff: 'Off',
+    backupFolder: 'Folder',
+    backupWebdav: 'WebDAV',
+    backupOffHint: 'No copy. The notes stay on this machine.',
+    backupFolderHint: 'A directory this machine can see; map the NAS share to a drive letter or use its UNC path.',
+    backupWebdavHint: 'The WebDAV directory URL on the NAS, e.g. https://nas.local:5006/notes.',
+    backupFolderPath: 'Folder path',
+    backupFolderPathHint: 'Created if it does not exist yet.',
+    backupUrl: 'WebDAV URL',
+    backupUrlHint: 'Point it at a directory, not the landing page; subfolders are created on the first run.',
+    backupUser: 'Username',
+    backupUserHint: 'Empty means anonymous.',
+    backupPass: 'Password',
+    backupPassHint: 'Stored in plain text in settings.json, next to the notes.',
+    backupAuto: 'Back up automatically',
+    backupAutoHint: 'A few seconds after each save; only the files that changed are written.',
+    backupMirror: 'Mirror deletions',
+    backupMirrorHint: 'When a note is trashed or deleted, remove its copy too. Off means the backup only grows.',
+    backupTest: 'Test connection',
+    backupTesting: 'Testing…',
+    backupNow: 'Back up now',
+    backupRunning: 'Backing up…',
+    backupReachable: 'Reachable',
+    backupUnreachable: 'Not reachable',
+    backupDone: 'Backed up',
+    backupNever: 'Never backed up',
+    backupLastOk: 'Last backup',
+    backupFailed: 'Last attempt failed: ',
+    historyTitle: 'History',
+    historyKeep: 'Keep versions',
+    historyKeepHint: 'Store the previous version under history/ before each save, so an earlier draft is always one click away.',
+    historyLimit: 'Keep per note',
+    historyLimitHint: 'Upper bound; the oldest versions go first.',
     partnerSummon: 'Ask',
     partnerSummonHint: 'Have it say something now',
     partnerSilent: 'It stayed quiet',
@@ -403,6 +481,10 @@ window.__ModuleLoader__.load({
         pin: 'Pin',
         unpin: 'Unpin',
         delete: 'Move to trash',
+    versions: 'Versions',
+    versionsLoading: 'Reading history…',
+    versionsEmpty: 'No earlier version yet; turn on "Keep versions" in settings and each save keeps the one it replaces.',
+    versionRestore: 'Restore',
         restore: 'Restore',
         loading: 'Loading…',
         empty: 'No notes yet. Write the first line above and press Ctrl/⌘+Enter.',
@@ -2680,6 +2762,31 @@ window.__ModuleLoader__.load({
   /* Belt and braces: even without the spacer, the group sits at the right edge. */
   margin-left: auto;
 }
+/* Kept versions: one row per version, right under the note's own bar. */
+.dshn-versions {
+  max-height: 40%;
+  overflow: auto;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+.dshn-version-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 2px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-version-when { flex: none; font-variant-numeric: tabular-nums; }
+.dshn-version-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-primary);
+}
+.dshn-version-chars { flex: none; font-variant-numeric: tabular-nums; opacity: 0.75; }
+.dshn-version-empty { padding: 4px 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .dshn-icon-btn {
   width: 28px;
   height: 28px;
@@ -7130,6 +7237,25 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 .dshn-preset b { color: var(--dsw-alias-label-primary); font-weight: 500; margin-right: 6px; }
 .dshn-settings-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
 .dshn-settings-status { color: var(--dsw-alias-label-secondary); font-size: 12px; margin-left: auto; }
+.dshn-backup { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-backup h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.dshn-setting-field { display: grid; gap: 5px; padding: 12px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-setting-field label { color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dshn-settings-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  padding: 6px 8px;
+  outline: none;
+}
+.dshn-settings-input:focus { border-color: var(--dsw-alias-brand-primary); }
+.dshn-settings-note { margin-top: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dshn-settings-note.bad { color: var(--dsw-alias-label-error, #c0392b); }
 `
 
     function NotesSettingsStyle() {
@@ -7176,6 +7302,10 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const [draft, setDraft] = useState(null)
       const [status, setStatus] = useState('')
       const [saving, setSaving] = useState(false)
+      const [backup, setBackup] = useState(null)
+      const [form, setForm] = useState({})
+      const [busy, setBusy] = useState('')
+      const [notice, setNotice] = useState(null)
 
       const customOf = (list) => (Array.isArray(list) ? list : []).filter((entry) => entry.custom !== false)
 
@@ -7184,9 +7314,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         let cancelled = false
         const read = async () => {
           try {
-            const [state, library] = await Promise.all([get('/settings'), get('/voice/personas')])
+            const [state, library, backupState] = await Promise.all([
+              get('/settings'),
+              get('/voice/personas'),
+              get('/sync/state').catch(() => null),
+            ])
             if (cancelled) return
             setSettings(state?.settings ?? null)
+            setBackup(backupState?.sync ?? null)
             const list = Array.isArray(library?.personas) ? library.personas : []
             setPersonas(list)
             setDraft(customOf(list))
@@ -7199,6 +7334,17 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           cancelled = true
         }
       }, [summary])
+
+      /** The typed destination starts as what is stored; after that the field is the source. */
+      useEffect(() => {
+        if (settings === null) return
+        const sync = settings.sync ?? {}
+        setForm((current) =>
+          Object.keys(current).length > 0
+            ? current
+            : { folder: String(sync.folder ?? ''), url: String(sync.url ?? ''), username: String(sync.username ?? ''), password: '', limit: String(settings.history?.limit ?? 50) },
+        )
+      }, [settings])
 
       if (summary) return null
       const t0 = t
@@ -7216,6 +7362,69 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           flash(t0.settingsSaved)
         } catch {
           flash(t0.settingsSaveFailed)
+        }
+      }
+
+      /**
+       * `sync` and `history` are objects of their own; a patch carries the whole object.
+       *
+       * The password is never part of the base: the server only sends back whether one is stored, so
+       * echoing it would wipe the stored one on every unrelated toggle.
+       */
+      const patchSync = (patch) => {
+        const { password: _password, passwordSet: _passwordSet, ...base } = settings?.sync ?? {}
+        void saveSettings({ sync: { ...base, ...patch } })
+      }
+      const patchHistory = (patch) => saveSettings({ history: { ...(settings?.history ?? {}), ...patch } })
+
+      /** A text field is committed when it loses focus, not on every keystroke. */
+      const commitField = (field) => {
+        const value = String(form[field] ?? '').trim()
+        if (field === 'password') {
+          const raw = String(form.password ?? '')
+          if (raw === '' && settings?.sync?.passwordSet !== true) return
+          void patchSync({ password: raw })
+          return
+        }
+        if (value === String(settings?.sync?.[field] ?? '')) return
+        void patchSync({ [field]: value })
+      }
+
+      const commitLimit = () => {
+        const value = Math.max(1, Math.min(500, Math.round(Number(form.limit ?? 50) || 50)))
+        setForm((current) => ({ ...current, limit: String(value) }))
+        if (value !== Number(settings?.history?.limit ?? 50)) void patchHistory({ limit: value })
+      }
+
+      const runTest = async () => {
+        setBusy('test')
+        setNotice(null)
+        try {
+          const result = await post('/sync/test', {})
+          const test = result?.test ?? {}
+          setNotice({ ok: test.ok === true, text: String(test.message ?? (test.ok ? t0.backupReachable : t0.backupUnreachable)) })
+        } catch (error) {
+          setNotice({ ok: false, text: String(error?.message ?? t0.backupUnreachable) })
+        } finally {
+          setBusy('')
+        }
+      }
+
+      const runSync = async () => {
+        setBusy('run')
+        setNotice(null)
+        try {
+          const result = await post('/sync/run', {})
+          const next = result?.sync ?? null
+          if (next !== null) setBackup(next)
+          setNotice({
+            ok: next?.lastResult !== 'error',
+            text: next?.lastResult === 'error' ? String(next.lastError ?? t0.backupUnreachable) : t0.backupDone,
+          })
+        } catch (error) {
+          setNotice({ ok: false, text: String(error?.message ?? t0.backupUnreachable) })
+        } finally {
+          setBusy('')
         }
       }
 
@@ -7248,6 +7457,46 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
       const presets = personas.filter((entry) => entry.custom === false)
       const manual = settings.mode !== 'auto'
+      const sync = settings.sync ?? {}
+      const history = settings.history ?? {}
+      const destination = sync.mode ?? 'off'
+      const keepHistory = history.keep !== false
+
+      /** One labelled text field; the value is committed when it loses focus. */
+      const field = (key, label, placeholder, hint, type = 'text') =>
+        h(
+          'div',
+          { className: 'dshn-setting-field' },
+          h('label', { htmlFor: `dshn-sync-${key}` }, label),
+          h('input', {
+            id: `dshn-sync-${key}`,
+            className: 'dshn-settings-input',
+            type,
+            value: String(form[key] ?? ''),
+            placeholder,
+            autoComplete: 'off',
+            spellCheck: 'false',
+            onChange: (event) => setForm((current) => ({ ...current, [key]: event.target.value })),
+            onBlur: () => commitField(key),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') event.currentTarget.blur()
+            },
+          }),
+          hint === '' ? null : h('div', { className: 'dshn-setting-hint' }, hint),
+        )
+
+      /** What the engine last did, in one line: the panel's only honest answer about the NAS. */
+      const backupLine = () => {
+        if (notice !== null) return notice
+        if (backup === null) return null
+        if (backup.lastResult === 'error') return { ok: false, text: `${t.backupFailed} ${backup.lastError}` }
+        if (backup.lastResult === 'ok' && backup.lastAt) {
+          return { ok: true, text: `${t.backupLastOk} ${new Date(backup.lastAt).toLocaleString()}` }
+        }
+        return { ok: true, text: t.backupNever }
+      }
+      const line = backupLine()
+
       const choosePersona = (event) => void saveSettings({ personaId: event.target.value, mode: 'manual' })
 
       return h(
@@ -7386,6 +7635,123 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               ),
             ),
           ),
+        ),
+
+        // ── the copy that lives somewhere else ───────────────────────────────────────────────
+        h(
+          'div',
+          { className: 'dshn-backup' },
+          h('h4', null, t.backupTitle),
+          h('div', { className: 'dshn-setting-hint' }, t.backupIntro),
+
+          h(SettingRow, {
+            label: t.backupDestination,
+            hint: destination === 'folder' ? t.backupFolderHint : destination === 'webdav' ? t.backupWebdavHint : t.backupOffHint,
+            side: h(
+              'div',
+              { className: 'dshn-seg', role: 'group', 'aria-label': t.backupDestination },
+              ...[
+                ['off', t.backupOff],
+                ['folder', t.backupFolder],
+                ['webdav', t.backupWebdav],
+              ].map(([value, label]) =>
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    key: value,
+                    'aria-pressed': String(destination === value),
+                    onClick: () => void patchSync({ mode: value }),
+                  },
+                  label,
+                ),
+              ),
+            ),
+          }),
+
+          destination === 'folder' ? field('folder', t.backupFolderPath, '\\\\nas\\notes', t.backupFolderPathHint) : null,
+          destination === 'webdav'
+            ? [
+                h('div', { key: 'url' }, field('url', t.backupUrl, 'https://nas.local:5006/dsh-notes', t.backupUrlHint)),
+                h('div', { key: 'user' }, field('username', t.backupUser, '', t.backupUserHint)),
+                h('div', { key: 'pass' }, field('password', t.backupPass, '••••••', t.backupPassHint, 'password')),
+              ]
+            : null,
+
+          h(SettingRow, {
+            label: t.backupAuto,
+            hint: t.backupAutoHint,
+            side: h(SettingsSwitch, {
+              checked: sync.auto !== false,
+              label: t.backupAuto,
+              onChange: (next) => void patchSync({ auto: next }),
+            }),
+          }),
+
+          h(SettingRow, {
+            label: t.backupMirror,
+            hint: t.backupMirrorHint,
+            side: h(SettingsSwitch, {
+              checked: sync.mirror !== false,
+              label: t.backupMirror,
+              onChange: (next) => void patchSync({ mirror: next }),
+            }),
+          }),
+
+          h(
+            'div',
+            { className: 'dshn-settings-foot' },
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshn-btnm',
+                disabled: busy !== '' || destination === 'off',
+                onClick: () => void runTest(),
+              },
+              busy === 'test' ? t.backupTesting : t.backupTest,
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshn-btnm primary',
+                disabled: busy !== '' || destination === 'off',
+                onClick: () => void runSync(),
+              },
+              busy === 'run' ? t.backupRunning : t.backupNow,
+            ),
+            line === null ? null : h('span', { className: `dshn-settings-note${line.ok ? '' : ' bad'}` }, line.text),
+          ),
+
+          // ── what the copies are for ────────────────────────────────────────────────────────
+          h('h4', { style: { marginTop: '24px' } }, t.historyTitle),
+          h(SettingRow, {
+            label: t.historyKeep,
+            hint: t.historyKeepHint,
+            side: h(SettingsSwitch, {
+              checked: keepHistory,
+              label: t.historyKeep,
+              onChange: (next) => void patchHistory({ keep: next }),
+            }),
+          }),
+          keepHistory
+            ? h(SettingRow, {
+                label: t.historyLimit,
+                hint: t.historyLimitHint,
+                side: h('input', {
+                  className: 'dshn-settings-input',
+                  type: 'number',
+                  min: '1',
+                  max: '500',
+                  value: String(form.limit ?? 50),
+                  style: { width: '88px' },
+                  'aria-label': t.historyLimit,
+                  onChange: (event) => setForm((current) => ({ ...current, limit: event.target.value })),
+                  onBlur: () => commitLimit(),
+                }),
+              })
+            : null,
         ),
       )
     }
@@ -7780,6 +8146,9 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       const [tagFilter, setTagFilter] = useState('')
       const [showAllTags, setShowAllTags] = useState(false)
       const [editing, setEditing] = useState(false)
+      // A note's kept versions, read on demand: null means "not asked yet", [] means "none kept".
+      const [versions, setVersions] = useState(null)
+      const [versionsBusy, setVersionsBusy] = useState(false)
       // "已复制" for a moment after the Markdown button is pressed.
       const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
@@ -7810,6 +8179,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
       useEffect(() => {
         setEditing(false)
+        setVersions(null)
       }, [selectedId])
 
       const groups = useMemo(() => {
@@ -7856,6 +8226,32 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         } catch {
           /* the panel header reports the refresh failure */
         }
+      }
+
+      /** Open or close the kept versions of the note in view. */
+      const toggleVersions = async () => {
+        if (selected === null) return
+        if (versions !== null) {
+          setVersions(null)
+          return
+        }
+        setVersionsBusy(true)
+        try {
+          const result = await get(`/revisions?noteId=${encodeURIComponent(selected.id)}`)
+          setVersions(Array.isArray(result?.revisions) ? result.revisions : [])
+        } catch {
+          setVersions([])
+        } finally {
+          setVersionsBusy(false)
+        }
+      }
+
+      const restoreVersion = async (stamp) => {
+        if (selected === null) return
+        await action(async () => {
+          await post('/revision/restore', { noteId: selected.id, stamp })
+          setVersions(null)
+        })
       }
 
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
@@ -8068,6 +8464,24 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                               h('path', { d: 'M5 15V6a2 2 0 0 1 2-2h8' }),
                             ),
                       ),
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn',
+                          'data-on': String(versions !== null),
+                          title: versionsBusy ? t.versionsLoading : t.versions,
+                          'aria-label': t.versions,
+                          'aria-pressed': String(versions !== null),
+                          onClick: () => void toggleVersions(),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('path', { d: 'M12 7v5l3 2' }),
+                          h('path', { d: 'M3.5 12a8.5 8.5 0 1 0 2.6-6.1' }),
+                          h('path', { d: 'M3 4.5V9h4.5' }),
+                        ),
+                      ),
                       editing
                         ? null
                         : h(
@@ -8093,6 +8507,29 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                       ),
                     ),
                   ),
+                  // Kept versions, when asked for: a list of what this note used to say.
+                  versions === null
+                    ? null
+                    : h(
+                        'div',
+                        { className: 'dshn-versions' },
+                        versions.length === 0
+                          ? h('div', { className: 'dshn-version-empty' }, t.versionsEmpty)
+                          : versions.map((version) =>
+                              h(
+                                'div',
+                                { className: 'dshn-version-row', key: version.stamp },
+                                h('span', { className: 'dshn-version-when' }, version.at === null ? version.stamp : new Date(version.at).toLocaleString()),
+                                h('span', { className: 'dshn-version-title' }, String(version.title ?? '')),
+                                h('span', { className: 'dshn-version-chars' }, `${version.chars}`),
+                                h(
+                                  'button',
+                                  { type: 'button', className: 'dshn-btnm', onClick: () => void restoreVersion(version.stamp) },
+                                  t.versionRestore,
+                                ),
+                              ),
+                            ),
+                      ),
                   // Editing reuses the capture components: source on the left, the laid-out
                   // result on the right, Structure / Cancel / Save in the toolbar.
                   editing

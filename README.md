@@ -117,6 +117,42 @@ OneDrive. Everything else is derived.
 on the **default workspace from the registry**, not on whichever session calls
 first.
 
+## Backup, and the versions you overwrote
+
+The plugin's settings page owns two things beyond the writing partner: where a
+second copy of the notebook goes, and whether earlier versions of a note are kept.
+
+| Destination | What it is |
+| --- | --- |
+| **Folder** | a directory this machine can see — a mapped NAS share, a Nextcloud/Dropbox/oneDrive folder, an external disk |
+| **WebDAV** | the same tree over HTTPS, which is what most NAS boxes expose (`https://nas.local:5006/notes`) |
+
+Either way the destination receives a restorable tree, and the notebook is never
+read back from it — this is a backup, not a merge:
+
+```
+notes.json            the whole notebook, restorable by copying one file back
+trash.json            the recycle bin
+notes/<id>.md         one plain Markdown file per note, readable in any editor
+history/<id>/<st>.md  the kept versions, when history is on
+sync.json             path → sha256, so the next run only writes what changed
+```
+
+A run is debounced behind each save, serialised, and never fails the save: an
+unreachable NAS is a status line on the settings page, not a lost note. **Mirror
+deletions** is the one switch that removes anything on the far side, and it only
+ever removes files this engine wrote itself.
+
+History is local and independent of the backup: with *Keep versions* on, every
+save first writes the body it is about to replace into `<notebook>/history/<id>/`,
+named by the UTC instant (`20261111T101530-412.md`). Version count is capped per
+note, the newest are kept, and the clock button in the History tab opens the list
+with a restore per row — a restore records the version it replaces, so it is
+undoable too.
+
+The WebDAV password is stored in plain text in `settings.json`, beside the notes,
+and the password field says so. There is no keychain to borrow here.
+
 ## Three AI surfaces, three different mechanisms
 
 The distinction matters, and getting it wrong is what made an earlier version

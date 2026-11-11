@@ -123,6 +123,25 @@
 .dshn-preset b { color: var(--dsw-alias-label-primary); font-weight: 500; margin-right: 6px; }
 .dshn-settings-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
 .dshn-settings-status { color: var(--dsw-alias-label-secondary); font-size: 12px; margin-left: auto; }
+.dshn-backup { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-backup h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.dshn-setting-field { display: grid; gap: 5px; padding: 12px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshn-setting-field label { color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dshn-settings-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  padding: 6px 8px;
+  outline: none;
+}
+.dshn-settings-input:focus { border-color: var(--dsw-alias-brand-primary); }
+.dshn-settings-note { margin-top: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dshn-settings-note.bad { color: var(--dsw-alias-label-error, #c0392b); }
 `
 
     function NotesSettingsStyle() {
@@ -169,6 +188,10 @@
       const [draft, setDraft] = useState(null)
       const [status, setStatus] = useState('')
       const [saving, setSaving] = useState(false)
+      const [backup, setBackup] = useState(null)
+      const [form, setForm] = useState({})
+      const [busy, setBusy] = useState('')
+      const [notice, setNotice] = useState(null)
 
       const customOf = (list) => (Array.isArray(list) ? list : []).filter((entry) => entry.custom !== false)
 
@@ -177,9 +200,14 @@
         let cancelled = false
         const read = async () => {
           try {
-            const [state, library] = await Promise.all([get('/settings'), get('/voice/personas')])
+            const [state, library, backupState] = await Promise.all([
+              get('/settings'),
+              get('/voice/personas'),
+              get('/sync/state').catch(() => null),
+            ])
             if (cancelled) return
             setSettings(state?.settings ?? null)
+            setBackup(backupState?.sync ?? null)
             const list = Array.isArray(library?.personas) ? library.personas : []
             setPersonas(list)
             setDraft(customOf(list))
@@ -192,6 +220,17 @@
           cancelled = true
         }
       }, [summary])
+
+      /** The typed destination starts as what is stored; after that the field is the source. */
+      useEffect(() => {
+        if (settings === null) return
+        const sync = settings.sync ?? {}
+        setForm((current) =>
+          Object.keys(current).length > 0
+            ? current
+            : { folder: String(sync.folder ?? ''), url: String(sync.url ?? ''), username: String(sync.username ?? ''), password: '', limit: String(settings.history?.limit ?? 50) },
+        )
+      }, [settings])
 
       if (summary) return null
       const t0 = t
@@ -209,6 +248,69 @@
           flash(t0.settingsSaved)
         } catch {
           flash(t0.settingsSaveFailed)
+        }
+      }
+
+      /**
+       * `sync` and `history` are objects of their own; a patch carries the whole object.
+       *
+       * The password is never part of the base: the server only sends back whether one is stored, so
+       * echoing it would wipe the stored one on every unrelated toggle.
+       */
+      const patchSync = (patch) => {
+        const { password: _password, passwordSet: _passwordSet, ...base } = settings?.sync ?? {}
+        void saveSettings({ sync: { ...base, ...patch } })
+      }
+      const patchHistory = (patch) => saveSettings({ history: { ...(settings?.history ?? {}), ...patch } })
+
+      /** A text field is committed when it loses focus, not on every keystroke. */
+      const commitField = (field) => {
+        const value = String(form[field] ?? '').trim()
+        if (field === 'password') {
+          const raw = String(form.password ?? '')
+          if (raw === '' && settings?.sync?.passwordSet !== true) return
+          void patchSync({ password: raw })
+          return
+        }
+        if (value === String(settings?.sync?.[field] ?? '')) return
+        void patchSync({ [field]: value })
+      }
+
+      const commitLimit = () => {
+        const value = Math.max(1, Math.min(500, Math.round(Number(form.limit ?? 50) || 50)))
+        setForm((current) => ({ ...current, limit: String(value) }))
+        if (value !== Number(settings?.history?.limit ?? 50)) void patchHistory({ limit: value })
+      }
+
+      const runTest = async () => {
+        setBusy('test')
+        setNotice(null)
+        try {
+          const result = await post('/sync/test', {})
+          const test = result?.test ?? {}
+          setNotice({ ok: test.ok === true, text: String(test.message ?? (test.ok ? t0.backupReachable : t0.backupUnreachable)) })
+        } catch (error) {
+          setNotice({ ok: false, text: String(error?.message ?? t0.backupUnreachable) })
+        } finally {
+          setBusy('')
+        }
+      }
+
+      const runSync = async () => {
+        setBusy('run')
+        setNotice(null)
+        try {
+          const result = await post('/sync/run', {})
+          const next = result?.sync ?? null
+          if (next !== null) setBackup(next)
+          setNotice({
+            ok: next?.lastResult !== 'error',
+            text: next?.lastResult === 'error' ? String(next.lastError ?? t0.backupUnreachable) : t0.backupDone,
+          })
+        } catch (error) {
+          setNotice({ ok: false, text: String(error?.message ?? t0.backupUnreachable) })
+        } finally {
+          setBusy('')
         }
       }
 
@@ -241,6 +343,46 @@
 
       const presets = personas.filter((entry) => entry.custom === false)
       const manual = settings.mode !== 'auto'
+      const sync = settings.sync ?? {}
+      const history = settings.history ?? {}
+      const destination = sync.mode ?? 'off'
+      const keepHistory = history.keep !== false
+
+      /** One labelled text field; the value is committed when it loses focus. */
+      const field = (key, label, placeholder, hint, type = 'text') =>
+        h(
+          'div',
+          { className: 'dshn-setting-field' },
+          h('label', { htmlFor: `dshn-sync-${key}` }, label),
+          h('input', {
+            id: `dshn-sync-${key}`,
+            className: 'dshn-settings-input',
+            type,
+            value: String(form[key] ?? ''),
+            placeholder,
+            autoComplete: 'off',
+            spellCheck: 'false',
+            onChange: (event) => setForm((current) => ({ ...current, [key]: event.target.value })),
+            onBlur: () => commitField(key),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') event.currentTarget.blur()
+            },
+          }),
+          hint === '' ? null : h('div', { className: 'dshn-setting-hint' }, hint),
+        )
+
+      /** What the engine last did, in one line: the panel's only honest answer about the NAS. */
+      const backupLine = () => {
+        if (notice !== null) return notice
+        if (backup === null) return null
+        if (backup.lastResult === 'error') return { ok: false, text: `${t.backupFailed} ${backup.lastError}` }
+        if (backup.lastResult === 'ok' && backup.lastAt) {
+          return { ok: true, text: `${t.backupLastOk} ${new Date(backup.lastAt).toLocaleString()}` }
+        }
+        return { ok: true, text: t.backupNever }
+      }
+      const line = backupLine()
+
       const choosePersona = (event) => void saveSettings({ personaId: event.target.value, mode: 'manual' })
 
       return h(
@@ -379,6 +521,123 @@
               ),
             ),
           ),
+        ),
+
+        // ── the copy that lives somewhere else ───────────────────────────────────────────────
+        h(
+          'div',
+          { className: 'dshn-backup' },
+          h('h4', null, t.backupTitle),
+          h('div', { className: 'dshn-setting-hint' }, t.backupIntro),
+
+          h(SettingRow, {
+            label: t.backupDestination,
+            hint: destination === 'folder' ? t.backupFolderHint : destination === 'webdav' ? t.backupWebdavHint : t.backupOffHint,
+            side: h(
+              'div',
+              { className: 'dshn-seg', role: 'group', 'aria-label': t.backupDestination },
+              ...[
+                ['off', t.backupOff],
+                ['folder', t.backupFolder],
+                ['webdav', t.backupWebdav],
+              ].map(([value, label]) =>
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    key: value,
+                    'aria-pressed': String(destination === value),
+                    onClick: () => void patchSync({ mode: value }),
+                  },
+                  label,
+                ),
+              ),
+            ),
+          }),
+
+          destination === 'folder' ? field('folder', t.backupFolderPath, '\\\\nas\\notes', t.backupFolderPathHint) : null,
+          destination === 'webdav'
+            ? [
+                h('div', { key: 'url' }, field('url', t.backupUrl, 'https://nas.local:5006/dsh-notes', t.backupUrlHint)),
+                h('div', { key: 'user' }, field('username', t.backupUser, '', t.backupUserHint)),
+                h('div', { key: 'pass' }, field('password', t.backupPass, '••••••', t.backupPassHint, 'password')),
+              ]
+            : null,
+
+          h(SettingRow, {
+            label: t.backupAuto,
+            hint: t.backupAutoHint,
+            side: h(SettingsSwitch, {
+              checked: sync.auto !== false,
+              label: t.backupAuto,
+              onChange: (next) => void patchSync({ auto: next }),
+            }),
+          }),
+
+          h(SettingRow, {
+            label: t.backupMirror,
+            hint: t.backupMirrorHint,
+            side: h(SettingsSwitch, {
+              checked: sync.mirror !== false,
+              label: t.backupMirror,
+              onChange: (next) => void patchSync({ mirror: next }),
+            }),
+          }),
+
+          h(
+            'div',
+            { className: 'dshn-settings-foot' },
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshn-btnm',
+                disabled: busy !== '' || destination === 'off',
+                onClick: () => void runTest(),
+              },
+              busy === 'test' ? t.backupTesting : t.backupTest,
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshn-btnm primary',
+                disabled: busy !== '' || destination === 'off',
+                onClick: () => void runSync(),
+              },
+              busy === 'run' ? t.backupRunning : t.backupNow,
+            ),
+            line === null ? null : h('span', { className: `dshn-settings-note${line.ok ? '' : ' bad'}` }, line.text),
+          ),
+
+          // ── what the copies are for ────────────────────────────────────────────────────────
+          h('h4', { style: { marginTop: '24px' } }, t.historyTitle),
+          h(SettingRow, {
+            label: t.historyKeep,
+            hint: t.historyKeepHint,
+            side: h(SettingsSwitch, {
+              checked: keepHistory,
+              label: t.historyKeep,
+              onChange: (next) => void patchHistory({ keep: next }),
+            }),
+          }),
+          keepHistory
+            ? h(SettingRow, {
+                label: t.historyLimit,
+                hint: t.historyLimitHint,
+                side: h('input', {
+                  className: 'dshn-settings-input',
+                  type: 'number',
+                  min: '1',
+                  max: '500',
+                  value: String(form.limit ?? 50),
+                  style: { width: '88px' },
+                  'aria-label': t.historyLimit,
+                  onChange: (event) => setForm((current) => ({ ...current, limit: event.target.value })),
+                  onBlur: () => commitLimit(),
+                }),
+              })
+            : null,
         ),
       )
     }

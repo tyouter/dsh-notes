@@ -6,12 +6,23 @@
  * store, the model-facing `notes` / `notes_enhance` tools, the `/note` command,
  * and the small HTTP plane the browser panel uses; every caller goes through
  * the same `NoteStore` methods.
+ *
+ * Two things hang off the store's write hook, and both are optional:
+ *
+ *   revisions  keeps the version a save is about to replace, as one Markdown
+ *              file per version under `<notebook>/history/<id>/`
+ *   sync       copies the notebook to a folder or a WebDAV address, debounced
+ *              after each write, with a sha256 manifest so an unchanged note is
+ *              not uploaded twice
  */
 
 import { registerNotesApi } from './lib/api.js'
 import { registerNotesCommands } from './lib/commands.js'
+import { RevisionStore } from './lib/revisions.js'
+import { SettingsStore } from './lib/settings.js'
 import { SpeechBridge } from './lib/speech.js'
 import { NoteStore } from './lib/store.js'
+import { SyncEngine } from './lib/sync.js'
 import { registerNotesTools } from './lib/tools.js'
 
 export const inject = ['tools']
@@ -41,7 +52,25 @@ const DEFAULTS = {
 export function apply(ctx, rawConfig) {
   const config = { ...DEFAULTS, ...(rawConfig ?? {}) }
   const logger = ctx.logger
+
+  // One settings reader for the whole instance: the backup engine and the panel
+  // all see the same `settings.json`, and a change made in the panel is visible to
+  // the very next save.
   const store = new NoteStore({ ctx, config })
+  const settings = new SettingsStore(store)
+  const revisions = new RevisionStore(store, { settingsOf: () => settings.read() })
+  const sync = new SyncEngine({ store, settingsOf: () => settings.read() }, { logger })
+
+  // Every write path — save, create, pin/tag update, trash, restore — ends here, so
+  // history and backup cannot drift from the notebook.
+  store.hooks = {
+    onWrite: async ({ type, note, previous }) => {
+      if (type === 'save' && previous !== undefined) await revisions.record({ note: previous, reason: 'save' })
+      if (type === 'remove' && note !== undefined) await revisions.record({ note, reason: 'remove' })
+      sync.schedule()
+    },
+    onError: (error) => logger?.warn?.(`[notes] write hook failed: ${error?.message ?? error}`),
+  }
 
   // The panel and the agent tools share one store instance, so a note written
   // from either side is immediately visible to the other.
@@ -54,11 +83,12 @@ export function apply(ctx, rawConfig) {
   const disposers = [
     registerNotesTools(ctx, store, logger),
     registerNotesCommands(ctx, store, logger),
-    registerNotesApi(ctx, store, { config, logger, speech }),
+    registerNotesApi(ctx, store, { config, logger, speech, settings, revisions, sync }),
   ]
 
   ctx.effect(
     () => () => {
+      sync.cancel()
       for (const dispose of disposers.splice(0)) {
         try {
           if (typeof dispose === 'function') dispose()

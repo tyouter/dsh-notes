@@ -388,6 +388,9 @@
       const [tagFilter, setTagFilter] = useState('')
       const [showAllTags, setShowAllTags] = useState(false)
       const [editing, setEditing] = useState(false)
+      // A note's kept versions, read on demand: null means "not asked yet", [] means "none kept".
+      const [versions, setVersions] = useState(null)
+      const [versionsBusy, setVersionsBusy] = useState(false)
       // "已复制" for a moment after the Markdown button is pressed.
       const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
@@ -418,6 +421,7 @@
 
       useEffect(() => {
         setEditing(false)
+        setVersions(null)
       }, [selectedId])
 
       const groups = useMemo(() => {
@@ -464,6 +468,32 @@
         } catch {
           /* the panel header reports the refresh failure */
         }
+      }
+
+      /** Open or close the kept versions of the note in view. */
+      const toggleVersions = async () => {
+        if (selected === null) return
+        if (versions !== null) {
+          setVersions(null)
+          return
+        }
+        setVersionsBusy(true)
+        try {
+          const result = await get(`/revisions?noteId=${encodeURIComponent(selected.id)}`)
+          setVersions(Array.isArray(result?.revisions) ? result.revisions : [])
+        } catch {
+          setVersions([])
+        } finally {
+          setVersionsBusy(false)
+        }
+      }
+
+      const restoreVersion = async (stamp) => {
+        if (selected === null) return
+        await action(async () => {
+          await post('/revision/restore', { noteId: selected.id, stamp })
+          setVersions(null)
+        })
       }
 
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
@@ -676,6 +706,24 @@
                               h('path', { d: 'M5 15V6a2 2 0 0 1 2-2h8' }),
                             ),
                       ),
+                      h(
+                        'button',
+                        {
+                          className: 'dshn-icon-btn',
+                          'data-on': String(versions !== null),
+                          title: versionsBusy ? t.versionsLoading : t.versions,
+                          'aria-label': t.versions,
+                          'aria-pressed': String(versions !== null),
+                          onClick: () => void toggleVersions(),
+                        },
+                        h(
+                          'svg',
+                          { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                          h('path', { d: 'M12 7v5l3 2' }),
+                          h('path', { d: 'M3.5 12a8.5 8.5 0 1 0 2.6-6.1' }),
+                          h('path', { d: 'M3 4.5V9h4.5' }),
+                        ),
+                      ),
                       editing
                         ? null
                         : h(
@@ -701,6 +749,29 @@
                       ),
                     ),
                   ),
+                  // Kept versions, when asked for: a list of what this note used to say.
+                  versions === null
+                    ? null
+                    : h(
+                        'div',
+                        { className: 'dshn-versions' },
+                        versions.length === 0
+                          ? h('div', { className: 'dshn-version-empty' }, t.versionsEmpty)
+                          : versions.map((version) =>
+                              h(
+                                'div',
+                                { className: 'dshn-version-row', key: version.stamp },
+                                h('span', { className: 'dshn-version-when' }, version.at === null ? version.stamp : new Date(version.at).toLocaleString()),
+                                h('span', { className: 'dshn-version-title' }, String(version.title ?? '')),
+                                h('span', { className: 'dshn-version-chars' }, `${version.chars}`),
+                                h(
+                                  'button',
+                                  { type: 'button', className: 'dshn-btnm', onClick: () => void restoreVersion(version.stamp) },
+                                  t.versionRestore,
+                                ),
+                              ),
+                            ),
+                      ),
                   // Editing reuses the capture components: source on the left, the laid-out
                   // result on the right, Structure / Cancel / Save in the toolbar.
                   editing

@@ -280,6 +280,27 @@ try {
   check('a daily token series exists', Array.isArray(afterAi.json?.data?.charts?.tokens))
   check('the context size is averaged', Number(tokens?.averageContextChars) > 0, String(tokens?.averageContextChars))
 
+  // ---- settings, backup and history routes ----
+  const savedSettings = await call('POST', 'settings', {
+    settings: { sync: { mode: 'webdav', url: 'https://nas.local/notes', username: 'me', password: 'secret' } },
+  })
+  check('settings save', savedSettings.json?.data?.settings?.sync?.mode === 'webdav', JSON.stringify(savedSettings.json)?.slice(0, 160))
+  check('the password is not echoed back', savedSettings.json?.data?.settings?.sync?.password === '', JSON.stringify(savedSettings.json?.data?.settings?.sync))
+  check('the panel learns a password exists', savedSettings.json?.data?.settings?.sync?.passwordSet === true)
+  const readSettings = await call('GET', 'settings')
+  check('settings read hides the password too', readSettings.json?.data?.settings?.sync?.password === '')
+  check('history defaults travel with the settings', readSettings.json?.data?.settings?.history?.keep === true)
+
+  // No engine is attached in this harness: the routes must say so rather than pretend.
+  const syncState = await call('GET', 'sync/state')
+  check('sync/state answers without an engine', syncState.json?.ok === true && typeof syncState.json?.data?.sync === 'object')
+  const syncRun = await call('POST', 'sync/run', {})
+  check('sync/run without an engine is refused', syncRun.status === 503, String(syncRun.status))
+  const revisions = await call('GET', 'revisions?noteId=n-1')
+  check('revisions answer with a list without a history store', revisions.json?.ok === true && Array.isArray(revisions.json?.data?.revisions))
+  const restore = await call('POST', 'revision/restore', { noteId: 'n-1', stamp: '20260101T000000-000' })
+  check('a restore without a history store is refused', restore.status === 503, String(restore.status))
+
   // ---- unknown route ----
   const missing = await call('GET', 'nope')
   check('unknown route answers 404', missing.status === 404, String(missing.status))
