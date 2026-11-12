@@ -425,15 +425,40 @@ await rm(tokenVault, { recursive: true, force: true })
   check('a persona without a brief is dropped', normalizePersona({ id: 'x', name: 'X' }) === null)
 
   const before = await personas.list()
-  check('the list starts with the presets', before.length === 4 && before.every((entry) => entry.custom === false), JSON.stringify(before.map((entry) => entry.id)))
+  check(
+    'the list starts with the presets',
+    before.length === 4 && before.every((entry) => entry.custom === false && entry.edited === false),
+    JSON.stringify(before.map((entry) => entry.id)),
+  )
 
   const saved = await personas.saveCustom([{ id: 'own-1', name: '我的顾问', brief: '只问一个问题。' }])
   check('a custom persona is stored beside the notes', saved.length === 5 && saved.some((entry) => entry.id === 'own-1' && entry.custom === true), JSON.stringify(saved.map((entry) => entry.id)))
   const reread = await personas.list()
   check('custom personas survive a reload', reread.some((entry) => entry.name === '我的顾问' && entry.brief === '只问一个问题。'))
 
-  const presetEdit = await personas.saveCustom([{ ...BUILTIN_PERSONAS[0], name: '改过的' }])
-  check('a preset is never written by the author', presetEdit.every((entry) => entry.custom === false), JSON.stringify(presetEdit.map((entry) => entry.custom)))
+  // Presets are editable now: an entry with a preset id is an override, not a fifth person.
+  const presetEdit = await personas.upsert({ ...BUILTIN_PERSONAS[0], name: '改过的' })
+  check('a preset can be edited in place', presetEdit.name === '改过的' && presetEdit.custom === false && presetEdit.edited === true)
+  const afterEdit = await personas.list()
+  check('editing a preset does not add a duplicate', afterEdit.filter((entry) => entry.id === BUILTIN_PERSONAS[0].id).length === 1 && afterEdit.length === 5)
+  await personas.reset(BUILTIN_PERSONAS[0].id)
+  const afterReset = await personas.list()
+  check(
+    'resetting brings the shipped text back',
+    afterReset.find((entry) => entry.id === BUILTIN_PERSONAS[0].id)?.name === BUILTIN_PERSONAS[0].name &&
+      afterReset.find((entry) => entry.id === BUILTIN_PERSONAS[0].id)?.edited === false,
+  )
+  check('a preset cannot be deleted, only reset', (await personas.remove(BUILTIN_PERSONAS[0].id)) === false)
+
+  await personas.upsert({ id: 'own-2', name: '问者', brief: 'You ask one question.' })
+  check('an own persona can be deleted', (await personas.remove('own-2')) === true && !(await personas.list()).some((entry) => entry.id === 'own-2'))
+  let invalid = null
+  try {
+    await personas.upsert({ id: 'own-3', name: '', brief: '' })
+  } catch (error) {
+    invalid = error
+  }
+  check('a card without a name or a brief is refused', invalid?.code === 'PERSONA_INVALID' && invalid?.status === 400)
   await rm(root, { recursive: true, force: true })
 }
 

@@ -687,7 +687,7 @@ check('the preview always mirrors the draft', /draft\.trim\(\) !== '' \|\|/.test
     check('an ignored remark is remembered and slows the next one', /held\.ignored = \[\.\.\.held\.ignored, held\.lastRemarkText\]/.test(boardSource) && /held\.gapMs \* 1\.6/.test(boardSource))
     check('speaking again answers the remark', /if \(held\.lastRemarkAt !== 0\) \{/.test(boardSource) && /held\.ignored = \[\]/.test(boardSource))
     check('silence is counted', /held\.skips \+= 1/.test(boardSource) && /skips: held\.skips/.test(boardSource))
-    check('personas are edited on the bundle page, not the panel', /post\('\/voice\/personas'/.test(settingsSource) && /plugins\.bundle\.config/.test(panelSource) && !/dshn-persona-sheet/.test(boardSource))
+    check('personas are edited on the bundle page, not the panel', /post\('\/voice\/personas\/save'/.test(settingsSource) && /post\('\/voice\/personas\/reset'/.test(settingsSource) && /plugins\.bundle\.config/.test(panelSource) && !/dshn-persona-sheet/.test(boardSource))
     check('the quote line is styled apart from the page', /\.dshn-md-quote \{/.test(headCss) && /font-size: 1\.06em/.test(headCss))
     check('the host offers personas and interjections', /route === 'voice\/personas'/.test(apiSource) && /route === 'voice\/interject'/.test(apiSource) && /BUILTIN_PERSONAS/.test(personaSource) && /SKIP/.test(personaSource))
 

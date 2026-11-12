@@ -6,6 +6,13 @@
     /** How often the notebook re-reads its data; the tools and the AI may write meanwhile. */
     const POLL_MS = 5000
 
+    /**
+     * The client root context, kept so `detectLanguage()` can ask the host's locale
+     * service on every call (that service is what the language switch writes, and the
+     * language may arrive after this plugin's apply() runs).
+     */
+    let clientCtx = null
+
     // ------------------------------------------------------------------ i18n ---
 
     const STRINGS = {
@@ -149,8 +156,22 @@
     settingsPersonaNone: '不选（它不会开口）',
     settingsPersonaAutoHint: '自动模式下由它自己挑；想固定某一位就切到「指定」。',
     settingsLibrary: '人格库',
-    settingsLibraryHint: '预设随插件发布，不能改；你自己建的可以增删改。',
+    settingsLibraryHint: '点一位进去改：名字、开场白、提示词。预设也能改，改乱了可以还原。',
+    settingsLibraryManage: '管理',
     settingsPresets: '预设',
+    personaBack: '返回',
+    personaEditTitle: '编辑人格',
+    personaEditPreset: '编辑预设',
+    personaWelcome: '开场白',
+    personaWelcomeHint: '刚被叫到时说的第一句；留空就让它自己说。',
+    personaBriefHint: '它关注什么、怎么说话——这一栏决定它像不像那个人。',
+    personaReset: '还原预设',
+    personaResetDone: '已还原',
+    personaDeleteConfirm: '再点一次删除',
+    personaRequired: '名字和提示词都要填',
+    personaPresetTag: '预设',
+    personaOwnTag: '自建',
+    personaEditedTag: '已改',
     settingsCustom: '我的',
     settingsAdd: '新增人格',
     settingsSaved: '已保存',
@@ -399,8 +420,22 @@
     settingsPersonaNone: 'None (it stays quiet)',
     settingsPersonaAutoHint: 'In automatic mode it chooses; switch to Chosen to pin one.',
     settingsLibrary: 'Personas',
-    settingsLibraryHint: 'Presets ship with the plugin and cannot be edited; the ones you write can.',
+    settingsLibraryHint: 'Open one to edit its name, greeting, and brief. Presets can be edited too, and reset if you break them.',
+    settingsLibraryManage: 'Manage',
     settingsPresets: 'Presets',
+    personaBack: 'Back',
+    personaEditTitle: 'Edit persona',
+    personaEditPreset: 'Edit preset',
+    personaWelcome: 'Greeting',
+    personaWelcomeHint: 'The first line when summoned; leave it empty and it improvises.',
+    personaBriefHint: 'What it notices and how it talks — this line is what makes it that person.',
+    personaReset: 'Reset preset',
+    personaResetDone: 'Reset',
+    personaDeleteConfirm: 'Click again to delete',
+    personaRequired: 'A name and a brief are both needed',
+    personaPresetTag: 'Preset',
+    personaOwnTag: 'Mine',
+    personaEditedTag: 'Edited',
     settingsCustom: 'Mine',
     settingsAdd: 'New persona',
     settingsSaved: 'Saved',
@@ -1993,8 +2028,26 @@
       return markers.some((pattern) => pattern.test(value))
     }
 
-    /** Which locale the panel speaks: the stored one, else the browser's. */
+    /**
+     * Which language the panel speaks.
+     *
+     * The host's `locale` service is the source of truth: the language switch writes
+     * it, and the sidebar re-syncs panel labels on `locale` changes, so reading it at
+     * call time (not once at load) keeps the sidebar name in step. Older hosts without
+     * that service fall back to the legacy storage keys, then the browser.
+     */
     function detectLanguage() {
+      try {
+        const service = clientCtx !== null && typeof clientCtx.get === 'function' ? clientCtx.get('locale') : null
+        const active = typeof service?.getLocale === 'function' ? service.getLocale()?.active : undefined
+        if (typeof active === 'string' && active !== '') {
+          const id = active.toLowerCase()
+          if (id.startsWith('en')) return 'en'
+          if (id.startsWith('zh')) return 'zh'
+        }
+      } catch {
+        /* a locale read must never break rendering */
+      }
       try {
         const stored = localStorage.getItem('dsh.locale') ?? localStorage.getItem('dsw.locale')
         if (typeof stored === 'string') {

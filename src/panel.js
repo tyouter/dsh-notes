@@ -843,6 +843,7 @@
     return {
       inject: ['slots', 'sessions'],
       apply(ctx) {
+        clientCtx = ctx
         sessionsService = ctx.sessions ?? null
 
         ctx.slots.inject('sidebar.panellist', () =>

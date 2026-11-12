@@ -66,35 +66,38 @@
   border-radius: 8px;
   padding: 5px 8px;
 }
-.dshn-library { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.dshn-library h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
-.dshn-pcard {
+.dshn-lib-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.dshn-lib-title { flex: 1 1 auto; font-size: 14px; font-weight: 600; }
+.dshn-plist { display: grid; gap: 6px; margin-top: 8px; }
+.dshn-prow {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'name tags' 'sub sub';
+  gap: 2px 10px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
   background: var(--dsw-alias-bg-layer-1);
-}
-.dshn-pcard input,
-.dshn-pcard textarea {
-  width: 100%;
-  box-sizing: border-box;
-  font: inherit;
   color: inherit;
-  background: transparent;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 8px;
-  padding: 6px 8px;
-  outline: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.dshn-pcard textarea { min-height: 64px; resize: vertical; }
-.dshn-pcard input:focus,
-.dshn-pcard textarea:focus { border-color: var(--dsw-alias-brand-primary); }
-.dshn-pcard-head { display: flex; gap: 8px; align-items: center; }
-.dshn-pcard-head input { flex: 1 1 auto; min-width: 0; width: auto; }
-.dshn-pcard-head .dshn-btnm { flex: none; white-space: nowrap; }
+.dshn-prow:hover { background: var(--dsw-alias-bg-layer-2); }
+.dshn-prow-name { grid-area: name; font-size: 13px; font-weight: 500; }
+.dshn-prow-sub {
+  grid-area: sub;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dshn-prow-tags { grid-area: tags; display: flex; gap: 4px; }
+.dshn-edit { display: grid; gap: 4px; margin-top: 12px; }
+.dshn-edit .dshn-setting-field:first-child { border-top: none; padding-top: 0; }
+.dshn-pbrief { min-height: 130px; resize: vertical; line-height: 1.6; }
 .dshn-pcard-tag {
   flex: none;
   padding: 1px 6px;
@@ -118,9 +121,6 @@
 .dshn-btnm:hover { background: var(--dsw-alias-bg-layer-2); }
 .dshn-btnm.primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: var(--dsw-alias-bg-base); font-weight: 500; }
 .dshn-btnm:disabled { opacity: .5; cursor: default; }
-.dshn-presets { display: grid; gap: 6px; }
-.dshn-preset { color: var(--dsw-alias-label-secondary); font-size: 12px; }
-.dshn-preset b { color: var(--dsw-alias-label-primary); font-weight: 500; margin-right: 6px; }
 .dshn-settings-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
 .dshn-settings-status { color: var(--dsw-alias-label-secondary); font-size: 12px; margin-left: auto; }
 .dshn-backup { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
@@ -185,7 +185,10 @@
       const summary = props?.view === 'summary'
       const [settings, setSettings] = useState(null)
       const [personas, setPersonas] = useState([])
-      const [draft, setDraft] = useState(null)
+      const [view, setView] = useState('main')
+      const [card, setCard] = useState(null)
+      const [confirmDelete, setConfirmDelete] = useState(false)
+      const [personaStatus, setPersonaStatus] = useState('')
       const [status, setStatus] = useState('')
       const [saving, setSaving] = useState(false)
       const [backup, setBackup] = useState(null)
@@ -193,7 +196,12 @@
       const [busy, setBusy] = useState('')
       const [notice, setNotice] = useState(null)
 
-      const customOf = (list) => (Array.isArray(list) ? list : []).filter((entry) => entry.custom !== false)
+      const openLibrary = () => {
+        setCard(null)
+        setConfirmDelete(false)
+        setPersonaStatus('')
+        setView('library')
+      }
 
       useEffect(() => {
         if (summary) return undefined
@@ -210,7 +218,6 @@
             setBackup(backupState?.sync ?? null)
             const list = Array.isArray(library?.personas) ? library.personas : []
             setPersonas(list)
-            setDraft(customOf(list))
           } catch {
             if (!cancelled) setStatus(dict().settingsSaveFailed)
           }
@@ -314,24 +321,94 @@
         }
       }
 
-      const saveDraft = async () => {
-        const payload = (draft ?? [])
-          .map((entry) => ({ id: entry.id, name: String(entry.name ?? '').trim(), brief: String(entry.brief ?? '').trim(), custom: true }))
-          .filter((entry) => entry.name !== '' && entry.brief !== '')
+      /** Open one person. A preset's card starts from the shipped text, which is what is stored now. */
+      const openPersona = (entry) => {
+        setConfirmDelete(false)
+        setPersonaStatus('')
+        setCard({
+          id: entry.id,
+          name: String(entry.name ?? ''),
+          nameEn: String(entry.nameEn ?? ''),
+          welcome: String(entry.welcome ?? ''),
+          brief: String(entry.brief ?? ''),
+          preset: entry.preset === true,
+          custom: entry.custom === true,
+          origin: String(entry.origin ?? ''),
+          edited: entry.edited === true,
+        })
+        setView('persona')
+      }
+
+      const newPersona = () => {
+        setConfirmDelete(false)
+        setPersonaStatus('')
+        setCard({ id: `own-${Date.now().toString(36)}`, name: '', nameEn: '', welcome: '', brief: '', preset: false, custom: true, edited: false, origin: '' })
+        setView('persona')
+      }
+
+      /** One card, one request. Saving a preset keeps its id, so the shipped one is overridden, not copied. */
+      const savePersona = async () => {
+        if (card === null) return
+        const name = String(card.name ?? '').trim()
+        const brief = String(card.brief ?? '').trim()
+        if (name === '' || brief === '') {
+          setPersonaStatus(t0.personaRequired)
+          return
+        }
         setSaving(true)
+        setPersonaStatus('')
         try {
-          const saved = await post('/voice/personas', { personas: payload })
+          const saved = await post('/voice/personas/save', {
+            persona: { id: card.id, name, nameEn: card.nameEn, welcome: card.welcome, brief },
+          })
+          setPersonas(Array.isArray(saved?.personas) ? saved.personas : [])
+          setView('library')
+          flash(t0.settingsSaved)
+        } catch {
+          setPersonaStatus(t0.settingsSaveFailed)
+        } finally {
+          setSaving(false)
+        }
+      }
+
+      const resetPersona = async () => {
+        if (card === null) return
+        setSaving(true)
+        setPersonaStatus('')
+        try {
+          const saved = await post('/voice/personas/reset', { id: card.id })
+          setPersonas(Array.isArray(saved?.personas) ? saved.personas : [])
+          setView('library')
+          flash(t0.personaResetDone)
+        } catch {
+          setPersonaStatus(t0.settingsSaveFailed)
+        } finally {
+          setSaving(false)
+        }
+      }
+
+      /** Two clicks: the first arms it, the second deletes. A mis-click costs one extra click, not a person. */
+      const deletePersona = async () => {
+        if (card === null) return
+        if (confirmDelete !== true) {
+          setConfirmDelete(true)
+          return
+        }
+        setSaving(true)
+        setPersonaStatus('')
+        try {
+          const saved = await post('/voice/personas/delete', { id: card.id })
           const list = Array.isArray(saved?.personas) ? saved.personas : []
           setPersonas(list)
-          setDraft(customOf(list))
-          // A persona deleted here may still be the one the notebook points at; clear a dangling id.
+          // The notebook may still point at the person that just left; clear the dangling id.
           const ids = new Set(list.map((entry) => entry.id))
           if (settings !== null && settings.personaId !== '' && !ids.has(settings.personaId)) {
             await saveSettings({ personaId: '' })
           }
+          setView('library')
           flash(t0.settingsSaved)
         } catch {
-          flash(t0.settingsSaveFailed)
+          setPersonaStatus(t0.settingsSaveFailed)
         } finally {
           setSaving(false)
         }
@@ -341,7 +418,6 @@
         return h('div', { className: 'dshn-settings' }, h(NotesSettingsStyle), h('div', { className: 'dshn-settings-intro' }, t.settingsIntro))
       }
 
-      const presets = personas.filter((entry) => entry.custom === false)
       const manual = settings.mode !== 'auto'
       const sync = settings.sync ?? {}
       const history = settings.history ?? {}
@@ -384,6 +460,123 @@
       const line = backupLine()
 
       const choosePersona = (event) => void saveSettings({ personaId: event.target.value, mode: 'manual' })
+
+      const displayName = (entry) =>
+        detectLanguage() === 'zh' ? String(entry.name ?? '') : String(entry.nameEn ?? entry.name ?? '')
+
+      /** The library: presets and own cards alike, one row each. The whole row is the door. */
+      const libBody = () =>
+        h(
+          'div',
+          null,
+          h(
+            'div',
+            { className: 'dshn-lib-head' },
+            h('button', { type: 'button', className: 'dshn-btnm', onClick: () => setView('main') }, `← ${t0.personaBack}`),
+            h('div', { className: 'dshn-lib-title' }, t0.settingsLibrary),
+            h('button', { type: 'button', className: 'dshn-btnm', onClick: newPersona }, t0.personaNew),
+          ),
+          h('div', { className: 'dshn-setting-hint', style: { marginBottom: '10px' } }, t0.settingsLibraryHint),
+          h(
+            'div',
+            { className: 'dshn-plist' },
+            ...personas.map((entry) =>
+              h(
+                'button',
+                { type: 'button', key: entry.id, className: 'dshn-prow', onClick: () => openPersona(entry) },
+                h('span', { className: 'dshn-prow-name' }, displayName(entry)),
+                h('span', { className: 'dshn-prow-sub' }, String(entry.welcome ?? entry.brief ?? '')),
+                h(
+                  'span',
+                  { className: 'dshn-prow-tags' },
+                  h(
+                    'span',
+                    { className: 'dshn-pcard-tag' },
+                    entry.origin === 'auto' ? t0.settingsAutoTag : entry.custom === false ? t0.personaPresetTag : t0.personaOwnTag,
+                  ),
+                  entry.edited === true ? h('span', { className: 'dshn-pcard-tag' }, t0.personaEditedTag) : null,
+                ),
+              ),
+            ),
+          ),
+        )
+
+      /** One person's card. Name, greeting, and the brief that is the whole behaviour. */
+      const editBody = () =>
+        h(
+          'div',
+          null,
+          h(
+            'div',
+            { className: 'dshn-lib-head' },
+            h('button', { type: 'button', className: 'dshn-btnm', onClick: () => setView('library') }, `← ${t0.personaBack}`),
+            h('div', { className: 'dshn-lib-title' }, card.preset === true ? t0.personaEditPreset : t0.personaEditTitle),
+          ),
+          h(
+            'div',
+            { className: 'dshn-edit' },
+            h(
+              'div',
+              { className: 'dshn-setting-field' },
+              h('label', { htmlFor: 'dshn-persona-name' }, t0.personaName),
+              h('input', {
+                id: 'dshn-persona-name',
+                className: 'dshn-settings-input',
+                value: card.name ?? '',
+                placeholder: t0.personaName,
+                onChange: (event) => setCard({ ...card, name: event.target.value }),
+              }),
+            ),
+            h(
+              'div',
+              { className: 'dshn-setting-field' },
+              h('label', { htmlFor: 'dshn-persona-welcome' }, t0.personaWelcome),
+              h('input', {
+                id: 'dshn-persona-welcome',
+                className: 'dshn-settings-input',
+                value: card.welcome ?? '',
+                placeholder: t0.personaWelcomeHint,
+                onChange: (event) => setCard({ ...card, welcome: event.target.value }),
+              }),
+            ),
+            h(
+              'div',
+              { className: 'dshn-setting-field' },
+              h('label', { htmlFor: 'dshn-persona-brief' }, t0.personaBrief),
+              h('textarea', {
+                id: 'dshn-persona-brief',
+                className: 'dshn-settings-input dshn-pbrief',
+                value: card.brief ?? '',
+                placeholder: t0.personaBrief,
+                onChange: (event) => setCard({ ...card, brief: event.target.value }),
+              }),
+              h('div', { className: 'dshn-setting-hint' }, t0.personaBriefHint),
+            ),
+          ),
+          h(
+            'div',
+            { className: 'dshn-settings-foot' },
+            card.custom === true
+              ? h(
+                  'button',
+                  { type: 'button', className: 'dshn-btnm', disabled: saving, onClick: () => void deletePersona() },
+                  confirmDelete ? t0.personaDeleteConfirm : t0.personaDelete,
+                )
+              : card.edited === true
+                ? h('button', { type: 'button', className: 'dshn-btnm', disabled: saving, onClick: () => void resetPersona() }, t0.personaReset)
+                : null,
+            h('span', { className: 'dshn-grow' }),
+            personaStatus === '' ? null : h('span', { className: 'dshn-settings-status' }, personaStatus),
+            h('button', { type: 'button', className: 'dshn-btnm primary', disabled: saving, onClick: () => void savePersona() }, saving ? t0.personaSaving : t0.personaSave),
+          ),
+        )
+
+      if (view === 'library') {
+        return h('div', { className: 'dshn-settings' }, h(NotesSettingsStyle), libBody())
+      }
+      if (view === 'persona' && card !== null) {
+        return h('div', { className: 'dshn-settings' }, h(NotesSettingsStyle), editBody())
+      }
 
       return h(
         'div',
@@ -439,89 +632,12 @@
           ),
         }),
 
-        h(
-          'div',
-          { className: 'dshn-library' },
-          h('h4', null, t.settingsLibrary),
-          h('div', { className: 'dshn-setting-hint' }, t.settingsLibraryHint),
-          (draft ?? []).map((entry, index) =>
-            h(
-              'div',
-              { className: 'dshn-pcard', key: String(entry.id ?? index), style: { marginTop: '12px' } },
-              h(
-                'div',
-                { className: 'dshn-pcard-head' },
-                h('input', {
-                  value: entry.name ?? '',
-                  placeholder: t.personaName,
-                  'aria-label': t.personaName,
-                  onChange: (event) =>
-                    setDraft((current) => {
-                      const list = (current ?? []).slice()
-                      list[index] = { ...list[index], name: event.target.value }
-                      return list
-                    }),
-                }),
-                entry.origin === 'auto' ? h('span', { className: 'dshn-pcard-tag' }, t.settingsAutoTag) : null,
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    className: 'dshn-btnm',
-                    onClick: () => setDraft((current) => (current ?? []).filter((_, at) => at !== index)),
-                  },
-                  t.personaDelete,
-                ),
-              ),
-              h('textarea', {
-                value: entry.brief ?? '',
-                placeholder: t.personaBrief,
-                'aria-label': t.personaBrief,
-                onChange: (event) =>
-                  setDraft((current) => {
-                    const list = (current ?? []).slice()
-                    list[index] = { ...list[index], brief: event.target.value }
-                    return list
-                  }),
-              }),
-            ),
-          ),
-          (draft ?? []).length === 0 ? h('div', { className: 'dshn-setting-hint', style: { marginTop: '10px' } }, t.settingsEmptyCustom) : null,
-          h(
-            'div',
-            { className: 'dshn-settings-foot' },
-            h(
-              'button',
-              {
-                type: 'button',
-                className: 'dshn-btnm',
-                onClick: () =>
-                  setDraft((current) => [...(current ?? []), { id: `own-${Date.now().toString(36)}`, name: '', brief: '', custom: true }]),
-              },
-              t.settingsAdd,
-            ),
-            h('span', { className: 'dshn-grow' }),
-            h('span', { className: 'dshn-settings-status' }, status),
-            h('button', { type: 'button', className: 'dshn-btnm primary', disabled: saving, onClick: () => void saveDraft() }, saving ? t.personaSaving : t.personaSave),
-          ),
-          h(
-            'div',
-            { style: { marginTop: '18px' } },
-            h('div', { className: 'dshn-setting-hint' }, t.settingsPresets),
-            h(
-              'div',
-              { className: 'dshn-presets', style: { marginTop: '8px' } },
-              ...presets.map((entry) =>
-                h(
-                  'div',
-                  { className: 'dshn-preset', key: entry.id },
-                  h('b', null, detectLanguage() === 'zh' ? entry.name : (entry.nameEn ?? entry.name)),
-                  String(entry.welcome ?? ''),
-                ),
-              ),
-            ),
-          ),
-        ),
+        h(SettingRow, {
+          label: t.settingsLibrary,
+          hint: t.settingsLibraryHint,
+          side: h('button', { type: 'button', className: 'dshn-btnm', onClick: openLibrary }, `${t.settingsLibraryManage} →`),
+        }),
+        status === '' ? null : h('div', { className: 'dshn-settings-status', style: { marginTop: '8px' } }, status),
 
         // ── the copy that lives somewhere else ───────────────────────────────────────────────
         h(
