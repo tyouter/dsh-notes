@@ -75,9 +75,14 @@
 
 - **Backup, to a folder or to WebDAV**: Settings takes a NAS path (`\\nas\notes`) or a WebDAV URL with
   username and password. Each save schedules a push of `notes.json`, `trash.json`, `notes/<id>.md`,
-  `history/<id>/<stamp>.md` and a `sync.json` manifest that skips what has not changed. Runs are
-  debounced and serialised, and a failed push never fails the save. A mirror switch decides whether a
-  note deleted here is also deleted there.
+  `assets/<name>`, `history/<id>/<stamp>.md` and a `sync.json` manifest that skips what has not changed.
+  Runs are debounced and serialised, and a failed push never fails the save. A mirror switch decides
+  whether a note deleted here is also deleted there.
+- **Tables, and pictures in a note**: a pipe table renders as a real table, with per-column alignment and
+  horizontal scrolling instead of squeezed text. A pasted image is stored under `<notebook>/assets/`
+  (named by its content hash, deduplicated, served by the host) and the note keeps one `![](...)` line —
+  a standalone image becomes a figure with the alt text as caption. Nothing is uploaded anywhere; the
+  pictures join the backup like the notes do.
 - **The versions a save replaces**: with history on, the body a save overwrites is kept under
   `history/<id>/`, up to a per-note limit (default 50, 1–500). History gains a clock button that lists
   them and restores one — and restoring is itself undoable.

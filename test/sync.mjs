@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { NoteStore } from '../lib/store.js'
+import { saveAsset } from '../lib/assets.js'
 import { DEFAULT_SETTINGS, SettingsStore, normalizeSettings, publicSettings } from '../lib/settings.js'
 import { RevisionStore, bodyTitle, revisionStamp, stampDate } from '../lib/revisions.js'
 import { SyncEngine, joinUrl, sha256 } from '../lib/sync.js'
@@ -117,6 +118,21 @@ try {
   await store.remove(third.note.id)
   await engine.run({ manual: true })
   check('mirror on removes the copy of a deleted note', (await exists(thirdPath)) === false)
+
+  // ---- pictures travel with the notes ----
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex')
+  const asset = await saveAsset(store, { data: png.toString('base64'), name: 'shot.png', type: 'image/png' })
+  check('a pasted picture is stored by its hash', /^assets\/[0-9a-f]{16}\.png$/.test(asset.path), asset.path)
+  const withPicture = await engine.run({ manual: true })
+  check('a new picture is uploaded', withPicture.lastCount >= 1, JSON.stringify(withPicture))
+  const pictureCopy = join(backup, asset.path)
+  check('the picture lands byte for byte', (await readFile(pictureCopy)).equals(png))
+  const again = await engine.run({ manual: true })
+  check('an unchanged picture is not uploaded twice', again.lastCount === 0, JSON.stringify(again))
+  await store.remove(third.note.id)
+  await settings.write({ sync: { mirror: true } })
+  await engine.run({ manual: true })
+  check('mirror on keeps a picture a note still uses', await exists(pictureCopy))
 
   // ---- test connection ----
   const folderTest = await engine.test()

@@ -1193,6 +1193,44 @@
       }
 
       /**
+       * A pasted picture becomes a file and a Markdown line.
+       *
+       * Ctrl+V after Win+Shift+S is the whole flow: nothing to name, nothing to file away by hand.
+       * The bytes go to the vault's `assets/` (the name is their hash), the note keeps only the path,
+       * and the caret ends up after the line so typing continues below the picture.
+       */
+      const insertImageFile = async (file) => {
+        const area = areaRef.current
+        const value = String(area?.value ?? draft ?? '')
+        const at = area?.selectionStart ?? value.length
+        flash(t.imageUploading)
+        try {
+          const data = await fileBase64(file)
+          const saved = await post('/asset', { data, name: file.name, type: file.type })
+          const path = String(saved?.asset?.path ?? '')
+          if (path === '') throw new Error(t.imageFailed)
+          const before = value.slice(0, at)
+          const after = value.slice(at)
+          const lead = before === '' || before.endsWith('\n') ? '' : '\n'
+          const tail = after === '' || after.startsWith('\n') ? '' : '\n'
+          const line = `![](${path})`
+          applyEdit(before + lead + line + tail + after, at + lead.length + line.length + tail.length)
+          flash(t.imageInserted)
+        } catch (problem) {
+          flash(String(problem?.message ?? problem))
+        }
+      }
+
+      const onPasteImage = (event) => {
+        const items = Array.from(event.clipboardData?.files ?? event.clipboardData?.items ?? [])
+        const file = items.find((entry) => /^image\//.test(String(entry?.type ?? '')))
+        if (file === undefined) return
+        // The browser would otherwise paste the file's name (or nothing at all) into the note.
+        event.preventDefault()
+        void insertImageFile(file)
+      }
+
+      /**
        * 极简写: spaces are structure.
        *
        * Enter on a bullet continues at the same level. Two spaces pressed in one burst promote the
@@ -1888,6 +1926,7 @@
               }
               scheduleCompletion(bulleted === null ? caret : bulleted.caret)
             },
+            onPaste: onPasteImage,
             onScroll: (event) => {
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
             },

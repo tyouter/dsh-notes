@@ -240,6 +240,9 @@ window.__ModuleLoader__.load({
     partnerSummon: '呼叫',
     partnerSummonHint: '让它现在就说一句',
     partnerSilent: '它这次没说话',
+    imageUploading: '图片保存中…',
+    imageInserted: '图片已插入',
+    imageFailed: '这张图片没能保存',
         expandList: '展开列表',
         preview: '预览',
         markdown: 'Markdown',
@@ -506,6 +509,9 @@ window.__ModuleLoader__.load({
     partnerSummon: 'Ask',
     partnerSummonHint: 'Have it say something now',
     partnerSilent: 'It stayed quiet',
+    imageUploading: 'Saving the picture…',
+    imageInserted: 'Picture inserted',
+    imageFailed: 'That picture could not be saved',
         expandList: 'Expand list',
         preview: 'Preview',
         markdown: 'Markdown',
@@ -2152,6 +2158,31 @@ window.__ModuleLoader__.load({
     const del = (path) => api(path, { method: 'DELETE' })
 
     /**
+     * Where an image in a note actually loads from.
+     *
+     * Only two shapes are allowed: a vault asset (`assets/x.png`, served by the host) and an
+     * absolute http(s) URL. A note is untrusted text, so `file:`, `javascript:` and bare local
+     * paths get nothing back — the caller then shows the text instead of an image.
+     */
+    function imageUrl(source) {
+      const raw = String(source ?? '').trim()
+      if (/^https?:\/\/\S+$/i.test(raw)) return raw
+      const clean = raw.replace(/^\.\//, '').replace(/^\//, '')
+      if (!/^assets\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(clean)) return ''
+      return `${API}/asset?path=${encodeURIComponent(clean)}`
+    }
+
+    /** A picked or pasted file as bare base64 — the host decodes it, so the prefix would confuse it. */
+    function fileBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(reader.error ?? new Error('read failed'))
+        reader.onload = () => resolve(String(reader.result ?? '').replace(/^data:[^,]*;base64,/, ''))
+        reader.readAsDataURL(file)
+      })
+    }
+
+    /**
      * Read one Server-Sent-Events response, one frame at a time.
      *
      * `onEvent(name, payload)` is called as frames arrive; the promise settles
@@ -2300,11 +2331,11 @@ window.__ModuleLoader__.load({
     // bullet and numbered lists, quotes, task boxes, inline code, bold, italic.
     // It never falls back to HTML, so nothing in a note can inject markup.
 
-    /** Inline spans: `code`, **bold**, *italic*. */
+    /** Inline spans: ![image](src), [link](href), `code`, **bold**, *italic*. */
     function inlineSpans(text, keyBase) {
-      // Links first: their label may contain other marks, and a URL may contain
+      // Images first, then links: an image's alt text may contain anything, and a URL may contain
       // characters the emphasis patterns would otherwise eat.
-      const pattern = /(\[[^\]\n]+\]\([^)\s]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*)/g
+      const pattern = /(!\[[^\]\n]*\]\([^)\s]+\)|\[[^\]\n]+\]\([^)\s]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*)/g
       const out = []
       let last = 0
       let index = 0
@@ -2313,7 +2344,21 @@ window.__ModuleLoader__.load({
         if (match.index > last) out.push(text.slice(last, match.index))
         const token = match[0]
         const key = `${keyBase}-i${index++}`
-        if (token.startsWith('[')) {
+        if (token.startsWith('![')) {
+          const parts = token.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)
+          const url = parts === null ? '' : imageUrl(parts[2])
+          if (url === '') out.push(parts === null ? token : parts[1])
+          else
+            out.push(
+              h('img', {
+                key,
+                className: 'dshn-md-image dshn-md-inline',
+                src: url,
+                alt: parts[1],
+                loading: 'lazy',
+              }),
+            )
+        } else if (token.startsWith('[')) {
           const parts = token.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/)
           const label = parts === null ? token : parts[1]
           const href = parts === null ? '' : parts[2]
@@ -2352,6 +2397,34 @@ window.__ModuleLoader__.load({
     function marked(children, marks, key) {
       if (marks === undefined || marks === null) return children
       return [h('mark', { key, className: 'dshn-preview-mark' }, ...children)]
+    }
+
+    /** One table row as cells: leading, trailing and inner pipes all optional in practice. */
+    function tableCells(line) {
+      return String(line ?? '')
+        .replace(/^\s*\|/, '')
+        .replace(/\|\s*$/, '')
+        .split('|')
+        .map((cell) => cell.trim())
+    }
+
+    /** `| --- | :--: |` — the line that makes the line above it a header. */
+    function isTableDivider(line) {
+      const cells = tableCells(line)
+      return cells.length > 0 && cells.every((cell) => /^:?-{2,}:?$/.test(cell))
+    }
+
+    function tableAlign(cell) {
+      const left = cell.startsWith(':')
+      const right = cell.endsWith(':')
+      if (left && right) return 'center'
+      if (right) return 'right'
+      if (left) return 'left'
+      return undefined
+    }
+
+    function alignStyle(align) {
+      return align === undefined ? undefined : { textAlign: align }
     }
 
     /** Render a note body as Markdown blocks.
@@ -2416,7 +2489,8 @@ window.__ModuleLoader__.load({
 
       // Tracks whether the previous line was a quote, so consecutive ">" lines merge.
       let inQuote = false
-      for (const raw of lines) {
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        const raw = lines[lineIndex]
         const line = raw.replace(/\s+$/, '')
         // Was the previous line a quote? Cleared here, restored only by the quote branch.
         const continuingQuote = inQuote
@@ -2427,7 +2501,84 @@ window.__ModuleLoader__.load({
           itemStack.length = 0
           continue
         }
-        // A horizontal rule: ---, ***, ___ (three or more, spaces allowed).
+        // An image on its own line is a picture with a caption, not a paragraph.
+        const picture = line.trim().match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)
+        if (picture !== null) {
+          const url = imageUrl(picture[2])
+          if (url === '') {
+            paragraph.push(line.trim())
+            continue
+          }
+          flushParagraph()
+          flushList()
+          itemStack.length = 0
+          blocks.push(
+            h(
+              'figure',
+              { key: `f${blocks.length}`, className: 'dshn-md-figure' },
+              h('img', { className: 'dshn-md-image', src: url, alt: picture[1], loading: 'lazy' }),
+              picture[1] === '' ? null : h('figcaption', { className: 'dshn-md-caption' }, picture[1]),
+            ),
+          )
+          continue
+        }
+        // A table: a row of pipes, a divider under it, then rows until the pipes stop.
+        if (line.includes('|') && lineIndex + 1 < lines.length && isTableDivider(lines[lineIndex + 1])) {
+          const header = tableCells(line)
+          const aligns = tableCells(lines[lineIndex + 1]).map(tableAlign)
+          const rows = []
+          let cursor = lineIndex + 2
+          while (cursor < lines.length && lines[cursor].includes('|') && lines[cursor].trim() !== '') {
+            rows.push(tableCells(lines[cursor]))
+            cursor += 1
+          }
+          flushParagraph()
+          flushList()
+          itemStack.length = 0
+          const key = `t${blocks.length}`
+          blocks.push(
+            h(
+              'div',
+              { key, className: 'dshn-md-table-wrap' },
+              h(
+                'table',
+                { className: 'dshn-md-table' },
+                h(
+                  'thead',
+                  null,
+                  h(
+                    'tr',
+                    null,
+                    ...header.map((cell, column) =>
+                      h('th', { key: column, style: alignStyle(aligns[column]) }, ...inlineSpans(cell, `${key}-h${column}`)),
+                    ),
+                  ),
+                ),
+                rows.length === 0
+                  ? null
+                  : h(
+                      'tbody',
+                      null,
+                      ...rows.map((row, rowIndex) =>
+                        h(
+                          'tr',
+                          { key: rowIndex },
+                          ...header.map((_, column) =>
+                            h(
+                              'td',
+                              { key: column, style: alignStyle(aligns[column]) },
+                              ...inlineSpans(row[column] ?? '', `${key}-r${rowIndex}c${column}`),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+              ),
+            ),
+          )
+          lineIndex = cursor - 1
+          continue
+        }
         if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
           flushParagraph()
           flushList()
@@ -3180,6 +3331,52 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 .dshn-md-link:hover { text-decoration: underline; }
+/* A table is wide by nature: it scrolls sideways inside the page instead of shrinking the text. */
+.dshn-md-table-wrap {
+  margin: 4px 0 14px;
+  overflow-x: auto;
+}
+.dshn-md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+.dshn-md-table th,
+.dshn-md-table td {
+  padding: 6px 10px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  text-align: left;
+}
+.dshn-md-table th {
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-2);
+  white-space: nowrap;
+}
+.dshn-md-table tbody tr:last-child td { border-bottom: none; }
+.dshn-md-figure { margin: 4px 0 14px; }
+.dshn-md-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+.dshn-md-caption {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-md-inline.dshn-md-image {
+  display: inline-block;
+  max-height: 1.5em;
+  border: none;
+  border-radius: 3px;
+  vertical-align: text-bottom;
+}
 .dshn-md-item {
   display: flex;
   gap: 8px;
@@ -5633,6 +5830,44 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       }
 
       /**
+       * A pasted picture becomes a file and a Markdown line.
+       *
+       * Ctrl+V after Win+Shift+S is the whole flow: nothing to name, nothing to file away by hand.
+       * The bytes go to the vault's `assets/` (the name is their hash), the note keeps only the path,
+       * and the caret ends up after the line so typing continues below the picture.
+       */
+      const insertImageFile = async (file) => {
+        const area = areaRef.current
+        const value = String(area?.value ?? draft ?? '')
+        const at = area?.selectionStart ?? value.length
+        flash(t.imageUploading)
+        try {
+          const data = await fileBase64(file)
+          const saved = await post('/asset', { data, name: file.name, type: file.type })
+          const path = String(saved?.asset?.path ?? '')
+          if (path === '') throw new Error(t.imageFailed)
+          const before = value.slice(0, at)
+          const after = value.slice(at)
+          const lead = before === '' || before.endsWith('\n') ? '' : '\n'
+          const tail = after === '' || after.startsWith('\n') ? '' : '\n'
+          const line = `![](${path})`
+          applyEdit(before + lead + line + tail + after, at + lead.length + line.length + tail.length)
+          flash(t.imageInserted)
+        } catch (problem) {
+          flash(String(problem?.message ?? problem))
+        }
+      }
+
+      const onPasteImage = (event) => {
+        const items = Array.from(event.clipboardData?.files ?? event.clipboardData?.items ?? [])
+        const file = items.find((entry) => /^image\//.test(String(entry?.type ?? '')))
+        if (file === undefined) return
+        // The browser would otherwise paste the file's name (or nothing at all) into the note.
+        event.preventDefault()
+        void insertImageFile(file)
+      }
+
+      /**
        * 极简写: spaces are structure.
        *
        * Enter on a bullet continues at the same level. Two spaces pressed in one burst promote the
@@ -6328,6 +6563,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               }
               scheduleCompletion(bulleted === null ? caret : bulleted.caret)
             },
+            onPaste: onPasteImage,
             onScroll: (event) => {
               if (marksRef.current !== null) marksRef.current.scrollTop = event.target.scrollTop
             },

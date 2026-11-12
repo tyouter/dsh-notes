@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { NoteStore, mergeTags, deriveTitle, isMeaninglessTitle } from '../lib/store.js'
+import { listAssets, readAsset, saveAsset } from '../lib/assets.js'
 import { buildEnhanceMessage, parseStructured, readEnhanceResult } from '../lib/prompt.js'
 import { computeStats } from '../lib/analytics.js'
 import { ChartStore, EventLog } from '../lib/events.js'
@@ -54,6 +55,33 @@ try {
   check('search finds both notes mentioning 接口', found.total === 2, String(found.total))
   check('tags are aggregated', (await store.tags()).length === 3)
   check('snapshot carries notes, total, tags, location', (await store.snapshot()).notes.length === 3)
+
+  // ---- pictures ----
+  const pixel = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex')
+  const stored = await saveAsset(store, { data: `data:image/png;base64,${pixel.toString('base64')}`, name: 'a.png', type: 'image/png' })
+  check('a picture is stored under its content hash', /^assets\/[0-9a-f]{16}\.png$/.test(stored.path), stored.path)
+  const twice = await saveAsset(store, { data: pixel.toString('base64'), name: 'b.png', type: 'image/png' })
+  check('the same picture twice is one file', twice.path === stored.path, `${stored.path} vs ${twice.path}`)
+  const back = await readAsset(store, stored.path)
+  check('the picture reads back byte for byte', back.body.equals(pixel), String(back.body.length))
+  check('the picture keeps its type', back.type === 'image/png', back.type)
+  check('every stored picture is listed', (await listAssets(store)).some((entry) => entry.path === stored.path))
+  let traversal = null
+  try {
+    await readAsset(store, 'assets/../../notes.json')
+  } catch (error) {
+    traversal = error
+  }
+  check('a path outside assets/ is refused', traversal?.code === 'NOT_FOUND', String(traversal?.code))
+  let mangled = null
+  try {
+    await saveAsset(store, { data: '', name: 'a.png', type: 'image/png' })
+  } catch (error) {
+    mangled = error
+  }
+  check('an empty upload is refused', mangled?.code === 'BAD_REQUEST', String(mangled?.code))
+  const refusedExt = await saveAsset(store, { data: pixel.toString('base64'), name: 'notes.txt', type: 'text/plain' })
+  check('an unknown type falls back to png', refusedExt.path.endsWith('.png'), refusedExt.path)
 
   const pinned = await store.update({ id: b.note.id, pinned: true })
   check('pin survives update', pinned.note.pinned === true)

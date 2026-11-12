@@ -150,6 +150,37 @@ const unsafe = renderMarkdown('[点我](javascript:alert(1))')
 check('a javascript: link is not an anchor', !tags(unsafe).includes('<a>'), tags(unsafe).join(''))
 check('an unsafe link keeps its text', texts(unsafe).join('').includes('点我'))
 
+// ---- tables ----
+const table = renderMarkdown(['| 项目 | 金额 |', '| --- | ---: |', '| 房租 | 3200 |', '| 水电 | 148 |'].join('\n'))
+const tableTags = tags(table)
+check('a pipe table renders as a table', tableTags.includes('<table>'), tableTags.join(''))
+check('the header row is a thead', tableTags.includes('<thead>') && tableTags.includes('<th>'), tableTags.join(''))
+check('the body rows are cells', tableTags.filter((tag) => tag === '<td>').length === 4, tableTags.join(''))
+check('no pipe survives as text', !texts(table).join('').includes('|'), texts(table).join(''))
+check('the divider never reaches the page', !texts(table).join('').includes('---'), texts(table).join(''))
+check('cells keep their text', texts(table).join(' ').includes('3200') && texts(table).join(' ').includes('房租'))
+// A right-aligned column carries the alignment through to the style.
+const aligned = JSON.stringify(table).includes('"textAlign":"right"')
+check('an aligned column keeps its alignment', aligned, JSON.stringify(table).slice(0, 400))
+// A paragraph with a pipe but no divider is still a paragraph.
+const pipeProse = renderMarkdown('用 a | b 表示或')
+check('a pipe in prose is not a table', !tags(pipeProse).includes('<table>'), tags(pipeProse).join(''))
+
+// ---- images ----
+const picture = renderMarkdown('![](assets/abc123.png)')
+const pictureTags = tags(picture)
+check('a standalone image renders as an img', pictureTags.includes('<img>'), pictureTags.join(''))
+check('the image points at the asset route', JSON.stringify(picture).includes('/asset?path=assets%2Fabc123.png'), JSON.stringify(picture).slice(0, 300))
+const captioned = renderMarkdown('![屏幕截图](assets/abc123.png)')
+check('an image caption becomes a figcaption', tags(captioned).includes('<figcaption>'), tags(captioned).join(''))
+const inlinePicture = renderMarkdown('前文 ![](assets/abc123.png) 后文')
+check('an image inside a sentence stays inline', tags(inlinePicture).includes('<img>') && !tags(inlinePicture).includes('<figure>'), tags(inlinePicture).join(''))
+const remotePicture = renderMarkdown('![x](https://example.com/a.png)')
+check('a remote image is allowed', JSON.stringify(remotePicture).includes('https://example.com/a.png'), JSON.stringify(remotePicture).slice(0, 300))
+const localPicture = renderMarkdown('![x](C:/Users/me/a.png)')
+check('a local path never becomes an image', !tags(localPicture).includes('<img>'), tags(localPicture).join(''))
+check('a refused image keeps its alt text', texts(localPicture).join('').includes('x'), texts(localPicture).join(''))
+
 // ---- consecutive quotes merge ----
 const quoted = renderMarkdown('> 第一句\n> 第二句')
 check('consecutive quote lines merge', tags(quoted).filter((tag) => tag === '<blockquote>').length === 1, tags(quoted).join(''))

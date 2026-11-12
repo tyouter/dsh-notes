@@ -48,6 +48,12 @@ All we do is three things:
 - **AI alongside** — suggestions, structure and translation wait at the edge of the page and answer when you ask. Your notes are looked after by the AI, not by toolbars.
 - **Writing as it should be** — clean, direct, uninterrupted. The page is already set while you type.
 
+Typed Markdown is rendered, not shown as source: headings, lists and task boxes,
+quotes, rules, tables with aligned columns, and images. A picture is never
+uploaded — paste it into the page (or `Ctrl+V` after a screenshot) and the bytes
+land in `<notebook>/assets/`, named by their content hash, with one line in the
+note pointing at them.
+
 ![Capture](docs/marketing/demo-a-write.gif)
 
 *Capture*
@@ -111,6 +117,7 @@ OneDrive. Everything else is derived.
   links.json      which session belongs to the notebook
   events.jsonl    append-only instrumentation: AI calls, UI actions, charts
   dashboard.json  charts pinned to the dashboard
+  assets/         pictures a note points at, named by their content hash
   index.db        SQLite projection of the above, for the query tools
 ```
 
@@ -135,6 +142,7 @@ read back from it — this is a backup, not a merge:
 notes.json            the whole notebook, restorable by copying one file back
 trash.json            the recycle bin
 notes/<id>.md         one plain Markdown file per note, readable in any editor
+assets/<name>         the pictures, byte for byte
 history/<id>/<st>.md  the kept versions, when history is on
 sync.json             path → sha256, so the next run only writes what changed
 ```
