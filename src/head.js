@@ -35,7 +35,7 @@
         quickNoteClose: '返回对话',
         quickNoteTags: '标签，用逗号分隔',
         quickNoteHint: 'Ctrl/⌘+Enter 保存',
-        boardReadOnly: '只读：可以查询和分析，不会改动笔记',
+        boardReadOnly: '能查询，也能按你说的新建和修改笔记（删除除外）',
 
         // ---- 看板 ----
         statNotes: '笔记',
@@ -301,7 +301,7 @@
         quickNoteClose: 'Back to chat',
         quickNoteTags: 'Tags, comma separated',
         quickNoteHint: 'Ctrl/⌘+Enter to save',
-        boardReadOnly: 'Read-only: queries and analysis, never edits',
+        boardReadOnly: 'Answers, and writes the notes you ask for — except deleting them',
 
         // ---- board ----
         statNotes: 'Notes',

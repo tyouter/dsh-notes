@@ -70,8 +70,9 @@ All we do is three things:
   plus a disposable SQLite projection rebuilt from them. Deleting the database loses nothing.
 - Nothing is uploaded. Model calls go through the host's own `llm` service, so they use whatever
   provider and key the rest of DSH already uses.
-- The board's assistant is a real agent session limited to the notebook's read-only query tools,
-  `notes_analyze`, `dashboard_chart` and the note-writing `notes` tool.
+- The board's assistant is a real agent session with the notebook's query tools, `notes_analyze`,
+  `dashboard_chart` and the `notes` tool — so asking it for a page creates one, in place. It cannot
+  delete: that stays a human action, done from History where a deleted note is still recoverable.
 
 | Tab | What it is |
 | --- | --- |

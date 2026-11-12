@@ -153,15 +153,23 @@ try {
   )
   const byName = (name) => registered.find((entry) => entry.name === name)
   const notesTool = byName('notes')
-  // The dashboard conversation is read-only: a write from that session is refused.
+  // The dashboard conversation writes: a question can become a page without leaving the chat.
   await store.bindLink('board', 'session-board-1', { at: new Date().toISOString() })
+  const fromBoard = await notesTool.execute({ action: 'add', body: '看板写下的\n一行' }, { agent: { id: 'session-board-1' } })
+  check('the board session can create a note', fromBoard.status === 'created' && fromBoard.note.source === 'agent', JSON.stringify(fromBoard).slice(0, 80))
+  const revised = await notesTool.execute(
+    { action: 'update', id: fromBoard.note.id, tags: ['看板'] },
+    { agent: { id: 'session-board-1' } },
+  )
+  check('the board session can edit a note', Array.isArray(revised.note?.tags) && revised.note.tags.includes('看板'), JSON.stringify(revised).slice(0, 80))
   const blocked = await notesTool
-    .execute({ action: 'add', body: 'x' }, { agent: { id: 'session-board-1' } })
+    .execute({ action: 'delete', id: fromBoard.note.id }, { agent: { id: 'session-board-1' } })
     .then(
       () => undefined,
       (error) => error,
     )
-  check('the board session cannot write', blocked?.code === 'READ_ONLY_SESSION', String(blocked?.code))
+  check('the board session cannot delete', blocked?.code === 'BOARD_NO_DELETE', String(blocked?.code))
+  check('the note it wrote survived the refused delete', (await store.get(fromBoard.note.id)) !== undefined)
   const readable = await notesTool.execute({ action: 'list' }, { agent: { id: 'session-board-1' } })
   check('the board session can still read', typeof readable.total === 'number')
   const allowed = await notesTool.execute({ action: 'add', body: 'from another session' }, { agent: { id: 'session-other' } })

@@ -71,6 +71,22 @@
 - **Stopping the microphone stops everything**: an in-flight transcription is aborted, the strip is
   cleared, and a stray notice expires after four seconds — "识别中" cannot outlive the microphone.
 - Settings live in `notes-vault/settings.json`; interjections are standard Markdown quotes.
+## Unreleased — a backup destination, the versions, and a board that writes
+
+- **Backup, to a folder or to WebDAV**: Settings takes a NAS path (`\\nas\notes`) or a WebDAV URL with
+  username and password. Each save schedules a push of `notes.json`, `trash.json`, `notes/<id>.md`,
+  `history/<id>/<stamp>.md` and a `sync.json` manifest that skips what has not changed. Runs are
+  debounced and serialised, and a failed push never fails the save. A mirror switch decides whether a
+  note deleted here is also deleted there.
+- **The versions a save replaces**: with history on, the body a save overwrites is kept under
+  `history/<id>/`, up to a per-note limit (default 50, 1–500). History gains a clock button that lists
+  them and restores one — and restoring is itself undoable.
+- **The board hands the pane to the conversation**: a button in the chat header folds the dashboard away
+  and back; the choice is remembered across reloads.
+- **The board's assistant can write**: it creates notes, appends to them and revises body, tags or
+  pinning in place, so a conversation can become a page without a trip to the capture box. Deleting
+  stays a human action — History still has the recovery.
+
 ## 1.1.3 — colours, immersion, and the typing path
 
 ### Charts
