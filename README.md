@@ -130,12 +130,17 @@ first.
 History lists two things: the notebook, and what was deleted out of it. The
 switch sits at the top of the list, with a count on each side.
 
-Deleting is deliberate by construction. The delete icon asks once — it fills red
-and waits for a second click — and then the note moves to `trash.json` rather
-than disappearing. The trash view shows each deleted note with the time it went
-there, reads it back as a page, and puts it back with one click. Emptying the
-trash asks the same way twice, and that one is final: `trash/purge` and
-`trash/empty` are the only routes that drop a body for good.
+Deleting lives on the right mouse button. Right-click a note for open, delete,
+select all and invert; right-click inside a selection and the action applies to
+the whole selection. Ctrl/⌘-click adds one note to the selection, Shift-click
+takes a range, and a selected row is marked on its left edge. Every deletion —
+one note or forty — goes through a dialog that says how many notes are going and
+names them, and nothing is deleted until that dialog is confirmed.
+
+The note itself is not lost at that point: it moves to `trash.json`. The trash
+view reads a deleted note back as a page, puts it back with one click (or many),
+and deletes for good only through the same dialog. `trash/purge` and
+`trash/empty` are the only routes that drop a body.
 
 A note's title renders at 26px in the page. That is on purpose: the largest
 heading inside a body is 19px, so a title cannot be mistaken for the page's own

@@ -255,6 +255,29 @@
         trashCleared: '回收站已清空',
         trashPurged: '已彻底删除',
         trashRestored: '已恢复',
+        ctxOpen: '打开',
+        ctxDelete: '删除',
+        ctxRestore: '恢复',
+        ctxPurge: '彻底删除',
+        ctxEmpty: '清空回收站',
+        selCount: (count) => `已选 ${count} 条`,
+        selAll: '全选',
+        selInvert: '反选',
+        selNone: '取消选择',
+        confirmDeleteTitle: (count) => (count === 1 ? '删除这条笔记？' : `删除这 ${count} 条笔记？`),
+        confirmDeleteBody: (count) =>
+          count === 1
+            ? '这条笔记会移进回收站，之后随时可以恢复。'
+            : `${count} 条笔记会移进回收站，之后随时可以恢复。`,
+        confirmPurgeTitle: (count) => (count === 1 ? '彻底删除这条笔记？' : `彻底删除这 ${count} 条笔记？`),
+        confirmPurgeBody: (count) =>
+          `${count === 1 ? '这条笔记' : `这 ${count} 条笔记`}会从回收站里永久删除，这一步不能撤销。笔记文件的备份副本不受影响。`,
+        confirmEmptyTitle: (count) => (count === 1 ? '清空回收站里的这 1 条？' : `清空回收站里的 ${count} 条笔记？`),
+        confirmEmptyBody: (count) => `回收站里的 ${count} 条笔记会全部永久删除，这一步不能撤销。`,
+        confirmCancel: '取消',
+        confirmDeleteGo: '删除',
+        confirmPurgeGo: '彻底删除',
+        confirmEmptyGo: '清空',
         loading: '加载中…',
         empty: '这里还没有笔记。在上面写第一句，按 Ctrl/⌘+Enter 保存。',
         emptySearch: '没有匹配的笔记。',
@@ -537,6 +560,29 @@
         trashCleared: 'The trash is empty',
         trashPurged: 'Deleted forever',
         trashRestored: 'Restored',
+        ctxOpen: 'Open',
+        ctxDelete: 'Delete',
+        ctxRestore: 'Restore',
+        ctxPurge: 'Delete forever',
+        ctxEmpty: 'Empty the trash',
+        selCount: (count) => `${count} selected`,
+        selAll: 'Select all',
+        selInvert: 'Invert',
+        selNone: 'Clear selection',
+        confirmDeleteTitle: (count) => (count === 1 ? 'Delete this note?' : `Delete these ${count} notes?`),
+        confirmDeleteBody: (count) =>
+          count === 1
+            ? 'The note moves to the trash. Restoring it is one click away.'
+            : `${count} notes move to the trash. Restoring them is one click away.`,
+        confirmPurgeTitle: (count) => (count === 1 ? 'Delete this note forever?' : `Delete these ${count} notes forever?`),
+        confirmPurgeBody: (count) =>
+          `${count === 1 ? 'This note' : `These ${count} notes`} will be removed from the trash for good. This cannot be undone; a backup copy, if you keep one, is untouched.`,
+        confirmEmptyTitle: (count) => (count === 1 ? 'Empty the one note in the trash?' : `Empty all ${count} notes in the trash?`),
+        confirmEmptyBody: (count) => `All ${count} notes in the trash are removed for good. This cannot be undone.`,
+        confirmCancel: 'Cancel',
+        confirmDeleteGo: 'Delete',
+        confirmPurgeGo: 'Delete forever',
+        confirmEmptyGo: 'Empty',
         loading: 'Loading…',
         empty: 'No notes yet. Write the first line above and press Ctrl/⌘+Enter.',
         emptySearch: 'Nothing matches.',
@@ -3064,14 +3110,87 @@
   color: var(--dsw-alias-label-secondary);
 }
 .dshn-trash-bar .dshn-grow { flex: 1 1 auto; }
-/* A destructive button asks twice: the second click is the one that means it. */
-.dshn-btnm.dshn-armed,
-.dshn-icon-btn.dshn-armed {
-  border-color: var(--dshn-danger, #d1242f);
-  color: #fff;
-  background: var(--dshn-danger, #d1242f);
+/* What is selected: a row that is part of a batch says so on its left edge. */
+.dshn-item[data-picked="true"] {
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: inset 2px 0 0 var(--dsw-alias-brand-primary);
 }
-.dshn-icon-btn.dshn-armed { border-radius: var(--dshn-r-sm); }
+.dshn-sel-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-sel-bar .dshn-grow { flex: 1 1 auto; }
+/* The right-click menu: fixed, so it can escape a scrolling list. */
+.dshn-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 176px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-radius: var(--dshn-r-md);
+  border: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16);
+}
+.dshn-menu-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--dshn-r-sm);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+.dshn-menu-item:hover { background: var(--dsw-alias-bg-layer-2); }
+.dshn-menu-item.dshn-danger { color: var(--dshn-danger, #d1242f); }
+.dshn-menu-sep { height: 1px; margin: 4px 6px; background: var(--dsw-alias-border-l1); }
+/* The confirmation: one dialog, and it names what it is about to do. */
+.dshn-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 0.28);
+}
+.dshn-modal {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 14px;
+  border-radius: var(--dshn-r-lg);
+  border: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.24);
+}
+.dshn-modal-title { font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.dshn-modal-body { font-size: 13px; line-height: 1.7; color: var(--dsw-alias-label-secondary); }
+.dshn-modal-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 148px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+/* A destructive button is red in text and border, and red in fill only when pressed. */
+.dshn-btnm.dshn-danger { color: var(--dshn-danger, #d1242f); border-color: var(--dshn-danger, #d1242f); }
+.dshn-btnm.dshn-danger:hover { color: #fff; background: var(--dshn-danger, #d1242f); }
 .dshn-trash-when { flex: none; opacity: 0.8; }
 .dshn-icon-btn {
   width: 28px;

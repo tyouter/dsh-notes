@@ -91,9 +91,11 @@
 - **The board's assistant can write**: it creates notes, appends to them and revises body, tags or
   pinning in place, so a conversation can become a page without a trip to the capture box. Deleting
   stays a human action — History still has the recovery.
-- **A trash you can see, and empty**: History has two lists — the notebook and the trash. Deleting a note
-  takes two clicks (the icon fills red and waits), the note moves to `trash.json`, and it comes back with
-  one click from the trash list. Emptying the trash is also a two-click action, and that one is final.
+- **A trash you can see, and empty**: History has two lists — the notebook and the trash. Deleting is a
+  right-click away and applies to a selection (Ctrl/⌘-click adds, Shift-click spans, select all and
+  invert are in the same menu). Every deletion — one note or many — passes through a dialog that counts
+  and names what is about to go. Deleting moves a note to `trash.json`, restoring is one click, and only
+  the trash's own "delete forever" and "empty" drop a body.
 - **The title is a title**: a note's title is now 26px — it was rendering at body-heading size, which made
   a page's own `# heading` look like the larger one. History shows the title in the page, as a written
   piece rather than a row in a list.

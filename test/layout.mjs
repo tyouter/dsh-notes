@@ -143,5 +143,14 @@ check('the board can fold the dashboard away', /dshn-board-focus/.test(css) && /
 check('a folded board drops the dashboard and its resizer', /focus\s*\n?\s*\?\s*null\s*\n?\s*:\s*h\(\s*'div',\s*\{\s*className: 'dshn-board-main'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the dashboard still renders when the chat is focused')
 
 
+// Deleting is a right-click away, works on a whole selection, and always asks first.
+const panelSource = await readFile(join(packageDir, 'src', 'panel.js'), 'utf8')
+check('a note row opens a menu on right-click', (panelSource.match(/onContextMenu: \(event\) => openMenu\(event, note\.id\)/g) ?? []).length === 2, 'one of the two lists has no context menu')
+check('the menu offers select all and invert', /const pickAll = \(\) => setPicked\(listIds\(\)\)/.test(panelSource) && /const pickInvert = /.test(panelSource), 'selection helpers are missing')
+check('the menu only ever acts on what was clicked', /ids: picked\.includes\(id\) \? picked : \[id\]/.test(panelSource), 'right-click can act on a stale selection')
+check('deleting opens a confirmation dialog', /askDelete\(\[selected\.id\]\)/.test(panelSource) && /className: 'dshn-modal-mask'/.test(panelSource), 'a delete can run without asking')
+check('the dialog names what it is about to delete', /const askNames = /.test(panelSource) && /dshn-modal-list/.test(css), 'the dialog does not list the notes')
+check('the two-click arming is gone', /dshn-armed/.test(css) === false && /setArmed/.test(panelSource) === false, 'a destructive control still arms instead of asking')
+
 console.log(failures === 0 ? '\nlayout contract holds' : `\n${failures} violation(s)`)
 process.exitCode = failures === 0 ? 0 : 1

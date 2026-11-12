@@ -395,8 +395,14 @@
       const [view, setView] = useState('notes')
       const [trash, setTrash] = useState([])
       const [trashPick, setTrashPick] = useState('')
-      // Which destructive control has been clicked once and is waiting for the second click.
-      const [armed, setArmed] = useState('')
+      // What is selected: multi-selection is what makes "delete these five" one action.
+      const [picked, setPicked] = useState([])
+      // Where a shift-click counts from.
+      const [pickAnchor, setPickAnchor] = useState('')
+      // The right-click menu, in viewport coordinates: null when nothing is open.
+      const [menu, setMenu] = useState(null)
+      // The one confirmation dialog: null, or { kind, ids }.
+      const [ask, setAsk] = useState(null)
       // "已复制" for a moment after the Markdown button is pressed.
       const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
@@ -505,11 +511,10 @@
       }
 
       /**
-       * The trash.
+       * The trash, and what can be done to more than one note at a time.
        *
-       * Deleting is a two-step habit: the first click only arms the button, and a deleted note is
-       * still recoverable because deletion is a move into `trash.json`. The trash view is where a
-       * deletion becomes final, and that one asks twice as well.
+       * Deletion is a move into `trash.json`, so the first deletion is always recoverable; the
+       * trash view is where a deletion becomes final, and that one asks in a dialog.
        */
       const loadTrash = async () => {
         try {
@@ -524,65 +529,185 @@
         setView('trash')
         setEditing(false)
         setVersions(null)
+        setPicked([])
+        setPickAnchor('')
         void loadTrash()
       }
 
       const openNotes = () => {
         setView('notes')
         setTrashPick('')
+        setPicked([])
+        setPickAnchor('')
       }
 
-      /** One destructive action at a time, and only for a few seconds. */
-      const arm = (key) => {
-        setArmed(key)
-        setTimeout(() => setArmed((current) => (current === key ? '' : current)), 4000)
+      // ---- selection ----
+      // The list in front of the user, in the order it is drawn: that order is what a
+      // shift-click spans, so it must come from the same source as the rows.
+      const listIds = () =>
+        view === 'trash' ? trash.map((note) => note.id) : filtered.map((note) => note.id)
+
+      const togglePick = (id) => {
+        setPicked((current) => (current.includes(id) ? current.filter((each) => each !== id) : [...current, id]))
+        setPickAnchor(id)
       }
 
-      const restoreTrashed = async (id) => {
+      const pickRange = (id) => {
+        const ids = listIds()
+        const to = ids.indexOf(id)
+        const from = pickAnchor === '' ? to : ids.indexOf(pickAnchor)
+        if (to < 0) return
+        if (from < 0) {
+          setPicked([id])
+          setPickAnchor(id)
+          return
+        }
+        const [low, high] = from <= to ? [from, to] : [to, from]
+        setPicked(ids.slice(low, high + 1))
+      }
+
+      const pickAll = () => setPicked(listIds())
+      const pickNone = () => {
+        setPicked([])
+        setPickAnchor('')
+      }
+      const pickInvert = () => setPicked(listIds().filter((id) => !picked.includes(id)))
+
+      const onRowClick = (event, id) => {
+        if (event.metaKey || event.ctrlKey) {
+          togglePick(id)
+          return
+        }
+        if (event.shiftKey) {
+          pickRange(id)
+          return
+        }
+        pickNone()
+        if (view === 'trash') setTrashPick(id)
+        else onSelect(id)
+      }
+
+      // ---- the right-click menu ----
+      const openMenu = (event, id) => {
+        event.preventDefault()
+        // Right-clicking outside the selection acts on the row under the cursor: the menu
+        // must never delete something the user was not pointing at.
+        if (!picked.includes(id)) {
+          setPicked([id])
+          setPickAnchor(id)
+        }
+        setMenu({ x: event.clientX, y: event.clientY, ids: picked.includes(id) ? picked : [id] })
+      }
+
+      // ---- the actions themselves ----
+      const restoreMany = async (ids) => {
+        setMenu(null)
+        if (ids.length === 0) return
         await action(async () => {
-          await post('/restore', { id })
+          for (const id of ids) await post('/restore', { id })
           await loadTrash()
           setTrashPick('')
+          pickNone()
         })
       }
 
-      const purgeTrashed = async (id) => {
-        if (armed !== `purge:${id}`) {
-          arm(`purge:${id}`)
-          return
-        }
-        setArmed('')
+      const removeMany = async (ids) => {
         await action(async () => {
-          await post('/trash/purge', { id })
+          for (const id of ids) await del(`/note/${encodeURIComponent(id)}`)
           await loadTrash()
-          setTrashPick('')
+          setPicked((current) => current.filter((each) => !ids.includes(each)))
+          if (ids.includes(selectedId)) setTrashPick('')
         })
       }
 
-      const emptyTrash = async () => {
-        if (armed !== 'empty') {
-          arm('empty')
-          return
-        }
-        setArmed('')
+      const purgeMany = async (ids) => {
+        await action(async () => {
+          for (const id of ids) await post('/trash/purge', { id })
+          await loadTrash()
+          setTrashPick('')
+          pickNone()
+        })
+      }
+
+      const emptyAll = async () => {
         await action(async () => {
           await post('/trash/empty', {})
           await loadTrash()
           setTrashPick('')
+          pickNone()
         })
       }
 
-      const removeNote = async (id) => {
-        if (armed !== `delete:${id}`) {
-          arm(`delete:${id}`)
-          return
-        }
-        setArmed('')
-        await action(async () => {
-          await del(`/note/${encodeURIComponent(id)}`)
-          await loadTrash()
-        })
+      // ---- the dialog ----
+      const askDelete = (ids) => {
+        setMenu(null)
+        if (ids.length > 0) setAsk({ kind: 'delete', ids })
       }
+      const askPurge = (ids) => {
+        setMenu(null)
+        if (ids.length > 0) setAsk({ kind: 'purge', ids })
+      }
+      const askEmpty = () => {
+        setMenu(null)
+        if (trash.length > 0) setAsk({ kind: 'empty', ids: trash.map((note) => note.id) })
+      }
+
+      const confirmAsk = async () => {
+        const current = ask
+        setAsk(null)
+        if (current === null) return
+        if (current.kind === 'delete') await removeMany(current.ids)
+        if (current.kind === 'purge') await purgeMany(current.ids)
+        if (current.kind === 'empty') await emptyAll()
+      }
+
+      const askTitle = () => {
+        if (ask === null) return ''
+        if (ask.kind === 'delete') return t.confirmDeleteTitle(ask.ids.length)
+        if (ask.kind === 'purge') return t.confirmPurgeTitle(ask.ids.length)
+        return t.confirmEmptyTitle(ask.ids.length)
+      }
+      const askBody = () => {
+        if (ask === null) return ''
+        if (ask.kind === 'delete') return t.confirmDeleteBody(ask.ids.length)
+        if (ask.kind === 'purge') return t.confirmPurgeBody(ask.ids.length)
+        return t.confirmEmptyBody(ask.ids.length)
+      }
+      const askGo = () => {
+        if (ask === null) return ''
+        if (ask.kind === 'delete') return t.confirmDeleteGo
+        if (ask.kind === 'purge') return t.confirmPurgeGo
+        return t.confirmEmptyGo
+      }
+      // The names answer "which ones?" without opening each note first.
+      const askNames = () => {
+        if (ask === null) return []
+        const pool = [...notes, ...trash]
+        return ask.ids
+          .map((id) => pool.find((note) => note.id === id))
+          .filter(Boolean)
+          .slice(0, 8)
+          .map((note) => titleOf(note, t))
+      }
+
+      // Escape closes whatever is open, and a click anywhere else closes the menu.
+      useEffect(() => {
+        if (menu === null && ask === null) return undefined
+        const onKey = (event) => {
+          if (event.key !== 'Escape') return
+          setMenu(null)
+          setAsk(null)
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+      }, [menu, ask])
+
+      useEffect(() => {
+        if (menu === null) return undefined
+        const close = () => setMenu(null)
+        window.addEventListener('pointerdown', close)
+        return () => window.removeEventListener('pointerdown', close)
+      }, [menu])
 
       // The header shows how many notes sit in the trash, so it is read once on mount.
       useEffect(() => {
@@ -590,6 +715,163 @@
       }, [])
 
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
+
+      const menuNode =
+        menu === null
+          ? null
+          : h(
+              'div',
+              {
+                className: 'dshn-menu',
+                role: 'menu',
+                style: { left: Math.min(menu.x, 1920 - 200), top: Math.min(menu.y, 1080 - 220) },
+                onPointerDown: (event) => event.stopPropagation(),
+              },
+              view === 'trash'
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshn-menu-item',
+                      role: 'menuitem',
+                      onClick: () => void restoreMany(menu.ids),
+                    },
+                    t.ctxRestore,
+                  )
+                : menu.ids.length === 1
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshn-menu-item',
+                      role: 'menuitem',
+                      onClick: () => {
+                        const id = menu.ids[0]
+                        setMenu(null)
+                        pickNone()
+                        onSelect(id)
+                      },
+                    },
+                    t.ctxOpen,
+                  )
+                : null,
+              view === 'trash'
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshn-menu-item dshn-danger',
+                      role: 'menuitem',
+                      onClick: () => askPurge(menu.ids),
+                    },
+                    t.ctxPurge,
+                  )
+                : h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshn-menu-item dshn-danger',
+                      role: 'menuitem',
+                      onClick: () => askDelete(menu.ids),
+                    },
+                    t.ctxDelete,
+                  ),
+              h('div', { className: 'dshn-menu-sep' }),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshn-menu-item',
+                  role: 'menuitem',
+                  onClick: () => {
+                    pickAll()
+                    setMenu(null)
+                  },
+                },
+                t.selAll,
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshn-menu-item',
+                  role: 'menuitem',
+                  onClick: () => {
+                    pickInvert()
+                    setMenu(null)
+                  },
+                },
+                t.selInvert,
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshn-menu-item',
+                  role: 'menuitem',
+                  onClick: () => {
+                    pickNone()
+                    setMenu(null)
+                  },
+                },
+                t.selNone,
+              ),
+              view === 'trash' && trash.length > 0
+                ? h('div', { className: 'dshn-menu-sep' })
+                : null,
+              view === 'trash' && trash.length > 0
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshn-menu-item dshn-danger',
+                      role: 'menuitem',
+                      onClick: () => askEmpty(),
+                    },
+                    t.ctxEmpty,
+                  )
+                : null,
+            )
+
+      const askNode =
+        ask === null
+          ? null
+          : h(
+              'div',
+              {
+                className: 'dshn-modal-mask',
+                onPointerDown: () => setAsk(null),
+              },
+              h(
+                'div',
+                {
+                  className: 'dshn-modal',
+                  role: 'dialog',
+                  'aria-modal': 'true',
+                  'aria-label': askTitle(),
+                  onPointerDown: (event) => event.stopPropagation(),
+                },
+                h('div', { className: 'dshn-modal-title' }, askTitle()),
+                h('div', { className: 'dshn-modal-body' }, askBody()),
+                askNames().length === 0
+                  ? null
+                  : h(
+                      'ul',
+                      { className: 'dshn-modal-list' },
+                      ...askNames().map((name) => h('li', { key: name }, name)),
+                    ),
+                h(
+                  'div',
+                  { className: 'dshn-modal-actions' },
+                  h('button', { type: 'button', className: 'dshn-btnm', onClick: () => setAsk(null) }, t.confirmCancel),
+                  h(
+                    'button',
+                    { type: 'button', className: 'dshn-btnm dshn-danger', onClick: () => void confirmAsk() },
+                    askGo(),
+                  ),
+                ),
+              ),
+            )
 
       return h(
         'div',
@@ -654,11 +936,11 @@
                 'button',
                 {
                   type: 'button',
-                  className: 'dshn-btnm dshn-danger' + (armed === 'empty' ? ' dshn-armed' : ''),
+                  className: 'dshn-btnm dshn-danger',
                   disabled: trash.length === 0,
-                  onClick: () => void emptyTrash(),
+                  onClick: () => askEmpty(),
                 },
-                armed === 'empty' ? t.trashEmptyConfirm : t.trashEmptyAll,
+                t.trashEmptyAll,
               ),
             )
           : tags.length > 0
@@ -694,6 +976,31 @@
           h(
             'div',
             { className: 'dshn-list', role: 'list', 'data-collapsed': String(!listOpen) },
+            picked.length > 0
+              ? h(
+                  'div',
+                  { className: 'dshn-row dshn-sel-bar' },
+                  h('span', { className: 'dshn-cap' }, t.selCount(picked.length)),
+                  h('span', { className: 'dshn-grow' }),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshn-btnm',
+                      onClick: () => (view === 'trash' ? void restoreMany(picked) : askDelete(picked)),
+                    },
+                    view === 'trash' ? t.ctxRestore : t.ctxDelete,
+                  ),
+                  view === 'trash'
+                    ? h(
+                        'button',
+                        { type: 'button', className: 'dshn-btnm dshn-danger', onClick: () => askPurge(picked) },
+                        t.ctxPurge,
+                      )
+                    : null,
+                  h('button', { type: 'button', className: 'dshn-btnm', onClick: pickNone }, t.selNone),
+                )
+              : null,
             h(
               'div',
               { className: 'dshn-list-top' },
@@ -714,8 +1021,10 @@
                         role: 'listitem',
                         className: 'dshn-item',
                         'data-active': String(trashPick === note.id),
+                        'data-picked': String(picked.includes(note.id)),
                         title: titleOf(note, t),
-                        onClick: () => setTrashPick(note.id),
+                        onClick: (event) => onRowClick(event, note.id),
+                        onContextMenu: (event) => openMenu(event, note.id),
                       },
                       h(
                         'span',
@@ -750,8 +1059,10 @@
                           role: 'listitem',
                           className: 'dshn-item',
                           'data-active': String(!editing && selectedId === note.id),
+                          'data-picked': String(picked.includes(note.id)),
                           title: titleOf(note, t),
-                          onClick: () => onSelect(note.id),
+                          onClick: (event) => onRowClick(event, note.id),
+                          onContextMenu: (event) => openMenu(event, note.id),
                         },
                         h(
                           'span',
@@ -825,18 +1136,13 @@
                           { className: 'dshn-detail-actions' },
                           h(
                             'button',
-                            { type: 'button', className: 'dshn-btnm', onClick: () => void restoreTrashed(trashed.id) },
+                            { type: 'button', className: 'dshn-btnm', onClick: () => void restoreMany([trashed.id]) },
                             t.restore,
                           ),
                           h(
                             'button',
-                            {
-                              type: 'button',
-                              className:
-                                'dshn-btnm dshn-danger' + (armed === `purge:${trashed.id}` ? ' dshn-armed' : ''),
-                              onClick: () => void purgeTrashed(trashed.id),
-                            },
-                            armed === `purge:${trashed.id}` ? t.trashPurgeConfirm : t.trashPurge,
+                            { type: 'button', className: 'dshn-btnm dshn-danger', onClick: () => askPurge([trashed.id]) },
+                            t.trashPurge,
                           ),
                         ),
                   ),
@@ -940,11 +1246,10 @@
                       h(
                         'button',
                         {
-                          className:
-                            'dshn-icon-btn dshn-danger' + (armed === `delete:${selected.id}` ? ' dshn-armed' : ''),
-                          title: armed === `delete:${selected.id}` ? t.deleteConfirm : t.delete,
+                          className: 'dshn-icon-btn dshn-danger',
+                          title: t.delete,
                           'aria-label': t.delete,
-                          onClick: () => void removeNote(selected.id),
+                          onClick: () => askDelete([selected.id]),
                         },
                         h(
                           'svg',
@@ -1017,6 +1322,8 @@
                 ),
           ),
         ),
+        menuNode,
+        askNode,
       )
     }
 
