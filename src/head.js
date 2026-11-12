@@ -57,6 +57,8 @@
         boardTempCharts: '本次对话新增的图表',
         boardPinnedCharts: '已固定的图表',
         boardChatTitle: '问数据',
+    boardFocus: '专注对话（收起看板）',
+    boardFocusExit: '显示看板',
         boardChatHint: '问任何关于笔记的问题，比如「我最近写得怎么样」「哪些标签我最少用」。合适的图表会显示在左边。',
         boardChatPlaceholder: '我最近一周写得怎么样？',
         boardChatHintKeys: 'Ctrl/⌘+Enter 发送',
@@ -321,6 +323,8 @@
         boardTempCharts: 'Charts from this conversation',
         boardPinnedCharts: 'Pinned charts',
         boardChatTitle: 'Ask the data',
+    boardFocus: 'Focus the chat (hide the dashboard)',
+    boardFocusExit: 'Show the dashboard',
         boardChatHint: 'Ask anything about your notes — "how did I write last week", "which tags do I use least". Suitable charts appear on the left.',
         boardChatPlaceholder: 'How did I write last week?',
         boardChatHintKeys: 'Ctrl/⌘+Enter to send',
@@ -593,6 +597,28 @@
     function persistSideWidth(value) {
       try {
         localStorage.setItem('notes.sideWidth', String(clampSideWidth(value)))
+      } catch {
+        /* storage may be unavailable */
+      }
+    }
+
+    /**
+     * Whether the dashboard is showing beside the conversation.
+     *
+     * `false` gives the whole pane to the chat — the reason the toggle exists. It is remembered like
+     * the column width, so a conversation that needs the room stays that way after a reload.
+     */
+    function storedBoardFocus() {
+      try {
+        return localStorage.getItem('notes.boardFocus') === '1'
+      } catch {
+        return false
+      }
+    }
+
+    function persistBoardFocus(value) {
+      try {
+        localStorage.setItem('notes.boardFocus', value === true ? '1' : '0')
       } catch {
         /* storage may be unavailable */
       }
@@ -3188,6 +3214,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* Chat-only: the dashboard steps aside and the conversation owns the pane. */
+.dshn-board-focus {
+  padding: 12px 16px 16px;
+}
+.dshn-board-focus .dshn-board-side {
+  min-width: 0;
 }
 .dshn-tiles {
   display: grid;

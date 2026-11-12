@@ -77,6 +77,8 @@ window.__ModuleLoader__.load({
         boardTempCharts: '本次对话新增的图表',
         boardPinnedCharts: '已固定的图表',
         boardChatTitle: '问数据',
+    boardFocus: '专注对话（收起看板）',
+    boardFocusExit: '显示看板',
         boardChatHint: '问任何关于笔记的问题，比如「我最近写得怎么样」「哪些标签我最少用」。合适的图表会显示在左边。',
         boardChatPlaceholder: '我最近一周写得怎么样？',
         boardChatHintKeys: 'Ctrl/⌘+Enter 发送',
@@ -341,6 +343,8 @@ window.__ModuleLoader__.load({
         boardTempCharts: 'Charts from this conversation',
         boardPinnedCharts: 'Pinned charts',
         boardChatTitle: 'Ask the data',
+    boardFocus: 'Focus the chat (hide the dashboard)',
+    boardFocusExit: 'Show the dashboard',
         boardChatHint: 'Ask anything about your notes — "how did I write last week", "which tags do I use least". Suitable charts appear on the left.',
         boardChatPlaceholder: 'How did I write last week?',
         boardChatHintKeys: 'Ctrl/⌘+Enter to send',
@@ -613,6 +617,28 @@ window.__ModuleLoader__.load({
     function persistSideWidth(value) {
       try {
         localStorage.setItem('notes.sideWidth', String(clampSideWidth(value)))
+      } catch {
+        /* storage may be unavailable */
+      }
+    }
+
+    /**
+     * Whether the dashboard is showing beside the conversation.
+     *
+     * `false` gives the whole pane to the chat — the reason the toggle exists. It is remembered like
+     * the column width, so a conversation that needs the room stays that way after a reload.
+     */
+    function storedBoardFocus() {
+      try {
+        return localStorage.getItem('notes.boardFocus') === '1'
+      } catch {
+        return false
+      }
+    }
+
+    function persistBoardFocus(value) {
+      try {
+        localStorage.setItem('notes.boardFocus', value === true ? '1' : '0')
       } catch {
         /* storage may be unavailable */
       }
@@ -3208,6 +3234,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* Chat-only: the dashboard steps aside and the conversation owns the pane. */
+.dshn-board-focus {
+  padding: 12px 16px 16px;
+}
+.dshn-board-focus .dshn-board-side {
+  min-width: 0;
 }
 .dshn-tiles {
   display: grid;
@@ -6882,6 +6915,13 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // Side-column width: remembered, clamped, drag-resizable.
       const [sideWidth, setSideWidth] = useState(() => storedSideWidth())
       const sideWidthRef = useRef(sideWidth)
+      // Chat-only view: the dashboard column steps aside and the conversation takes the pane.
+      const [focus, setFocus] = useState(() => storedBoardFocus())
+      const toggleFocus = () => {
+        const next = focus !== true
+        setFocus(next)
+        persistBoardFocus(next)
+      }
       const [quickNote, setQuickNote] = useState(false)
       // The dock's measured height. Percentage chains break as soon as the host conversation
       // inserts a wrapper, so the height is written down explicitly instead.
@@ -7068,9 +7108,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
 
       return h(
         'div',
-        { className: 'dshn-pane dshn-board' },
+        { className: focus ? 'dshn-pane dshn-board dshn-board-focus' : 'dshn-pane dshn-board' },
         error !== '' ? h('div', { className: 'dshn-err' }, error) : null,
-        h(
+        focus
+          ? null
+          : h(
           'div',
           { className: 'dshn-board-main' },
           h(
@@ -7116,21 +7158,23 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
               )
             : null,
         ),
-        h('div', {
-          className: 'dshn-side-resizer',
-          role: 'separator',
-          'aria-orientation': 'vertical',
-          'aria-label': t.boardResize,
-          title: t.boardResize,
-          onPointerDown: startResize,
-          onDoubleClick: () => {
-            setSideWidth(SIDE_WIDTH_DEFAULT)
-            persistSideWidth(SIDE_WIDTH_DEFAULT)
-          },
-        }),
+        focus
+          ? null
+          : h('div', {
+              className: 'dshn-side-resizer',
+              role: 'separator',
+              'aria-orientation': 'vertical',
+              'aria-label': t.boardResize,
+              title: t.boardResize,
+              onPointerDown: startResize,
+              onDoubleClick: () => {
+                setSideWidth(SIDE_WIDTH_DEFAULT)
+                persistSideWidth(SIDE_WIDTH_DEFAULT)
+              },
+            }),
         h(
           'div',
-          { className: 'dshn-board-side', style: { width: sideWidth + 'px' } },
+          { className: 'dshn-board-side', style: focus ? { flex: '1 1 auto', width: 'auto' } : { width: sideWidth + 'px' } },
           h(
             'div',
             { className: 'dshn-side-head' },
@@ -7147,6 +7191,33 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                 title: t.quickNote,
               },
               quickNote ? t.quickNoteClose : t.quickNote,
+            ),
+            // The dashboard is a column beside the chat until this says otherwise: the chat is what
+            // people come here for, and a 400px column is not enough room to have a conversation in.
+            h(
+              'button',
+              {
+                className: 'dshn-icon-btn',
+                'data-on': String(focus === true),
+                title: focus ? t.boardFocusExit : t.boardFocus,
+                'aria-label': focus ? t.boardFocusExit : t.boardFocus,
+                'aria-pressed': String(focus === true),
+                onClick: () => toggleFocus(),
+              },
+              focus
+                ? h(
+                    'svg',
+                    { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                    h('rect', { x: 3.5, y: 4.5, width: 17, height: 15, rx: 2 }),
+                    h('path', { d: 'M9 4.5v15' }),
+                  )
+                : h(
+                    'svg',
+                    { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                    h('path', { d: 'M4 4.5h16v15H4z' }),
+                    h('path', { d: 'M8 4.5v15' }),
+                    h('path', { d: 'M16 9.5l3 2.5-3 2.5' }),
+                  ),
             ),
           ),
           h(

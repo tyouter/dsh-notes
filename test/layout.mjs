@@ -138,6 +138,10 @@ check('the hint is its own element', /className: 'dshn-cap dshn-hint'/.test(awai
 check('the board chat is one plain flex child', /className: 'dshn-side-chat'[\s\S]{0,420}style: \{ flex: 1, minHeight: 0, display: 'flex' \}/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the side chat still carries a measured height')
     check('the dock does not repair on every host render', /MutationObserver/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')) === false, 'the mutation observer is back; it repaired a live tree and moved the composer')
 
+// The board can give the whole pane to the conversation; the dashboard column is a column, not a frame.
+check('the board can fold the dashboard away', /dshn-board-focus/.test(css) && /dshn-board-focus/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the focus mode has no styles or no call site')
+check('a folded board drops the dashboard and its resizer', /focus\s*\n?\s*\?\s*null\s*\n?\s*:\s*h\(\s*'div',\s*\{\s*className: 'dshn-board-main'/.test(await readFile(join(packageDir, 'src', 'board.js'), 'utf8')), 'the dashboard still renders when the chat is focused')
+
 
 console.log(failures === 0 ? '\nlayout contract holds' : `\n${failures} violation(s)`)
 process.exitCode = failures === 0 ? 0 : 1

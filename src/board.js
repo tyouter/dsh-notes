@@ -2475,6 +2475,13 @@
       // Side-column width: remembered, clamped, drag-resizable.
       const [sideWidth, setSideWidth] = useState(() => storedSideWidth())
       const sideWidthRef = useRef(sideWidth)
+      // Chat-only view: the dashboard column steps aside and the conversation takes the pane.
+      const [focus, setFocus] = useState(() => storedBoardFocus())
+      const toggleFocus = () => {
+        const next = focus !== true
+        setFocus(next)
+        persistBoardFocus(next)
+      }
       const [quickNote, setQuickNote] = useState(false)
       // The dock's measured height. Percentage chains break as soon as the host conversation
       // inserts a wrapper, so the height is written down explicitly instead.
@@ -2661,9 +2668,11 @@
 
       return h(
         'div',
-        { className: 'dshn-pane dshn-board' },
+        { className: focus ? 'dshn-pane dshn-board dshn-board-focus' : 'dshn-pane dshn-board' },
         error !== '' ? h('div', { className: 'dshn-err' }, error) : null,
-        h(
+        focus
+          ? null
+          : h(
           'div',
           { className: 'dshn-board-main' },
           h(
@@ -2709,21 +2718,23 @@
               )
             : null,
         ),
-        h('div', {
-          className: 'dshn-side-resizer',
-          role: 'separator',
-          'aria-orientation': 'vertical',
-          'aria-label': t.boardResize,
-          title: t.boardResize,
-          onPointerDown: startResize,
-          onDoubleClick: () => {
-            setSideWidth(SIDE_WIDTH_DEFAULT)
-            persistSideWidth(SIDE_WIDTH_DEFAULT)
-          },
-        }),
+        focus
+          ? null
+          : h('div', {
+              className: 'dshn-side-resizer',
+              role: 'separator',
+              'aria-orientation': 'vertical',
+              'aria-label': t.boardResize,
+              title: t.boardResize,
+              onPointerDown: startResize,
+              onDoubleClick: () => {
+                setSideWidth(SIDE_WIDTH_DEFAULT)
+                persistSideWidth(SIDE_WIDTH_DEFAULT)
+              },
+            }),
         h(
           'div',
-          { className: 'dshn-board-side', style: { width: sideWidth + 'px' } },
+          { className: 'dshn-board-side', style: focus ? { flex: '1 1 auto', width: 'auto' } : { width: sideWidth + 'px' } },
           h(
             'div',
             { className: 'dshn-side-head' },
@@ -2740,6 +2751,33 @@
                 title: t.quickNote,
               },
               quickNote ? t.quickNoteClose : t.quickNote,
+            ),
+            // The dashboard is a column beside the chat until this says otherwise: the chat is what
+            // people come here for, and a 400px column is not enough room to have a conversation in.
+            h(
+              'button',
+              {
+                className: 'dshn-icon-btn',
+                'data-on': String(focus === true),
+                title: focus ? t.boardFocusExit : t.boardFocus,
+                'aria-label': focus ? t.boardFocusExit : t.boardFocus,
+                'aria-pressed': String(focus === true),
+                onClick: () => toggleFocus(),
+              },
+              focus
+                ? h(
+                    'svg',
+                    { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                    h('rect', { x: 3.5, y: 4.5, width: 17, height: 15, rx: 2 }),
+                    h('path', { d: 'M9 4.5v15' }),
+                  )
+                : h(
+                    'svg',
+                    { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                    h('path', { d: 'M4 4.5h16v15H4z' }),
+                    h('path', { d: 'M8 4.5v15' }),
+                    h('path', { d: 'M16 9.5l3 2.5-3 2.5' }),
+                  ),
             ),
           ),
           h(
