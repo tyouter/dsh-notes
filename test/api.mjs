@@ -301,6 +301,15 @@ try {
   const restore = await call('POST', 'revision/restore', { noteId: 'n-1', stamp: '20260101T000000-000' })
   check('a restore without a history store is refused', restore.status === 503, String(restore.status))
 
+  // ---- the trash routes ----
+  const trashList = await call('GET', 'trash')
+  check('trash lists what was deleted', trashList.json?.ok === true && Array.isArray(trashList.json?.data?.trash), JSON.stringify(trashList.json)?.slice(0, 120))
+  check('the trash count travels with it', typeof trashList.json?.data?.total === 'number', String(trashList.json?.data?.total))
+  const purgeUnknown = await call('POST', 'trash/purge', { id: 'n-nope' })
+  check('purging an unknown note answers 404', purgeUnknown.status === 404, String(purgeUnknown.status))
+  const emptied = await call('POST', 'trash/empty', {})
+  check('emptying the trash reports what it dropped', emptied.json?.ok === true && typeof emptied.json?.data?.cleared === 'number', JSON.stringify(emptied.json)?.slice(0, 120))
+
   // ---- unknown route ----
   const missing = await call('GET', 'nope')
   check('unknown route answers 404', missing.status === 404, String(missing.status))

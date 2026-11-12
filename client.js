@@ -262,6 +262,19 @@ window.__ModuleLoader__.load({
     versionsEmpty: '这篇还没有历史版本；在设置里打开「保留修改记录」以后，每次保存都会先留下上一版。',
     versionRestore: '恢复',
         restore: '恢复',
+        deleteConfirm: '再点一次就删除',
+        notesTab: '笔记',
+        trashTab: '回收站',
+        trashEmpty: '回收站是空的。删掉的笔记会先躺在这里，直到你手动清掉。',
+        trashNote: '已删除',
+        trashedAt: '删除于',
+        trashPurge: '彻底删除',
+        trashPurgeConfirm: '再点一次，永久删除',
+        trashEmptyAll: '清空回收站',
+        trashEmptyConfirm: '再点一次，清空全部',
+        trashCleared: '回收站已清空',
+        trashPurged: '已彻底删除',
+        trashRestored: '已恢复',
         loading: '加载中…',
         empty: '这里还没有笔记。在上面写第一句，按 Ctrl/⌘+Enter 保存。',
         emptySearch: '没有匹配的笔记。',
@@ -531,6 +544,19 @@ window.__ModuleLoader__.load({
     versionsEmpty: 'No earlier version yet; turn on "Keep versions" in settings and each save keeps the one it replaces.',
     versionRestore: 'Restore',
         restore: 'Restore',
+        deleteConfirm: 'Click again to delete',
+        notesTab: 'Notes',
+        trashTab: 'Trash',
+        trashEmpty: 'The trash is empty. A deleted note waits here until you clear it.',
+        trashNote: 'Deleted',
+        trashedAt: 'Deleted',
+        trashPurge: 'Delete forever',
+        trashPurgeConfirm: 'Click again, forever',
+        trashEmptyAll: 'Empty the trash',
+        trashEmptyConfirm: 'Click again, empty it',
+        trashCleared: 'The trash is empty',
+        trashPurged: 'Deleted forever',
+        trashRestored: 'Restored',
         loading: 'Loading…',
         empty: 'No notes yet. Write the first line above and press Ctrl/⌘+Enter.',
         emptySearch: 'Nothing matches.',
@@ -2722,6 +2748,7 @@ window.__ModuleLoader__.load({
   --dshn-r-sm: 6px;
   --dshn-r-md: 10px;
   --dshn-r-lg: 14px;
+  --dshn-danger: var(--dsw-alias-state-error-primary);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -2982,7 +3009,11 @@ window.__ModuleLoader__.load({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  /* The title now lives in the page itself, at title size. This is the toolbar's reminder of
+     which note is open, so it stays small and quiet instead of competing with the page. */
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
 }
 .dshn-detail-actions {
   display: flex;
@@ -3017,6 +3048,51 @@ window.__ModuleLoader__.load({
 }
 .dshn-version-chars { flex: none; font-variant-numeric: tabular-nums; opacity: 0.75; }
 .dshn-version-empty { padding: 4px 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+/* Notes / Trash: one control, two lists. */
+.dshn-view-seg {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--dshn-r-md);
+  background: var(--dsw-alias-bg-layer-2);
+}
+.dshn-view-seg button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 3px 10px;
+  border-radius: calc(var(--dshn-r-md) - 2px);
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.dshn-view-seg button[data-active="true"] {
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+/* The trash's own toolbar: how many sit there, and the one action that empties it. */
+.dshn-trash-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-trash-bar .dshn-grow { flex: 1 1 auto; }
+/* A destructive button asks twice: the second click is the one that means it. */
+.dshn-btnm.dshn-armed,
+.dshn-icon-btn.dshn-armed {
+  border-color: var(--dshn-danger, #d1242f);
+  color: #fff;
+  background: var(--dshn-danger, #d1242f);
+}
+.dshn-icon-btn.dshn-armed { border-radius: var(--dshn-r-sm); }
+.dshn-trash-when { flex: none; opacity: 0.8; }
 .dshn-icon-btn {
   width: 28px;
   height: 28px;
@@ -4318,14 +4394,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   border-top: 1px solid var(--dsw-alias-border-l1);
 }
 .dshn-page-render .dshn-md { max-width: none; }
-/* The first line of a note is its title; it gets heading weight so it does not read as
-   a stray paragraph. */
+/* The first line of a note is its title; it owns the top of the page, so it is a size
+   above any heading the body can produce (the body's largest heading is 19px). */
 .dshn-note-title {
-  font-size: 19px;
-  font-weight: 680;
-  letter-spacing: -.012em;
-  line-height: 1.35;
-  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 660;
+  letter-spacing: -.02em;
+  line-height: 1.25;
+  margin: 0 0 16px;
   color: var(--dsw-alias-label-primary);
 }
 .dshn-note .dshn-md > :first-child { margin-top: 0; }
@@ -8625,6 +8701,12 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       // A note's kept versions, read on demand: null means "not asked yet", [] means "none kept".
       const [versions, setVersions] = useState(null)
       const [versionsBusy, setVersionsBusy] = useState(false)
+      // Notes, or the trash: one pane, two lists that never mix.
+      const [view, setView] = useState('notes')
+      const [trash, setTrash] = useState([])
+      const [trashPick, setTrashPick] = useState('')
+      // Which destructive control has been clicked once and is waiting for the second click.
+      const [armed, setArmed] = useState('')
       // "已复制" for a moment after the Markdown button is pressed.
       const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
@@ -8652,6 +8734,8 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
       }, [notes, query, tagFilter])
 
       const selected = useMemo(() => notes.find((note) => note.id === selectedId) ?? null, [notes, selectedId])
+      // In the trash view the detail pane shows a deleted note instead: same layout, no editing.
+      const trashed = useMemo(() => trash.find((note) => note.id === trashPick) ?? null, [trash, trashPick])
 
       useEffect(() => {
         setEditing(false)
@@ -8730,6 +8814,91 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
         })
       }
 
+      /**
+       * The trash.
+       *
+       * Deleting is a two-step habit: the first click only arms the button, and a deleted note is
+       * still recoverable because deletion is a move into `trash.json`. The trash view is where a
+       * deletion becomes final, and that one asks twice as well.
+       */
+      const loadTrash = async () => {
+        try {
+          const result = await get('/trash')
+          setTrash(Array.isArray(result?.trash) ? result.trash : [])
+        } catch {
+          setTrash([])
+        }
+      }
+
+      const openTrash = () => {
+        setView('trash')
+        setEditing(false)
+        setVersions(null)
+        void loadTrash()
+      }
+
+      const openNotes = () => {
+        setView('notes')
+        setTrashPick('')
+      }
+
+      /** One destructive action at a time, and only for a few seconds. */
+      const arm = (key) => {
+        setArmed(key)
+        setTimeout(() => setArmed((current) => (current === key ? '' : current)), 4000)
+      }
+
+      const restoreTrashed = async (id) => {
+        await action(async () => {
+          await post('/restore', { id })
+          await loadTrash()
+          setTrashPick('')
+        })
+      }
+
+      const purgeTrashed = async (id) => {
+        if (armed !== `purge:${id}`) {
+          arm(`purge:${id}`)
+          return
+        }
+        setArmed('')
+        await action(async () => {
+          await post('/trash/purge', { id })
+          await loadTrash()
+          setTrashPick('')
+        })
+      }
+
+      const emptyTrash = async () => {
+        if (armed !== 'empty') {
+          arm('empty')
+          return
+        }
+        setArmed('')
+        await action(async () => {
+          await post('/trash/empty', {})
+          await loadTrash()
+          setTrashPick('')
+        })
+      }
+
+      const removeNote = async (id) => {
+        if (armed !== `delete:${id}`) {
+          arm(`delete:${id}`)
+          return
+        }
+        setArmed('')
+        await action(async () => {
+          await del(`/note/${encodeURIComponent(id)}`)
+          await loadTrash()
+        })
+      }
+
+      // The header shows how many notes sit in the trash, so it is read once on mount.
+      useEffect(() => {
+        void loadTrash()
+      }, [])
+
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
 
       return h(
@@ -8768,9 +8937,41 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             },
             'aria-label': t.search,
           }),
-          h('span', { className: 'dshn-cap' }, `${t.all} ${total}`),
+          // Two lists, one control: the notebook, and what was deleted out of it.
+          h(
+            'div',
+            { className: 'dshn-view-seg', role: 'group' },
+            h(
+              'button',
+              { type: 'button', 'data-active': String(view === 'notes'), onClick: openNotes },
+              `${t.notesTab} ${total}`,
+            ),
+            h(
+              'button',
+              { type: 'button', 'data-active': String(view === 'trash'), onClick: openTrash },
+              `${t.trashTab} ${trash.length}`,
+            ),
+          ),
         ),
-        tags.length > 0
+        // The trash has no tags to filter by; it has one action, and it asks twice.
+        view === 'trash'
+          ? h(
+              'div',
+              { className: 'dshn-row dshn-trash-bar' },
+              h('span', { className: 'dshn-cap' }, `${t.trashTab} · ${trash.length}`),
+              h('span', { className: 'dshn-grow' }),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshn-btnm dshn-danger' + (armed === 'empty' ? ' dshn-armed' : ''),
+                  disabled: trash.length === 0,
+                  onClick: () => void emptyTrash(),
+                },
+                armed === 'empty' ? t.trashEmptyConfirm : t.trashEmptyAll,
+              ),
+            )
+          : tags.length > 0
           ? h(
               'div',
               { className: 'dshn-row', style: { gap: 4 } },
@@ -8806,9 +9007,40 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
             h(
               'div',
               { className: 'dshn-list-top' },
-              h('span', { className: 'dshn-cap' }, `${filtered.length} / ${total}`),
+              h(
+                'span',
+                { className: 'dshn-cap' },
+                view === 'trash' ? `${trash.length}` : `${filtered.length} / ${total}`,
+              ),
             ),
-            filtered.length === 0
+            view === 'trash'
+              ? trash.length === 0
+                ? h('div', { className: 'dshn-empty' }, t.trashEmpty)
+                : trash.map((note) =>
+                    h(
+                      'button',
+                      {
+                        key: note.id,
+                        role: 'listitem',
+                        className: 'dshn-item',
+                        'data-active': String(trashPick === note.id),
+                        title: titleOf(note, t),
+                        onClick: () => setTrashPick(note.id),
+                      },
+                      h(
+                        'span',
+                        { className: 'dshn-item-top' },
+                        h('span', { className: 'dshn-item-title' }, titleOf(note, t)),
+                      ),
+                      h(
+                        'span',
+                        { className: 'dshn-item-meta' },
+                        h('span', { className: 'dshn-trash-when' }, `${t.trashedAt} ${formatWhen(note.deletedAt, t)}`),
+                        ...note.tags.slice(0, 2).map((tag) => h('span', { key: tag, className: 'dshn-tag-pill' }, tag)),
+                      ),
+                    ),
+                  )
+              : filtered.length === 0
               ? h(
                   'div',
                   { className: 'dshn-empty' },
@@ -8883,7 +9115,57 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
           h(
             'div',
             { className: 'dshn-detail' },
-            selected === null
+            view === 'trash'
+              ? h(
+                  React.Fragment,
+                  null,
+                  h(
+                    'div',
+                    { className: 'dshn-detail-bar' },
+                    h(
+                      'span',
+                      { className: 'dshn-detail-title' },
+                      trashed === null ? t.trashTab : titleOf(trashed, t),
+                    ),
+                    h('span', { className: 'dshn-grow' }),
+                    trashed === null
+                      ? null
+                      : h(
+                          'div',
+                          { className: 'dshn-detail-actions' },
+                          h(
+                            'button',
+                            { type: 'button', className: 'dshn-btnm', onClick: () => void restoreTrashed(trashed.id) },
+                            t.restore,
+                          ),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              className:
+                                'dshn-btnm dshn-danger' + (armed === `purge:${trashed.id}` ? ' dshn-armed' : ''),
+                              onClick: () => void purgeTrashed(trashed.id),
+                            },
+                            armed === `purge:${trashed.id}` ? t.trashPurgeConfirm : t.trashPurge,
+                          ),
+                        ),
+                  ),
+                  trashed === null
+                    ? h('div', { className: 'dshn-empty', style: { margin: 'auto' } }, t.selectHint)
+                    : h(
+                        'div',
+                        { className: 'dshn-detail-scroll' },
+                        h('div', { className: 'dshn-detail-body' }, renderNoteBody(trashed.body ?? '')),
+                        h(
+                          'div',
+                          { className: 'dshn-foot', style: { padding: '0 12px 10px' } },
+                          h('span', null, `${t.trashedAt} ${formatWhen(trashed.deletedAt, t)}`),
+                          h('span', null, t.chars((trashed.body ?? '').length)),
+                          h('span', { className: 'dshn-grow' }),
+                        ),
+                      ),
+                )
+              : selected === null
               ? h(
                   'div',
                   { className: 'dshn-empty', style: { margin: 'auto' } },
@@ -8968,10 +9250,11 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                       h(
                         'button',
                         {
-                          className: 'dshn-icon-btn dshn-danger',
-                          title: t.delete,
+                          className:
+                            'dshn-icon-btn dshn-danger' + (armed === `delete:${selected.id}` ? ' dshn-armed' : ''),
+                          title: armed === `delete:${selected.id}` ? t.deleteConfirm : t.delete,
                           'aria-label': t.delete,
-                          onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)),
+                          onClick: () => void removeNote(selected.id),
                         },
                         h(
                           'svg',
@@ -9024,7 +9307,7 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
                     : h(
                         'div',
                         { className: 'dshn-detail-scroll' },
-                        h('div', { className: 'dshn-detail-body' }, renderNoteRest(selected.body ?? '')),
+                        h('div', { className: 'dshn-detail-body' }, renderNoteBody(selected.body ?? '')),
                   selected.tags.length > 0
                     ? h(
                         'div',

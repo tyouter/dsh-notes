@@ -391,6 +391,12 @@
       // A note's kept versions, read on demand: null means "not asked yet", [] means "none kept".
       const [versions, setVersions] = useState(null)
       const [versionsBusy, setVersionsBusy] = useState(false)
+      // Notes, or the trash: one pane, two lists that never mix.
+      const [view, setView] = useState('notes')
+      const [trash, setTrash] = useState([])
+      const [trashPick, setTrashPick] = useState('')
+      // Which destructive control has been clicked once and is waiting for the second click.
+      const [armed, setArmed] = useState('')
       // "已复制" for a moment after the Markdown button is pressed.
       const [copied, setCopied] = useState(false)
       // The drawer: collapsed, the list steps aside and one note fills the pane.
@@ -418,6 +424,8 @@
       }, [notes, query, tagFilter])
 
       const selected = useMemo(() => notes.find((note) => note.id === selectedId) ?? null, [notes, selectedId])
+      // In the trash view the detail pane shows a deleted note instead: same layout, no editing.
+      const trashed = useMemo(() => trash.find((note) => note.id === trashPick) ?? null, [trash, trashPick])
 
       useEffect(() => {
         setEditing(false)
@@ -496,6 +504,91 @@
         })
       }
 
+      /**
+       * The trash.
+       *
+       * Deleting is a two-step habit: the first click only arms the button, and a deleted note is
+       * still recoverable because deletion is a move into `trash.json`. The trash view is where a
+       * deletion becomes final, and that one asks twice as well.
+       */
+      const loadTrash = async () => {
+        try {
+          const result = await get('/trash')
+          setTrash(Array.isArray(result?.trash) ? result.trash : [])
+        } catch {
+          setTrash([])
+        }
+      }
+
+      const openTrash = () => {
+        setView('trash')
+        setEditing(false)
+        setVersions(null)
+        void loadTrash()
+      }
+
+      const openNotes = () => {
+        setView('notes')
+        setTrashPick('')
+      }
+
+      /** One destructive action at a time, and only for a few seconds. */
+      const arm = (key) => {
+        setArmed(key)
+        setTimeout(() => setArmed((current) => (current === key ? '' : current)), 4000)
+      }
+
+      const restoreTrashed = async (id) => {
+        await action(async () => {
+          await post('/restore', { id })
+          await loadTrash()
+          setTrashPick('')
+        })
+      }
+
+      const purgeTrashed = async (id) => {
+        if (armed !== `purge:${id}`) {
+          arm(`purge:${id}`)
+          return
+        }
+        setArmed('')
+        await action(async () => {
+          await post('/trash/purge', { id })
+          await loadTrash()
+          setTrashPick('')
+        })
+      }
+
+      const emptyTrash = async () => {
+        if (armed !== 'empty') {
+          arm('empty')
+          return
+        }
+        setArmed('')
+        await action(async () => {
+          await post('/trash/empty', {})
+          await loadTrash()
+          setTrashPick('')
+        })
+      }
+
+      const removeNote = async (id) => {
+        if (armed !== `delete:${id}`) {
+          arm(`delete:${id}`)
+          return
+        }
+        setArmed('')
+        await action(async () => {
+          await del(`/note/${encodeURIComponent(id)}`)
+          await loadTrash()
+        })
+      }
+
+      // The header shows how many notes sit in the trash, so it is read once on mount.
+      useEffect(() => {
+        void loadTrash()
+      }, [])
+
       const visibleTags = showAllTags ? tags : tags.slice(0, 10)
 
       return h(
@@ -534,9 +627,41 @@
             },
             'aria-label': t.search,
           }),
-          h('span', { className: 'dshn-cap' }, `${t.all} ${total}`),
+          // Two lists, one control: the notebook, and what was deleted out of it.
+          h(
+            'div',
+            { className: 'dshn-view-seg', role: 'group' },
+            h(
+              'button',
+              { type: 'button', 'data-active': String(view === 'notes'), onClick: openNotes },
+              `${t.notesTab} ${total}`,
+            ),
+            h(
+              'button',
+              { type: 'button', 'data-active': String(view === 'trash'), onClick: openTrash },
+              `${t.trashTab} ${trash.length}`,
+            ),
+          ),
         ),
-        tags.length > 0
+        // The trash has no tags to filter by; it has one action, and it asks twice.
+        view === 'trash'
+          ? h(
+              'div',
+              { className: 'dshn-row dshn-trash-bar' },
+              h('span', { className: 'dshn-cap' }, `${t.trashTab} · ${trash.length}`),
+              h('span', { className: 'dshn-grow' }),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshn-btnm dshn-danger' + (armed === 'empty' ? ' dshn-armed' : ''),
+                  disabled: trash.length === 0,
+                  onClick: () => void emptyTrash(),
+                },
+                armed === 'empty' ? t.trashEmptyConfirm : t.trashEmptyAll,
+              ),
+            )
+          : tags.length > 0
           ? h(
               'div',
               { className: 'dshn-row', style: { gap: 4 } },
@@ -572,9 +697,40 @@
             h(
               'div',
               { className: 'dshn-list-top' },
-              h('span', { className: 'dshn-cap' }, `${filtered.length} / ${total}`),
+              h(
+                'span',
+                { className: 'dshn-cap' },
+                view === 'trash' ? `${trash.length}` : `${filtered.length} / ${total}`,
+              ),
             ),
-            filtered.length === 0
+            view === 'trash'
+              ? trash.length === 0
+                ? h('div', { className: 'dshn-empty' }, t.trashEmpty)
+                : trash.map((note) =>
+                    h(
+                      'button',
+                      {
+                        key: note.id,
+                        role: 'listitem',
+                        className: 'dshn-item',
+                        'data-active': String(trashPick === note.id),
+                        title: titleOf(note, t),
+                        onClick: () => setTrashPick(note.id),
+                      },
+                      h(
+                        'span',
+                        { className: 'dshn-item-top' },
+                        h('span', { className: 'dshn-item-title' }, titleOf(note, t)),
+                      ),
+                      h(
+                        'span',
+                        { className: 'dshn-item-meta' },
+                        h('span', { className: 'dshn-trash-when' }, `${t.trashedAt} ${formatWhen(note.deletedAt, t)}`),
+                        ...note.tags.slice(0, 2).map((tag) => h('span', { key: tag, className: 'dshn-tag-pill' }, tag)),
+                      ),
+                    ),
+                  )
+              : filtered.length === 0
               ? h(
                   'div',
                   { className: 'dshn-empty' },
@@ -649,7 +805,57 @@
           h(
             'div',
             { className: 'dshn-detail' },
-            selected === null
+            view === 'trash'
+              ? h(
+                  React.Fragment,
+                  null,
+                  h(
+                    'div',
+                    { className: 'dshn-detail-bar' },
+                    h(
+                      'span',
+                      { className: 'dshn-detail-title' },
+                      trashed === null ? t.trashTab : titleOf(trashed, t),
+                    ),
+                    h('span', { className: 'dshn-grow' }),
+                    trashed === null
+                      ? null
+                      : h(
+                          'div',
+                          { className: 'dshn-detail-actions' },
+                          h(
+                            'button',
+                            { type: 'button', className: 'dshn-btnm', onClick: () => void restoreTrashed(trashed.id) },
+                            t.restore,
+                          ),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              className:
+                                'dshn-btnm dshn-danger' + (armed === `purge:${trashed.id}` ? ' dshn-armed' : ''),
+                              onClick: () => void purgeTrashed(trashed.id),
+                            },
+                            armed === `purge:${trashed.id}` ? t.trashPurgeConfirm : t.trashPurge,
+                          ),
+                        ),
+                  ),
+                  trashed === null
+                    ? h('div', { className: 'dshn-empty', style: { margin: 'auto' } }, t.selectHint)
+                    : h(
+                        'div',
+                        { className: 'dshn-detail-scroll' },
+                        h('div', { className: 'dshn-detail-body' }, renderNoteBody(trashed.body ?? '')),
+                        h(
+                          'div',
+                          { className: 'dshn-foot', style: { padding: '0 12px 10px' } },
+                          h('span', null, `${t.trashedAt} ${formatWhen(trashed.deletedAt, t)}`),
+                          h('span', null, t.chars((trashed.body ?? '').length)),
+                          h('span', { className: 'dshn-grow' }),
+                        ),
+                      ),
+                )
+              : selected === null
               ? h(
                   'div',
                   { className: 'dshn-empty', style: { margin: 'auto' } },
@@ -734,10 +940,11 @@
                       h(
                         'button',
                         {
-                          className: 'dshn-icon-btn dshn-danger',
-                          title: t.delete,
+                          className:
+                            'dshn-icon-btn dshn-danger' + (armed === `delete:${selected.id}` ? ' dshn-armed' : ''),
+                          title: armed === `delete:${selected.id}` ? t.deleteConfirm : t.delete,
                           'aria-label': t.delete,
-                          onClick: () => void action(() => del(`/note/${encodeURIComponent(selected.id)}`)),
+                          onClick: () => void removeNote(selected.id),
                         },
                         h(
                           'svg',
@@ -790,7 +997,7 @@
                     : h(
                         'div',
                         { className: 'dshn-detail-scroll' },
-                        h('div', { className: 'dshn-detail-body' }, renderNoteRest(selected.body ?? '')),
+                        h('div', { className: 'dshn-detail-body' }, renderNoteBody(selected.body ?? '')),
                   selected.tags.length > 0
                     ? h(
                         'div',

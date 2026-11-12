@@ -726,6 +726,41 @@ await rm(tokenVault, { recursive: true, force: true })
     unknown = error
   }
   check('an unknown persona is refused', unknown?.code === 'PERSONA_UNKNOWN', String(unknown?.code))
+
+  // ---- the trash: deleting twice is what makes it final ----
+  // Three notes of its own, so the counts above keep meaning what they said.
+  const throwaway = []
+  for (const body of ['第一条', '第二条', '第三条']) {
+    throwaway.push((await store.save({ body })).note)
+  }
+  const before = (await store.list({})).total
+
+  // The trash is the only door out: a live note cannot be purged through it.
+  const livePurge = await store.purge(throwaway[0].id).then(
+    () => null,
+    (error) => error,
+  )
+  check('a live note cannot be purged', livePurge?.code === 'NOT_TRASHED', String(livePurge?.code))
+  check('the refused purge left it alone', (await store.list({})).total === before)
+
+  await store.remove(throwaway[0].id)
+  check('a deleted note waits in the trash', (await store.trashed()).length === 1)
+  const purged = await store.purge(throwaway[0].id)
+  check('purge removes it for good', purged.purged === true && (await store.trashed()).length === 0)
+  check('a purged note is not in the notebook either', (await store.list({})).total === before - 1)
+  const missingPurge = await store.purge(throwaway[0].id).then(
+    () => null,
+    (error) => error,
+  )
+  check('purging twice answers not found', missingPurge?.code === 'NOT_FOUND', String(missingPurge?.code))
+
+  await store.remove(throwaway[1].id)
+  await store.remove(throwaway[2].id)
+  const cleared = await store.emptyTrash()
+  check('emptying the trash counts what it dropped', cleared.cleared === 2, JSON.stringify(cleared))
+  check('the trash is empty afterwards', (await store.trashed()).length === 0)
+  check('emptying an empty trash is free', (await store.emptyTrash()).cleared === 0)
+
   await rm(root, { recursive: true, force: true })
 }
 

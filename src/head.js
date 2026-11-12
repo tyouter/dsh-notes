@@ -242,6 +242,19 @@
     versionsEmpty: '这篇还没有历史版本；在设置里打开「保留修改记录」以后，每次保存都会先留下上一版。',
     versionRestore: '恢复',
         restore: '恢复',
+        deleteConfirm: '再点一次就删除',
+        notesTab: '笔记',
+        trashTab: '回收站',
+        trashEmpty: '回收站是空的。删掉的笔记会先躺在这里，直到你手动清掉。',
+        trashNote: '已删除',
+        trashedAt: '删除于',
+        trashPurge: '彻底删除',
+        trashPurgeConfirm: '再点一次，永久删除',
+        trashEmptyAll: '清空回收站',
+        trashEmptyConfirm: '再点一次，清空全部',
+        trashCleared: '回收站已清空',
+        trashPurged: '已彻底删除',
+        trashRestored: '已恢复',
         loading: '加载中…',
         empty: '这里还没有笔记。在上面写第一句，按 Ctrl/⌘+Enter 保存。',
         emptySearch: '没有匹配的笔记。',
@@ -511,6 +524,19 @@
     versionsEmpty: 'No earlier version yet; turn on "Keep versions" in settings and each save keeps the one it replaces.',
     versionRestore: 'Restore',
         restore: 'Restore',
+        deleteConfirm: 'Click again to delete',
+        notesTab: 'Notes',
+        trashTab: 'Trash',
+        trashEmpty: 'The trash is empty. A deleted note waits here until you clear it.',
+        trashNote: 'Deleted',
+        trashedAt: 'Deleted',
+        trashPurge: 'Delete forever',
+        trashPurgeConfirm: 'Click again, forever',
+        trashEmptyAll: 'Empty the trash',
+        trashEmptyConfirm: 'Click again, empty it',
+        trashCleared: 'The trash is empty',
+        trashPurged: 'Deleted forever',
+        trashRestored: 'Restored',
         loading: 'Loading…',
         empty: 'No notes yet. Write the first line above and press Ctrl/⌘+Enter.',
         emptySearch: 'Nothing matches.',
@@ -2702,6 +2728,7 @@
   --dshn-r-sm: 6px;
   --dshn-r-md: 10px;
   --dshn-r-lg: 14px;
+  --dshn-danger: var(--dsw-alias-state-error-primary);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -2962,7 +2989,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  /* The title now lives in the page itself, at title size. This is the toolbar's reminder of
+     which note is open, so it stays small and quiet instead of competing with the page. */
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
 }
 .dshn-detail-actions {
   display: flex;
@@ -2997,6 +3028,51 @@
 }
 .dshn-version-chars { flex: none; font-variant-numeric: tabular-nums; opacity: 0.75; }
 .dshn-version-empty { padding: 4px 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+/* Notes / Trash: one control, two lists. */
+.dshn-view-seg {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--dshn-r-md);
+  background: var(--dsw-alias-bg-layer-2);
+}
+.dshn-view-seg button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 3px 10px;
+  border-radius: calc(var(--dshn-r-md) - 2px);
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.dshn-view-seg button[data-active="true"] {
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+/* The trash's own toolbar: how many sit there, and the one action that empties it. */
+.dshn-trash-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dshn-trash-bar .dshn-grow { flex: 1 1 auto; }
+/* A destructive button asks twice: the second click is the one that means it. */
+.dshn-btnm.dshn-armed,
+.dshn-icon-btn.dshn-armed {
+  border-color: var(--dshn-danger, #d1242f);
+  color: #fff;
+  background: var(--dshn-danger, #d1242f);
+}
+.dshn-icon-btn.dshn-armed { border-radius: var(--dshn-r-sm); }
+.dshn-trash-when { flex: none; opacity: 0.8; }
 .dshn-icon-btn {
   width: 28px;
   height: 28px;
@@ -4298,14 +4374,14 @@ h5.dshn-md-h, h6.dshn-md-h { font-size: 14.5px; }
   border-top: 1px solid var(--dsw-alias-border-l1);
 }
 .dshn-page-render .dshn-md { max-width: none; }
-/* The first line of a note is its title; it gets heading weight so it does not read as
-   a stray paragraph. */
+/* The first line of a note is its title; it owns the top of the page, so it is a size
+   above any heading the body can produce (the body's largest heading is 19px). */
 .dshn-note-title {
-  font-size: 19px;
-  font-weight: 680;
-  letter-spacing: -.012em;
-  line-height: 1.35;
-  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 660;
+  letter-spacing: -.02em;
+  line-height: 1.25;
+  margin: 0 0 16px;
   color: var(--dsw-alias-label-primary);
 }
 .dshn-note .dshn-md > :first-child { margin-top: 0; }

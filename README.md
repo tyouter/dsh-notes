@@ -125,6 +125,22 @@ OneDrive. Everything else is derived.
 on the **default workspace from the registry**, not on whichever session calls
 first.
 
+## Deleting, and the trash
+
+History lists two things: the notebook, and what was deleted out of it. The
+switch sits at the top of the list, with a count on each side.
+
+Deleting is deliberate by construction. The delete icon asks once — it fills red
+and waits for a second click — and then the note moves to `trash.json` rather
+than disappearing. The trash view shows each deleted note with the time it went
+there, reads it back as a page, and puts it back with one click. Emptying the
+trash asks the same way twice, and that one is final: `trash/purge` and
+`trash/empty` are the only routes that drop a body for good.
+
+A note's title renders at 26px in the page. That is on purpose: the largest
+heading inside a body is 19px, so a title cannot be mistaken for the page's own
+first section.
+
 ## Backup, and the versions you overwrote
 
 The plugin's settings page owns two things beyond the writing partner: where a
